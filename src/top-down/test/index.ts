@@ -39,13 +39,14 @@ function buildStore(data: FlatQuad[]) {
 }
 
 describe('query()', () => {
-  x(true).eq(true)
   it('evaluate', () => {
     let count = 0
     evaluate(buildStore(DATA), QUERY, () => count++)
     console.log(count)
   })
-  it.only('evol', () => {
-    evol(buildStore(QUERY.and)['SPOG'], buildStore(DATA)['SPOG'], console.log)
+  it('evol', () => {
+    let count = 0
+    evol(buildStore(QUERY.and)['SPOG'], buildStore(DATA)['SPOG'], () => count++)
+    console.log(count)
   })
 })

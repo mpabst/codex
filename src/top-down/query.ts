@@ -30,18 +30,25 @@ export function evol(
 ) {
   const rootQTerms = Array.from(qRoot.keys())
 
-  function doBranch(qTerm: Term, nextQ: Node, data: Branch, nextRootIdx: number) {
-    function proceed(nextD: Node) {
-      if (nextD instanceof Set) doTwig(nextQ as Twig, nextD, nextRootIdx)
-      else
-        for (const [k, v] of nextQ as Branch)
-          doBranch(k, v, nextD as Branch, nextRootIdx)
+  function doBranches(qTerm: Term, nextQ: Branch, data: Branch, nextRootIdx: number) {
+    let penultimate = false
+
+    function proceed(nextD: Branch) {
+      for (const [k, v] of nextQ)
+        penultimate
+          ? doPenultimate(k, v as Twig, nextD, nextRootIdx)
+          : doBranches(k, v as Branch, nextD, nextRootIdx)
+    }
+
+    for (const peek of nextQ.values()) {
+      penultimate = peek instanceof Set
+      break
     }
 
     const value = valueOrChoices(qTerm, data, () => {
       for (const [dTerm, nextD] of data) {
         bindings.set(qTerm as Variable, dTerm)
-        proceed(nextD)
+        proceed(nextD as Branch)
       }
     })
 
@@ -49,14 +56,29 @@ export function evol(
 
     const nextD = data.get(value)
     if (!nextD) return
-    proceed(nextD)
+    proceed(nextD as Branch)
+  }
+
+  function doPenultimate(qTerm: Term, nextQ: Twig, data: Branch, nextRootIdx: number) {
+    const value = valueOrChoices(qTerm, data, () => {
+      for (const [dTerm, nextD] of data) {
+        bindings.set(qTerm as Variable, dTerm)
+        doTwig(nextQ, nextD as Twig, nextRootIdx)
+      }
+    })
+
+    if (!value || value === true) return
+
+    const nextD = data.get(value)
+    if (!nextD) return
+    doTwig(nextQ, nextD as Twig, nextRootIdx)
   }
 
   function doRoot(nextRootIdx = 0) {
     if (nextRootIdx === rootQTerms.length) emit(new Map(bindings))
     else {
       const qTerm = rootQTerms[nextRootIdx]
-      doBranch(qTerm, qRoot.get(qTerm)!, dRoot, nextRootIdx + 1)
+      doBranches(qTerm, qRoot.get(qTerm)! as Branch, dRoot, nextRootIdx + 1)
     }
   }
 
@@ -68,7 +90,9 @@ export function evol(
           doRoot(nextRootIdx)
         }
       })
+
       if (!value || value === true || !data.has(value)) return
+
       doRoot(nextRootIdx)
     }
   }
@@ -170,7 +194,7 @@ export function evaluate(
 function reorderGoals(goals: FlatQuad[]): Line | null {
   let out: Line | null = null
   for (let i = goals.length - 1; i >= 0; i--) {
-    const order = indexOrder(goals[i])
+    const order = 'SPOG' // indexOrder(goals[i])
     out = { pattern: reorder(order, goals[i]), order, next: out }
   }
   return out

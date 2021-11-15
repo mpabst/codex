@@ -11,11 +11,11 @@ export type Order = string
 const TRIPLE_PLACES = 'SPO'.split('')
 const PLACES = [...TRIPLE_PLACES, 'G']
 const ORDERS = [
-  // 'SPOG',
-  ...permute(3, TRIPLE_PLACES).map(o => o.join('') + 'G'),
+  'SPOG',
+  // ...permute(3, TRIPLE_PLACES).map(o => o.join('') + 'G'),
   // GSPO index is only for the sake of whole graph operations; see comment in
   // #match()
-  'GSPO',
+  // 'GSPO',
 ]
 
 export interface Store {
@@ -23,8 +23,8 @@ export interface Store {
 }
 
 export function add(store: Store, quad: FlatQuad): void {
-  if (quad.some(t => t.termType === 'Variable'))
-    throw new TypeError("Can't add variables")
+  // if (quad.some(t => t.termType === 'Variable'))
+  //   throw new TypeError("Can't add variables")
   for (const [order, index] of Object.entries(store))
     tupleSet.add(index, reorder(order, quad))
 }

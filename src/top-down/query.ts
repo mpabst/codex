@@ -69,6 +69,7 @@ export function evol(
         }
       })
       if (!value || value === true || !data.has(value)) return
+      doRoot(nextRootIdx)
     }
   }
 

@@ -77,24 +77,8 @@ export enum QuadPlace { Subject, Predicate, Object, Graph }
 
 export type Version = number
 
-export const INIT_TRUNK_VERSION: Version = 0
-export const LATEST_VERSION: Version = Infinity
-
 export type Patch<D> = {
   readonly version?: Version,
   readonly additions: D[],
   readonly removals: D[] 
-}
-
-export function graphIncludes(parent: Graph, child: Graph): boolean {
-  switch (parent.termType) {
-    case 'DefaultGraph':
-      return true
-    case 'NamedNode':
-      // TODO: Real URL parsing? What about queries and anchors?
-      const cSplit = child.value.split('/')
-      return parent.value.split('/').every((p, i) => cSplit[i] === p)
-    default:
-      return parent === child
-  }
 }

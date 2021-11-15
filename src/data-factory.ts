@@ -26,10 +26,6 @@ export function clearDictionary(): void {
   DICTIONARY.clear()
 }
 
-// export function defaultGraph(): DefaultGraph {
-//   return DEFAULT_GRAPH
-// }
-
 export function literal(value: any, other?: string | NamedNode): Literal {
   const { xsd } = Prefixers
 
@@ -69,25 +65,6 @@ function prefixer(prefix: string): Prefixer {
   return (suffix: string) => namedNode(prefix + suffix)
 }
 
-// Unused
-// export function triple(subject: Subject, predicate: Predicate, object: Object) {
-//   return quad(subject, predicate, object, DEFAULT_GRAPH)
-// }
-//
-// export function quad(
-//   subject: Subject,
-//   predicate: Predicate,
-//   object: Object,
-//   graph: Graph = DEFAULT_GRAPH
-// ) {
-//   return {
-//     subject: lookup(subject),
-//     predicate: lookup(predicate),
-//     object: lookup(object),
-//     graph: lookup(graph)
-//   }
-// }
-
 export function variable(value: string): Variable {
   return lookup({ termType: 'Variable', value })
 }
@@ -97,12 +74,6 @@ export const DataFactory = {
   blankNode,
   literal,
   variable
-  // defaultGraph,
-  // quad,
-  // triple
-  // Not implemented:
-  // fromTerm()
-  // fromQuad()
 }
 
 export const Prefixers = Object.entries(PREFIXES).reduce(

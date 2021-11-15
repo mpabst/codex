@@ -11,10 +11,6 @@ import {
 
 export type Bindings = Map<Variable, Term>
 
-type Conjunction = FlatQuad[]
-
-type Section = 'and' | 'or'
-
 interface Line {
   readonly pattern: FlatQuad
   readonly order: Order
@@ -22,12 +18,7 @@ interface Line {
 }
 
 export interface Query {
-  and: Conjunction
-  or: Query[]
-}
-
-interface QueryLines {
-  and: Line | null
+  and: FlatQuad[]
   or: Query[]
 }
 

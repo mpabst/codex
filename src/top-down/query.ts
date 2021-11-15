@@ -23,12 +23,12 @@ interface Line {
 
 export interface Query {
   and: Conjunction
-  or: Conjunction[]
+  or: Query[]
 }
 
 interface QueryLines {
   and: Line | null
-  or: Line[]
+  or: Query[]
 }
 
 function reorderGoals(goals: FlatQuad[]): Line | null {
@@ -40,31 +40,19 @@ function reorderGoals(goals: FlatQuad[]): Line | null {
   return out
 }
 
-function reorderQuery(query: Query): QueryLines {
-  const out: QueryLines = { and: null, or: [] }
-  out.and = reorderGoals(query.and)
-  for (const o of query.or) {
-    let reordered = reorderGoals(o)
-    if (reordered) out.or.push(reordered)
-  }
-  return out
-}
+export function evaluate(
+  store: Store,
+  query: Query,
+  emit: (b: Bindings) => any,
+  bindings: Bindings = new Map(),
+) {
+  const goals = reorderGoals(query.and)
 
-interface Choice {
-  node: Node | null
-  line: Line | null
-  section: Section
-  termIndex: number
-}
-
-export function query(store: Store, query: Query, emit: (b: Bindings) => any) {
-  const goals = reorderQuery(query),
-    bindings: Bindings = new Map()
-
-  function choose(choice: Choice) {
-    const { section } = choice
-    let { node, line, termIndex } = choice
-
+  function choose(
+    line: Line | null,
+    node: Node | null = null,
+    termIndex: number = 0,
+  ) {
     function getValue(): { term: Term; value: Term | undefined } {
       const term: Term = line!.pattern[termIndex]
       if (term.termType === 'Variable')
@@ -80,7 +68,7 @@ export function query(store: Store, query: Query, emit: (b: Bindings) => any) {
 
       for (const t of node) {
         bindings.set(term as Variable, t)
-        choose({ line: line!.next, node: null, section, termIndex: 0 })
+        choose(line!.next)
       }
       bindings.delete(term as Variable)
       return false
@@ -99,7 +87,7 @@ export function query(store: Store, query: Query, emit: (b: Bindings) => any) {
 
       for (const [k, v] of node!.entries()) {
         bindings.set(term as Variable, k)
-        choose({ line, node: v, section, termIndex: termIndex + 1 })
+        choose(line, v, termIndex + 1)
       }
       bindings.delete(term as Variable)
       return false
@@ -121,20 +109,10 @@ export function query(store: Store, query: Query, emit: (b: Bindings) => any) {
       line = line.next
     }
 
-    switch (section) {
-      case 'and':
-        emit(new Map(bindings))
-        return
-      default: throw "unknown section"
-    }
+    if (query.or.length)
+      for (const q of query.or) evaluate(store, q, emit, bindings)
+    else emit(new Map(bindings))
   }
 
-  // TODO: validate we actually have a query body
-
-  choose({
-    line: goals.and,
-    node: null,
-    section: 'and',
-    termIndex: 0,
-  })
+  choose(goals)
 }

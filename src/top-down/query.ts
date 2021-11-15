@@ -30,7 +30,7 @@ export function evol(
 ) {
   const rootQTerms = Array.from(qRoot.keys())
 
-  function doBranch(qTerm: Term, nextQ: Node, data: Branch, nextRootIdx = 1) {
+  function doBranch(qTerm: Term, nextQ: Node, data: Branch, nextRootIdx: number) {
     function proceed(nextD: Node) {
       if (nextD instanceof Set) doTwig(nextQ as Twig, nextD, nextRootIdx)
       else

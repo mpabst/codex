@@ -22,15 +22,6 @@ export interface Query {
   or: Query[]
 }
 
-function reorderGoals(goals: FlatQuad[]): Line | null {
-  let out: Line | null = null
-  for (let i = goals.length - 1; i >= 0; i--) {
-    const order = indexOrder(goals[i])
-    out = { pattern: reorder(order, goals[i]), order, next: out }
-  }
-  return out
-}
-
 export function evaluate(
   store: Store,
   query: Query,
@@ -44,27 +35,6 @@ export function evaluate(
     node: Node | null = null,
     termIndex: number = 0,
   ) {
-    function getValue(): { term: Term; value: Term | undefined } {
-      const term: Term = line!.pattern[termIndex]
-      if (term.termType === 'Variable')
-        return { term, value: bindings.get(term as Variable) }
-      return { term, value: term }
-    }
-
-    function doTwig(): boolean {
-      node = node as Twig
-      const { term, value } = getValue()
-
-      if (value) return node.has(value)
-
-      for (const t of node) {
-        bindings.set(term as Variable, t)
-        choose(line!.next)
-      }
-      bindings.delete(term as Variable)
-      return false
-    }
-
     function doBranch(): boolean {
       node = node as Branch
       const { term, value } = getValue()
@@ -84,15 +54,36 @@ export function evaluate(
       return false
     }
 
+    function doTwig(): boolean {
+      node = node as Twig
+      const { term, value } = getValue()
+
+      if (value) return node.has(value)
+
+      for (const t of node) {
+        bindings.set(term as Variable, t)
+        choose(line!.next)
+      }
+      bindings.delete(term as Variable)
+      return false
+    }
+
+    function getValue(): { term: Term; value: Term | undefined } {
+      const term: Term = line!.pattern[termIndex]
+      if (term.termType === 'Variable')
+        return { term, value: bindings.get(term as Variable) }
+      return { term, value: term }
+    }
+
     while (line) {
       if (termIndex === 0) node = store[line.order]
       for (; termIndex < line.pattern.length; termIndex++) {
         switch (node!.constructor) {
-          case Set:
-            if (!doTwig()) return
-            break
           case Map:
             if (!doBranch()) return
+            break
+          case Set:
+            if (!doTwig()) return
             break
         }
       }
@@ -106,4 +97,13 @@ export function evaluate(
   }
 
   choose(goals)
+}
+
+function reorderGoals(goals: FlatQuad[]): Line | null {
+  let out: Line | null = null
+  for (let i = goals.length - 1; i >= 0; i--) {
+    const order = indexOrder(goals[i])
+    out = { pattern: reorder(order, goals[i]), order, next: out }
+  }
+  return out
 }

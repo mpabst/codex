@@ -23,10 +23,10 @@ export interface Query {
 }
 
 export function evaluate(
-  store: Store,
-  query: Query,
+  store: Readonly<Store>,
+  query: Readonly<Query>,
   emit: (b: Bindings) => any,
-  bindings: Bindings = new Map(),
+  bindings: Readonly<Bindings> = new Map(),
 ) {
   const goals = reorderGoals(query.and)
 
@@ -91,8 +91,9 @@ export function evaluate(
       line = line.next
     }
 
-    if (query.or.length)
+    if (query.or.length || query.calls.length) {
       for (const q of query.or) evaluate(store, q, emit, bindings)
+    }
     else emit(new Map(bindings))
   }
 

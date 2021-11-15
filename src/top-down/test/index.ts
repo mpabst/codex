@@ -6,12 +6,14 @@ import { query, Query } from '../query.js'
 const { expect: x } = chai
 
 const DATA: FlatQuad[] = [
-  [nn(':a'), nn(':foo'), nn(':b'), nn(':test')],
-  [nn(':b'), nn(':foo'), nn(':c'), nn(':test')],
+  // [nn(':a'), nn(':foo'), nn(':b'), nn(':test')],
+  // [nn(':b'), nn(':foo'), nn(':c'), nn(':test')],
 ]
 
-// for (let i = 0; i < 100_000; i++)
-//   DATA.push([nn(`:${i}`), nn(':hasParent'), nn(`:${i + 1}`), nn(':test')])
+for (let i = 0; i < 100_000; i++)
+  DATA.push([nn(`:${i}`), nn(':foo'), nn(`:${i + 1}`), nn(':test')])
+
+console.log(DATA.length)
 
 const QUERY: Query = {
   and: [
@@ -33,6 +35,6 @@ function buildStore() {
 describe('query()', () => {
   x(true).eq(true)
   it('ancestry', () => {
-    query(buildStore(), QUERY, console.log)
+    query(buildStore(), QUERY, () => {})
   })
 })

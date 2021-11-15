@@ -33,8 +33,10 @@ interface QueryLines {
 
 function reorderGoals(goals: FlatQuad[]): Line | null {
   let out: Line | null = null
-  for (let i = goals.length - 1; i >= 0; i--)
-    out = { pattern: goals[i], order: 'SPOG', next: out }
+  for (let i = goals.length - 1; i >= 0; i--) {
+    const order = indexOrder(goals[i])
+    out = { pattern: reorder(order, goals[i]), order, next: out }
+  }
   return out
 }
 

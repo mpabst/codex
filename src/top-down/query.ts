@@ -22,11 +22,78 @@ export interface Query {
   or: Query[]
 }
 
+export function evol(
+  qRoot: Branch,
+  dRoot: Branch,
+  emit: (b: Bindings) => void,
+  bindings: Bindings = new Map(),
+) {
+  const rootQTerms = Array.from(qRoot.keys())
+
+  function doBranch(qTerm: Term, nextQ: Node, data: Branch, nextRootIdx = 1) {
+    function proceed(nextD: Node) {
+      if (nextD instanceof Set) doTwig(nextQ as Twig, nextD, nextRootIdx)
+      else
+        for (const [k, v] of nextQ as Branch)
+          doBranch(k, v, nextD as Branch, nextRootIdx)
+    }
+
+    const value = valueOrChoices(qTerm, data, () => {
+      for (const [dTerm, nextD] of data) {
+        bindings.set(qTerm as Variable, dTerm)
+        proceed(nextD)
+      }
+    })
+
+    if (!value || value === true) return
+
+    const nextD = data.get(value)
+    if (!nextD) return
+    proceed(nextD)
+  }
+
+  function doRoot(nextRootIdx = 0) {
+    if (nextRootIdx === rootQTerms.length) emit(new Map(bindings))
+    else {
+      const qTerm = rootQTerms[nextRootIdx]
+      doBranch(qTerm, qRoot.get(qTerm)!, dRoot, nextRootIdx + 1)
+    }
+  }
+
+  function doTwig(query: Twig, data: Twig, nextRootIdx: number) {
+    for (const qTerm of query) {
+      const value = valueOrChoices(qTerm, data, () => {
+        for (const d of data) {
+          bindings.set(qTerm as Variable, d)
+          doRoot(nextRootIdx)
+        }
+      })
+      if (!value || value === true || !data.has(value)) return
+    }
+  }
+
+  function valueOrChoices(
+    qTerm: Term,
+    data: Node,
+    doChoices: () => void,
+  ): Term | boolean {
+    if (qTerm.termType !== 'Variable') return qTerm
+    const value = bindings.get(qTerm as Variable)
+    if (value) return value
+    if (!data.size) return false
+    doChoices()
+    bindings.delete(qTerm as Variable)
+    return true
+  }
+
+  doRoot()
+}
+
 export function evaluate(
-  store: Readonly<Store>,
-  query: Readonly<Query>,
-  emit: (b: Bindings) => any,
-  bindings: Readonly<Bindings> = new Map(),
+  store: Store,
+  query: Query,
+  emit: (b: Bindings) => void,
+  bindings: Bindings = new Map(),
 ) {
   const goals = reorderGoals(query.and)
 
@@ -91,10 +158,9 @@ export function evaluate(
       line = line.next
     }
 
-    if (query.or.length || query.calls.length) {
+    if (query.or.length) {
       for (const q of query.or) evaluate(store, q, emit, bindings)
-    }
-    else emit(new Map(bindings))
+    } else emit(new Map(bindings))
   }
 
   choose(goals)

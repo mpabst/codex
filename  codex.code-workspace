@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"files.exclude": {
+			"public/lib": true,
+			"public/src": true
+		},
+		"files.autoSave": "onFocusChange"
+	}
+}

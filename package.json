@@ -1,0 +1,30 @@
+{
+  "name": "codex",
+  "version": "0.0.1-SNAPSHOT",
+  "description": "Codex",
+  "author": "Michael Pabst",
+  "license": "UNLICENSED",
+  "private": true,
+  "files": [
+    "lib"
+  ],
+  "type": "module",
+  "scripts": {
+    "build": "npm run clean && tsc -p .",
+    "test": "npm start && open http://localhost:3000/test.html",
+    "clean": "rm -rf lib",
+    "start": "http-server -p 3000 public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mpabst/codex.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mpabst/codex/issues"
+  },
+  "homepage": "https://github.com/mpabst/codex#readme",
+  "devDependencies": {
+    "@types/chai": "^4.2.22",
+    "@types/mocha": "^9.0.0"
+  }
+}

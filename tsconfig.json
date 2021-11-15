@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "lib": ["esnext", "dom"],
+    "outDir": "lib",
+    "target": "ESNext",
+    "module": "ESNext",
+    "inlineSourceMap": true,
+    "moduleResolution": "node",
+    "allowSyntheticDefaultImports": true,
+    "experimentalDecorators": true
+  },
+  "include": ["src"]
+}

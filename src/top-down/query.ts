@@ -8,91 +8,82 @@ import {
   Node,
   Store,
 } from '../collections/store.js'
+import { Operation } from './syntax.js'
 
 export type Bindings = Map<Variable, Term>
 
-interface Line {
-  readonly pattern: FlatQuad
-  readonly order: Order
-  readonly next: Line | null
-}
-
-export interface Query {
-  and: FlatQuad[]
-  or: Query[]
-}
-
 export function evaluate(
   store: Store,
-  query: Query,
+  query: Operation,
   emit: (b: Bindings) => void,
   bindings: Bindings = new Map(),
 ) {
-  const goals = reorderGoals(query.and)
-
   function choose(
-    line: Line | null,
+    root: Operation | undefined,
     node: Node | null = null,
     termIndex: number = 0,
   ) {
-    while (line) {
-      if (termIndex === 0) node = store[line.order]
-      for (; termIndex < line.pattern.length; termIndex++) {
-        const term: Term = line!.pattern[termIndex]
-        const value =
-          term.termType === 'Variable' ? bindings.get(term as Variable) : term
+    const stack = [root]
+    while (true) {
+      let term: Term, value: Term | undefined
 
-        switch (node!.constructor) {
-          case Map:
-            node = node as Branch
-
-            if (value) {
-              const found = node.get(value)
-              if (!found) return
-              node = found
-              break
-            }
-
-            for (const [k, v] of node!.entries()) {
-              bindings.set(term as Variable, k)
-              choose(line, v, termIndex + 1)
-            }
-            bindings.delete(term as Variable)
-            return
-
-          case Set:
-            node = node as Twig
-
-            if (value) {
-              if (node.has(value)) break
-              else return
-            }
-
-            for (const t of node) {
-              bindings.set(term as Variable, t)
-              choose(line!.next)
-            }
-            bindings.delete(term as Variable)
-            return
+      function doTwig(): boolean {
+        node = node as Twig
+        if (value) {
+          if (node.has(value)) return true
+          else return false
         }
+        for (const t of node) {
+          bindings.set(term as Variable, t)
+          choose(stack.pop())
+        }
+        bindings.delete(term as Variable)
+        return false
       }
-      termIndex = 0
-      line = line.next
+
+      function doBranch(): boolean {
+        node = node as Branch
+        if (value) {
+          const found = node.get(value)
+          if (!found) return false
+          node = found
+          return true
+        }
+        for (const [k, v] of node.entries()) {
+          bindings.set(term as Variable, k)
+          choose(op, v, termIndex + 1)
+        }
+        bindings.delete(term as Variable)
+        return false
+      }
+
+      const op = stack.pop()
+      if (!op) {
+        emit(new Map(bindings))
+        return
+      }
+
+      switch (op.type) {
+        case 'Conjunction':
+          stack.push(op.tail, op.head)
+          break
+        case 'Line':
+          if (termIndex === 0) node = store[op.order]
+          for (; termIndex < op.pattern.length; termIndex++) {
+            term = op.pattern[termIndex]
+            value =
+              term.termType === 'Variable'
+              ? bindings.get(term as Variable)
+              : term
+            if (termIndex === op.pattern.length - 1) {
+              if (!doTwig()) return
+            } else if (!doBranch()) return
+          }
+          termIndex = 0
+          break
+      }
     }
-
-    if (query.or.length) {
-      for (const q of query.or) evaluate(store, q, emit, bindings)
-    } else emit(new Map(bindings))
   }
 
-  choose(goals)
-}
-
-function reorderGoals(goals: FlatQuad[]): Line | null {
-  let out: Line | null = null
-  for (let i = goals.length - 1; i >= 0; i--) {
-    const order = 'SPOG' // indexOrder(goals[i])
-    out = { pattern: reorder(order, goals[i]), order, next: out }
-  }
-  return out
+  choose(query)
 }

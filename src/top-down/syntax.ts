@@ -9,8 +9,12 @@ export interface Line {
 
 export interface Conjunction {
   type: 'Conjunction'
-  head: Operation
-  tail: Operation | null
+  clauses: Operation[]
+}
+
+export interface Disjunction {
+  type: 'Disjunction'
+  clauses: Operation[]
 }
 
 interface Negation {
@@ -21,10 +25,42 @@ interface Negation {
   // match, instead of abort - possible to just use the flag?
 }
 
-export type Operation = Line | Conjunction
+export type Operation = Conjunction | Disjunction | Negation // | IfThenElse
 
 export interface Rule {
   // allow disjunctions? could it allow polymorphism?
   head: Conjunction
   body: Operation
 }
+
+export function buildQuery(
+  op: Operation | null,
+  parent: Operation | null = null,
+): Operation | null {
+  if (!op) return null
+  switch (op.type) {
+    case 'Conjunction':
+      return { ...op, left: buildQuery(op.left, op)!, next: parent }
+    case 'Line':
+      return { ...op, next: parent }
+  }
+}
+
+// export function getNext(op: Operation): Operation | null {
+//   while (true) {
+//     let parent: Operation | null = op.parent
+//     if (!parent) return null
+//     switch (parent.type) {
+//       case 'Conjunction':
+//         switch (op.key) {
+//           case 'head':
+//             return parent.tail
+//           case 'tail':
+//             op = parent
+//             continue
+//         }
+//       default:
+//         throw new Error('how did i get here?')
+//     }
+//   }
+// }

@@ -8,7 +8,7 @@ const { expect: x } = chai
 
 const DATA: FlatQuad[] = [
   [nn(':a'), nn(':foo'), nn(':b'), nn(':test')],
-  // [nn(':b'), nn(':foo'), nn(':c'), nn(':test')],
+  [nn(':b'), nn(':foo'), nn(':c'), nn(':test')],
 ]
 
 // for (let i = 0; i < 100_000; i++)
@@ -23,23 +23,27 @@ const QUERY: Conjunction = {
     pattern: [vari('x'), nn(':foo'), vari('y'), nn(':test')],
     order: 'SPOG'
   },
-  tail: null
-
-  // and: [
-  //   ,
-  //   // [vari('y'), nn(':foo'), vari('z'), nn(':test')]
-  // ],
-  // or: [
-  //   // {
-  //   //   and: [[vari('y'), nn(':foo'), nn(':fail'), nn(':test')]],
-  //   //   or: []
-  //   // },
-  //   // {
-  //   //   and: [[vari('y'), nn(':foo'), vari('z'), nn(':test')]],
-  //   //   or: []
-  //   // }
-  // ]
+  tail: {
+    type: 'Line',
+    pattern: [vari('y'), nn(':foo'), vari('z'), nn(':test')],
+    order: 'SPOG'
+  }
 }
+
+// and: [
+//   ,
+//   // [vari('y'), nn(':foo'), vari('z'), nn(':test')]
+// ],
+// or: [
+//   // {
+//   //   and: [[vari('y'), nn(':foo'), nn(':fail'), nn(':test')]],
+//   //   or: []
+//   // },
+//   // {
+//   //   and: [[vari('y'), nn(':foo'), vari('z'), nn(':test')]],
+//   //   or: []
+//   // }
+// ]
 
 function buildStore(data: FlatQuad[]) {
   const out = store()
@@ -50,7 +54,7 @@ function buildStore(data: FlatQuad[]) {
 describe('query()', () => {
   it('evaluate', () => {
     let count = 0
-    evaluate(buildStore(DATA), QUERY, () => count++)
+    evaluate(buildStore(DATA), QUERY, console.log)
     console.log(count)
   })
 })

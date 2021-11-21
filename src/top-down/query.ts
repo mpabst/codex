@@ -8,9 +8,11 @@ import {
   Node,
   Store,
 } from '../collections/store.js'
-import { Operation } from './syntax.js'
+import { getNext, Operation } from './syntax.js'
 
 export type Bindings = Map<Variable, Term>
+
+type StackItem = Operation | null | undefined
 
 export function evaluate(
   store: Store,
@@ -19,11 +21,10 @@ export function evaluate(
   bindings: Bindings = new Map(),
 ) {
   function choose(
-    root: Operation | undefined,
+    op: Operation,
     node: Node | null = null,
     termIndex: number = 0,
   ) {
-    const stack = [root]
     while (true) {
       let term: Term, value: Term | undefined
 
@@ -35,7 +36,7 @@ export function evaluate(
         }
         for (const t of node) {
           bindings.set(term as Variable, t)
-          choose(stack.pop())
+          choose(getNext(op))
         }
         bindings.delete(term as Variable)
         return false
@@ -51,14 +52,17 @@ export function evaluate(
         }
         for (const [k, v] of node.entries()) {
           bindings.set(term as Variable, k)
-          choose(op, v, termIndex + 1)
+          choose(v, termIndex + 1)
         }
         bindings.delete(term as Variable)
         return false
       }
 
-      const op = stack.pop()
-      if (!op) {
+      let op: StackItem = null
+
+      while (op === null) op = stack.pop()
+
+      if (op === undefined) {
         emit(new Map(bindings))
         return
       }
@@ -85,5 +89,5 @@ export function evaluate(
     }
   }
 
-  choose(query)
+  choose()
 }

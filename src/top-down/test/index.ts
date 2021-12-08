@@ -11,8 +11,8 @@ const DATA: FlatQuad[] = [
   [nn(':b'), nn(':foo'), nn(':c'), nn(':test')],
 ]
 
-// for (let i = 0; i < 100_000; i++)
-//   DATA.push([nn(`:${i}`), nn(':foo'), nn(`:${i + 1}`), nn(':test')])
+for (let i = 0; i < 100_000; i++)
+  DATA.push([nn(`:${i}`), nn(':foo'), nn(`:${i + 1}`), nn(':test')])
 
 console.log(DATA.length)
 
@@ -23,11 +23,13 @@ const QUERY: Statement = {
     pattern: [vari('x'), nn(':foo'), vari('y'), nn(':test')],
     order: 'SPOG'
   },
-  rest: {
-    type: 'Pattern',
-    pattern: [vari('y'), nn(':foo'), vari('z'), nn(':test')],
-    order: 'SPOG'
-  }
+  rest: null
+  
+  // {
+  //   type: 'Pattern',
+  //   pattern: [vari('y'), nn(':foo'), vari('z'), nn(':test')],
+  //   order: 'SPOG'
+  // }
 }
 
 // and: [
@@ -54,7 +56,7 @@ function buildStore(data: FlatQuad[]) {
 describe('query()', () => {
   it('evaluate', () => {
     let count = 0
-    evaluate(buildStore(DATA), QUERY, console.log)
+    evaluate(buildStore(DATA), QUERY, () => count++)
     console.log(count)
   })
 })

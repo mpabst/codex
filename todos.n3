@@ -1,0 +1,34 @@
+@base <https://fingerpaint.systems/apps/todo#> .
+@prefix fpc: <https://fingerpaint.systems/core#> .
+@prefix html: <https://fingerpaint.systems/core/html#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+<createTodo>
+  a fpc:Mutator ;
+  fpc:head { ( [ a <Todo> ; rdfs:label ?l ] ) } ;
+  fpc:body { <system> fpc:tick rdfs:label ?l } .
+
+<TodoView>
+  a fpc:View ;
+  fpc:head { [ a html:li ; html:children ( [ html:text ?l ] ) ] } ;
+  fpc:body { [ a <Todo> ; rdfs:label ?l ] } .
+
+<TodoList>
+  a fpc:View ;
+  fpc:head { [ a html:ul ; html:children ?c ] } ;
+  fpc:body { ?c a fpc:FindAll ; fpc:query { ?t a <TodoView> } ; fpc:get ?t } .
+
+<CreateTodoButton>
+  a fpc:View ;
+  fpc:head { [
+    a html:button ;
+    html:onClick <createTodo> ;
+    html:children ( [ html:text "new todo"@en ] )
+  ] } .
+
+<MainView>
+  a fpc:View ;
+  fpc:head { [ a html:div ; html:children ( ?b, ?l ) ] } ;
+  fpc:body { ?b a <CreateTodoButton> & ?l a <TodoList> } .
+
+{ ?_ a fpc:View ; fpc:head ?head ; fpc:body ? body } => { ?head <= ?body }

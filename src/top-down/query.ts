@@ -15,23 +15,23 @@ export function evaluate(
   function choose(
     stack: Operation[] = [],
     data: Node | null = null,
-    termIndex: number = 0,
+    patIdx: number = 0,
   ) {
     let op: Operation, term: Term, value: Term | undefined
 
     function doLine(): boolean {
       op = op as Pattern
-      if (termIndex === 0) data = store[op.order]
-      for (; termIndex < op.pattern.length; termIndex++) {
-        term = op.pattern[termIndex]
+      if (patIdx === 0) data = store[op.order]
+      for (; patIdx < op.pattern.length; patIdx++) {
+        term = op.pattern[patIdx]
         value = term.termType === 'Variable'
           ? bindings.get(term as Variable)
           : term
-        if (termIndex === op.pattern.length - 1) {
+        if (patIdx === op.pattern.length - 1) {
           if (!doTwig()) return false
         } else if (!doBranch()) return false
       }
-      termIndex = 0
+      patIdx = 0
       return true
     }
 
@@ -54,7 +54,7 @@ export function evaluate(
       }
       for (const [k, v] of data.entries()) {
         bindings.set(term as Variable, k)
-        choose([...stack, op], v, termIndex + 1)
+        choose([...stack, op], v, patIdx + 1)
       }
       bindings.delete(term as Variable)
       return false

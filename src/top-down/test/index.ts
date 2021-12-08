@@ -2,7 +2,8 @@ import { namedNode as nn, variable as vari } from '../../data-factory.js'
 import { FlatQuad } from '../../term.js'
 import { add, store } from '../../collections/store.js'
 import { evaluate } from '../query.js'
-import { Conjunction } from '../syntax.js'
+import { Operation, parse } from '../syntax.js'
+import { traverse } from '../traverse.js'
 
 const { expect: x } = chai
 
@@ -16,19 +17,23 @@ const DATA: FlatQuad[] = [
 
 console.log(DATA.length)
 
-const QUERY: Conjunction = {
+const QUERY: Operation = parse({
   type: 'Conjunction',
-  head: {
-    type: 'Line',
-    pattern: [vari('x'), nn(':foo'), vari('y'), nn(':test')],
-    order: 'SPOG'
-  },
-  tail: {
-    type: 'Line',
-    pattern: [vari('y'), nn(':foo'), vari('z'), nn(':test')],
-    order: 'SPOG'
-  }
-}
+  clauses: [
+    {
+      type: 'Line',
+      pattern: [vari('x'), nn(':foo'), vari('y'), nn(':test')],
+      order: 'SPOG'
+    },
+    {
+      type: 'Line',
+      pattern: [vari('y'), nn(':foo'), vari('z'), nn(':test')],
+      order: 'SPOG'
+    }
+  ]
+})
+
+traverse(QUERY)
 
 // and: [
 //   ,

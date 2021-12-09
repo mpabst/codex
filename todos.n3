@@ -6,7 +6,7 @@
 <createTodo>
   a fpc:Mutator ;
   fpc:head { ( [ a <Todo> ; rdfs:label ?l ] ) } ;
-  fpc:body { <system> fpc:tick rdfs:label ?l } .
+  fpc:body { <system> { fpc:tick rdfs:label ?l } } .
 
 <TodoView>
   a fpc:View ;

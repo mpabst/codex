@@ -10,6 +10,17 @@ export function fillTwig<K, V, M>(
   return twigBase(tree, key, doer, true)!
 }
 
+export function get<K, V>(
+  tree: Tree<K, V>,
+  key: Iterable<K>
+): V | Tree<K, V> | undefined {
+  const [first, ...rest] = key
+  if (!tree.has(first)) return
+  const found = tree.get(first)
+  if (rest.length === 0) return found as V
+  return get(found as Tree<K, V>, rest)
+}
+
 // Return value is whether the tree parameter is empty after we're done with it,
 // meaning our caller can safely delete it
 export function prune<K, V>(
@@ -25,6 +36,13 @@ export function prune<K, V>(
   } else if (prune(tree.get(first) as Tree<K, V>, rest, pruneLeaf))
     tree.delete(first)
   return tree.size === 0
+}
+
+export function set<K, V>(tree: Tree<K, V>, key: Iterable<K>, value: V): void {
+  const [first, ...rest] = key
+  if (rest.length === 0) tree.set(first, value)
+  else
+    set(defaulting.get(tree, first, () => new Map()) as Tree<K, V>, rest, value)
 }
 
 function twigBase<K, V, M>(

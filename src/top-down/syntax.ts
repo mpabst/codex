@@ -1,13 +1,20 @@
 import { Order } from '../collections/store'
-import { FlatQuad } from '../term'
+import { TupleMap } from '../collections/tuple-map'
+import { FlatQuad, Term, Variable } from '../term'
+
+export interface Call {
+  type: 'Call'
+  terms: FlatQuad
+  varMap: Map<Variable, Variable>
+}
 
 export interface Pattern {
   type: 'Pattern'
-  pattern: FlatQuad
+  terms: FlatQuad
   order: Order
 }
 
-interface Conjunction<T = Statement> {
+interface Conjunction<T = Expression> {
   type: 'Conjunction'
   first: T
   rest: T | null
@@ -15,21 +22,25 @@ interface Conjunction<T = Statement> {
 
 interface Disjunction {
   type: 'Disjunction'
-  first: Statement
-  rest: Statement | null
+  first: Expression
+  rest: Expression | null
 }
 
 interface Negation {
   type: 'Negation'
-  first: Statement
-  rest: Statement | null
+  first: Expression
+  rest: Expression | null
 }
 
-export type Statement = Pattern | Conjunction | Disjunction | Negation // | IfThenElse
+export type Expression = Pattern | Call | Conjunction | Disjunction | Negation // | IfThenElse
+
+export type Head = Pattern | Conjunction<Head>
 
 export interface Rule {
   // allow disjunctions in heads? could it let us have polymorphism
   // a la multiple rule definitions?
-  head: Conjunction<Pattern | Conjunction>
-  body: Statement
+  head: Head
+  body: Expression
 }
+
+export type RuleStore = TupleMap<Term, Rule>

@@ -2,7 +2,7 @@
 // when to GC dict entries
 
 import { TermDictionary } from './dictionary.js'
-import { BlankNode, Literal, NamedNode, Term, Variable } from './term.js'
+import { BlankNode, DefaultGraph, Literal, NamedNode, Term, Variable } from './term.js'
 
 const PREFIXES = Object.freeze({
   dc: 'http://purl.org/dc/terms/',
@@ -17,6 +17,22 @@ const PREFIXES = Object.freeze({
 const DICTIONARY = new TermDictionary()
 
 type Prefixer = (s: string) => NamedNode
+
+export function randomString(length = 8): string {
+  const charset = '0123456789abcdefghijklmnopqrztuvwxyz'.split('')
+  const out = []
+  for (let i = 0; i < length; i++)
+    out.push(charset[Math.floor(charset.length * Math.random())])
+  return out.join('')
+}
+
+export function scopedBlankNode(
+  graph: NamedNode | DefaultGraph,
+  id: string = randomString(),
+): BlankNode {
+  const prefix = graph.termType === 'DefaultGraph' ? '' : graph.value + '#'
+  return blankNode(`${prefix}_:${id}`)
+}
 
 export function blankNode(value: string): BlankNode {
   return lookup({ termType: 'BlankNode', value }) as BlankNode

@@ -1,44 +1,137 @@
-import { Term, Variable } from '../term.js'
-import { Branch, Twig, Node, Store } from '../collections/store.js'
-import { Pattern, Statement } from './syntax.js'
+import {
+  variable as vari,
+  scopedBlankNode,
+  Prefixers,
+} from '../data-factory.js'
+import { DefaultGraph, FlatQuad, NamedNode, Term, Variable } from '../term.js'
+import {
+  add,
+  store as newStore,
+  Branch,
+  Twig,
+  Node,
+  Store,
+} from '../collections/store.js'
+import * as tupleMap from '../collections/tuple-map.js'
+import { Call, Head, Pattern, Rule, RuleStore, Expression } from './syntax.js'
+
+const { fps, rdf } = Prefixers
 
 export type Bindings = Map<Variable, Term>
 
-type Operation = Statement | null
+const rule: Rule = {
+  head: {
+    type: 'Pattern',
+    // head patterns are always in the graph declaring the rule?
+    terms: [vari('person'), rdf('type'), fps('mortal'), fps('test')],
+    order: 'SPOG',
+  },
+  body: {
+    type: 'Pattern',
+    // TODO: use default graph here
+    terms: [vari('person'), rdf('type'), fps('man'), fps('test')],
+    order: 'SPOG',
+  },
+}
+
+const rules: RuleStore = new Map()
+tupleMap.set(rules, [fps('foo'), fps('mortal')], rule)
+
+function assertHead(
+  graph: NamedNode | DefaultGraph,
+  head: Head,
+  bindings: Bindings,
+  store: Store,
+) {
+  const stack: [Head | null] = [head]
+  let expr: Head | null
+
+  function doPattern() {
+    const out: Term[] = []
+    for (const term of (expr as Pattern).terms) {
+      if (term.termType === 'Variable') {
+        let bound = bindings.get(term)
+        if (!bound) {
+          bound = scopedBlankNode(graph)
+          bindings.set(term, bound)
+        }
+        out.push(bound)
+      } else out.push(term)
+    }
+    add(store, out as FlatQuad)
+  }
+
+  while (true) {
+    expr = stack.pop()!
+    if (expr === undefined) return
+    if (expr === null) continue
+    switch (expr.type) {
+      case 'Conjunction':
+        stack.push(expr.rest, expr.first)
+        continue
+      case 'Pattern':
+        doPattern()
+        continue
+    }
+  }
+}
 
 export function evaluate(
-  store: Store,
-  query: Statement,
+  db: Store,
+  query: Expression,
   emit: (b: Bindings) => void,
   bindings: Bindings = new Map(),
+  heap: Store = newStore(),
 ) {
   function choose(
-    stack: Operation[] = [],
-    data: Node | null = null,
-    patIdx: number = 0,
+    stack: (Expression | null)[] = [],
+    dbNode: Node | null = null,
+    pIndex: number = 0,
   ) {
-    let op: Operation, term: Term, value: Term | undefined
+    let expr: Expression | null, term: Term, value: Term | undefined
 
-    function doLine(): boolean {
-      op = op as Pattern
-      if (patIdx === 0) data = store[op.order]
-      for (; patIdx < op.pattern.length; patIdx++) {
-        term = op.pattern[patIdx]
-        value = term.termType === 'Variable'
-          ? bindings.get(term as Variable)
-          : term
-        if (patIdx === op.pattern.length - 1) {
-          if (!doTwig()) return false
-        } else if (!doBranch()) return false
+    function call() {
+      expr = expr as Call
+      // TODO: pick graph according to expr.order?
+      const graph = expr.terms[3] as NamedNode | DefaultGraph
+      const args: Bindings = new Map()
+      for (const [caller, callee] of expr.varMap)
+        args.set(callee, bindings.get(caller)!)
+      evaluate(
+        db,
+        rule.body,
+        () => {
+          assertHead(graph, rule.head, args, heap)
+          for (const [caller, callee] of (expr as Call).varMap)
+            bindings.set(caller, args.get(callee)!)
+          choose([...stack])
+          // TODO: undo bindings when we're possibly invoking multiple rules
+        },
+        args,
+        heap,
+      )
+      return false
+    }
+
+    function pattern(): boolean {
+      expr = expr as Pattern
+      if (pIndex === 0) dbNode = db[expr.order]
+      for (; pIndex < expr.terms.length; pIndex++) {
+        term = expr.terms[pIndex]
+        value =
+          term.termType === 'Variable' ? bindings.get(term as Variable) : term
+        if (pIndex === expr.terms.length - 1) {
+          if (!twig()) return false
+        } else if (!branch()) return false
       }
-      patIdx = 0
+      pIndex = 0
       return true
     }
 
-    function doTwig(): boolean {
-      data = data as Twig
-      if (value) return data.has(value)
-      for (const t of data) {
+    function twig(): boolean {
+      dbNode = dbNode as Twig
+      if (value) return dbNode.has(value)
+      for (const t of dbNode) {
         bindings.set(term as Variable, t)
         choose([...stack])
       }
@@ -46,43 +139,46 @@ export function evaluate(
       return false
     }
 
-    function doBranch(): boolean {
-      data = data as Branch
+    function branch(): boolean {
+      dbNode = dbNode as Branch
       if (value) {
-        data = data.get(value)!
-        return !!data
+        dbNode = dbNode.get(value)!
+        return !!dbNode
       }
-      for (const [k, v] of data.entries()) {
+      for (const [k, v] of dbNode.entries()) {
         bindings.set(term as Variable, k)
-        choose([...stack, op], v, patIdx + 1)
+        choose([...stack, expr], v, pIndex + 1)
       }
       bindings.delete(term as Variable)
       return false
     }
 
     while (true) {
-      op = stack.pop()!
+      expr = stack.pop()!
 
-      if (op === undefined) {
+      if (expr === undefined) {
         emit(new Map(bindings))
         return
       }
 
-      if (op === null) continue
+      if (expr === null) continue
 
-      switch (op.type) {
+      switch (expr.type) {
+        case 'Call':
+          call()
+          return
         case 'Pattern':
-          if (!doLine()) return
+          if (!pattern()) return
           continue
         case 'Conjunction':
-          stack.push(op.rest, op.first)
+          stack.push(expr.rest, expr.first)
           continue
         case 'Disjunction':
-          choose([...stack, op.first])
-          choose([...stack, op.rest])
+          choose([...stack, expr.first])
+          choose([...stack, expr.rest])
           return
         default:
-          throw new Error(`not implemented: ${op.type}`)
+          throw new Error(`not implemented: ${expr.type}`)
       }
     }
   }

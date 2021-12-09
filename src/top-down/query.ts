@@ -13,7 +13,15 @@ import {
   Store,
 } from '../collections/store.js'
 import * as tupleMap from '../collections/tuple-map.js'
-import { Call, Head, Pattern, Rule, RuleStore, Expression } from './syntax.js'
+import {
+  Call,
+  Head,
+  Pattern,
+  Rule,
+  RuleStore,
+  Expression,
+  VarMap,
+} from './syntax.js'
 
 const { fps, rdf } = Prefixers
 
@@ -22,13 +30,15 @@ export type Bindings = Map<Variable, Term>
 const rule: Rule = {
   head: {
     type: 'Pattern',
-    // head patterns are always in the graph declaring the rule?
+    // head patterns are triples, always in the graph declaring the rule?
     terms: [vari('person'), rdf('type'), fps('mortal'), fps('test')],
     order: 'SPOG',
   },
   body: {
     type: 'Pattern',
     // TODO: use default graph here
+    // what does using a default graph do to the type system?
+    // I guess we can examine the subscriptions to know its type
     terms: [vari('person'), rdf('type'), fps('man'), fps('test')],
     order: 'SPOG',
   },
@@ -63,8 +73,8 @@ function assertHead(
 
   while (true) {
     expr = stack.pop()!
-    if (expr === undefined) return
     if (expr === null) continue
+    if (expr === undefined) return
     switch (expr.type) {
       case 'Conjunction':
         stack.push(expr.rest, expr.first)
@@ -95,19 +105,22 @@ export function evaluate(
       // TODO: pick graph according to expr.order?
       const graph = expr.terms[3] as NamedNode | DefaultGraph
       const args: Bindings = new Map()
-      for (const [caller, callee] of expr.varMap)
-        args.set(callee, bindings.get(caller)!)
+      const unbound: VarMap = new Map()
+      for (const [caller, callee] of expr.varMap) {
+        const bound = bindings.get(caller)
+        if (!bound) unbound.set(caller, callee)
+        else args.set(callee, bound)
+      }
       evaluate(
         db,
         rule.body,
         () => {
           assertHead(graph, rule.head, args, heap)
-          for (const [caller, callee] of (expr as Call).varMap)
+          for (const [caller, callee] of unbound)
             bindings.set(caller, args.get(callee)!)
           choose([...stack])
-          // TODO: undo bindings? how to tell which ones to unbind?
-          // they're all args in varMap not bound before calling
-          // evaluate
+          // TODO: how to test this unbinding? a callee which has a choice?
+          for (const [caller] of unbound) bindings.delete(caller)
         },
         args,
         heap,

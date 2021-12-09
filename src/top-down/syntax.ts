@@ -2,10 +2,11 @@ import { Order } from '../collections/store'
 import { TupleMap } from '../collections/tuple-map'
 import { FlatQuad, Term, Variable } from '../term'
 
+export type VarMap = Map<Variable, Variable>
 export interface Call {
   type: 'Call'
   terms: FlatQuad
-  varMap: Map<Variable, Variable>
+  varMap: VarMap
 }
 
 export interface Pattern {

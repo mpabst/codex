@@ -170,12 +170,12 @@ export function evaluate(
     while (true) {
       expr = stack.pop()!
 
+      if (expr === null) continue
+
       if (expr === undefined) {
         emit(new Map(bindings))
         return
       }
-
-      if (expr === null) continue
 
       switch (expr.type) {
         case 'Call':

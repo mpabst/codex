@@ -90,7 +90,7 @@ export function evaluate(
   ) {
     let expr: Expression | null, term: Term, value: Term | undefined
 
-    function call() {
+    function doCall() {
       expr = expr as Call
       // TODO: pick graph according to expr.order?
       const graph = expr.terms[3] as NamedNode | DefaultGraph
@@ -105,15 +105,16 @@ export function evaluate(
           for (const [caller, callee] of (expr as Call).varMap)
             bindings.set(caller, args.get(callee)!)
           choose([...stack])
-          // TODO: undo bindings when we're possibly invoking multiple rules
+          // TODO: undo bindings? how to tell which ones to unbind?
+          // they're all args in varMap not bound before calling
+          // evaluate
         },
         args,
         heap,
       )
-      return false
     }
 
-    function pattern(): boolean {
+    function doPattern(): boolean {
       expr = expr as Pattern
       if (pIndex === 0) dbNode = db[expr.order]
       for (; pIndex < expr.terms.length; pIndex++) {
@@ -121,14 +122,14 @@ export function evaluate(
         value =
           term.termType === 'Variable' ? bindings.get(term as Variable) : term
         if (pIndex === expr.terms.length - 1) {
-          if (!twig()) return false
-        } else if (!branch()) return false
+          if (!doTwig()) return false
+        } else if (!doBranch()) return false
       }
       pIndex = 0
       return true
     }
 
-    function twig(): boolean {
+    function doTwig(): boolean {
       dbNode = dbNode as Twig
       if (value) return dbNode.has(value)
       for (const t of dbNode) {
@@ -139,7 +140,7 @@ export function evaluate(
       return false
     }
 
-    function branch(): boolean {
+    function doBranch(): boolean {
       dbNode = dbNode as Branch
       if (value) {
         dbNode = dbNode.get(value)!
@@ -165,10 +166,10 @@ export function evaluate(
 
       switch (expr.type) {
         case 'Call':
-          call()
+          doCall()
           return
         case 'Pattern':
-          if (!pattern()) return
+          if (!doPattern()) return
           continue
         case 'Conjunction':
           stack.push(expr.rest, expr.first)

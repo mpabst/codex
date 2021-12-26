@@ -38,7 +38,7 @@ type L = (...objs: Object[]) => Subject
 type B = (...terms: PO[]) => Subject
 type Helpers = { s: S; l: L; b: B; r: S }
 type Builder = (fns: Helpers) => void
-type Trans = (t: FlatQuad) => FlatQuad[]
+type Transformer = (t: FlatQuad) => FlatQuad[]
 
 export const Prefixers = Object.entries(PREFIXES).reduce(
   (o, [name, head]) => ({ ...o, [name]: prefixer(head) }),
@@ -52,7 +52,7 @@ export const A = rdf('type')
 export function g(graph: Graph, builder: Builder): FlatQuad[] {
   const out: FlatQuad[] = []
 
-  function basic(trans: Trans) {
+  function base(trans: Transformer) {
     return function (subj: Subject, ...terms: PO[]) {
       for (const [pred, obj] of terms) {
         const push = (o: Object) => out.push(...trans([subj, pred, o, graph]))
@@ -62,8 +62,8 @@ export function g(graph: Graph, builder: Builder): FlatQuad[] {
     }
   }
 
-  const s = basic(t => [t]),
-    r = basic(reify)
+  const s = base(t => [t]),
+    r = base(reify)
 
   const b = (...terms: PO[]) => s(scopedBlankNode(graph), ...terms)
 

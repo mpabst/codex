@@ -16,21 +16,14 @@ const { fpc, html, rdfs } = Prefixers
 describe('builders', () => {
   it('', () => {
     let createTodo = graph(nn(base), ({ b, p, rq, ass, conj }) => {
-      const head = b()
       p(
         todo('createTodo'),
-        // [A, fpc('Mutator')],
+        [A, fpc('Mutator')],
+        [fpc('head'), ass(b(), [A, todo('Todo')], [rdfs('label'), vari('l')])],
         [
-          fpc('head'),
-          [
-            ass(head, [A, todo('Todo')]),
-            ass(head, [rdfs('label'), vari('l')])
-          ],
+          fpc('body'),
+          rq(fpc('system'), fpc('tick'), [rdfs('label'), vari('l')]),
         ],
-        // [
-        //   fpc('body'),
-        //   conj(rq(fpc('system'), fpc('tick'), [rdfs('label'), vari('l')])),
-        // ],
       )
     })
     console.log(createTodo)

@@ -13,8 +13,8 @@ const DATA: FlatQuad[] = [
   // [nn(':b'), nn(':foo'), nn(':c'), nn(':test')],
 ]
 
-// for (let i = 0; i < 100_000; i++)
-//   DATA.push([nn(`:${i}`), nn(':foo'), nn(`:${i + 1}`), nn(':test')])
+for (let i = 0; i < 100_000; i++)
+  DATA.push([nn(`:${i}`), nn(':foo'), nn(`:${i + 1}`), nn(':test')])
 
 console.log(DATA.length)
 
@@ -35,18 +35,18 @@ const QUERY: Expression = {
 }
 
 // and: [
-//   ,
-//   // [vari('y'), nn(':foo'), vari('z'), nn(':test')]
+  // ,
+  // [vari('y'), nn(':foo'), vari('z'), nn(':test')]
 // ],
 // or: [
-//   // {
-//   //   and: [[vari('y'), nn(':foo'), nn(':fail'), nn(':test')]],
-//   //   or: []
-//   // },
-//   // {
-//   //   and: [[vari('y'), nn(':foo'), vari('z'), nn(':test')]],
-//   //   or: []
-//   // }
+  // {
+  //   and: [[vari('y'), nn(':foo'), nn(':fail'), nn(':test')]],
+  //   or: []
+  // },
+  // {
+  //   and: [[vari('y'), nn(':foo'), vari('z'), nn(':test')]],
+  //   or: []
+  // }
 // ]
 
 function buildStore(data: FlatQuad[]) {

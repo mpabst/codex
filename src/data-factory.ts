@@ -31,67 +31,105 @@ const DICTIONARY = new TermDictionary()
 
 type Prefixer = (s: string) => NamedNode
 
-type PO = [Predicate, Object] | [Predicate, [Object]]
-type S = (subj: Subject, ...terms: PO[]) => Subject
+type G = (id: Graph, builder: Builder) => FlatQuad[]
+type PO = [Predicate, Object] | [Predicate, Object[]]
+type P = (subj: Subject, ...terms: PO[]) => Subject
 // Object is superset of Subject, so no need to also specify it
 type L = (...objs: Object[]) => Subject
-type B = (...terms: PO[]) => Subject
-type Helpers = { s: S; l: L; b: B; r: S }
+type B = () => Subject
+type Helpers = {
+  g: G
+  p: P
+  l: L
+  b: B
+  r: P
+  rq: (g: Graph, s: Subject, ...t: PO[]) => Subject
+  ass: P
+  ret: P
+  conj: L
+  disj: L
+}
 type Builder = (fns: Helpers) => void
-type Transformer = (t: FlatQuad) => FlatQuad[]
+type Handler = (q: FlatQuad) => void
 
 export const Prefixers = Object.entries(PREFIXES).reduce(
   (o, [name, head]) => ({ ...o, [name]: prefixer(head) }),
   {} as { [n: string]: Prefixer },
 )
 
-const { rdf } = Prefixers
+const { fpc, rdf } = Prefixers
 
 export const A = rdf('type')
 
-export function g(graph: Graph, builder: Builder): FlatQuad[] {
-  const out: FlatQuad[] = []
-
-  function base(trans: Transformer) {
-    return function (subj: Subject, ...terms: PO[]) {
-      for (const [pred, obj] of terms) {
-        const push = (o: Object) => out.push(...trans([subj, pred, o, graph]))
-        obj instanceof Array ? obj.forEach(push) : push(obj)
+function grapher(data: FlatQuad[] = []) {
+  return function (graph: Graph, builder: Builder): FlatQuad[] {
+    function pattern(g: Graph = graph, handle: Handler = q => data.push(q)) {
+      return function (subj: Subject, ...terms: PO[]): FlatQuad[] {
+        for (const [pred, obj] of terms) {
+          const expand = (o: Object) => handle([subj, pred, o, g])
+          obj instanceof Array ? obj.forEach(expand) : expand(obj)
+        }
+        return subj
       }
-      return subj
     }
+
+    const p = pattern(),
+      b = () => scopedBlankNode(graph),
+      g = grapher(data)
+
+    function list(type: Subject = rdf('List')) {
+      return function (...objs: Object[]): Subject {
+        let head: Object = rdf('nil')
+        for (let i = objs.length; i >= 0; i--)
+          head = p(b(), [A, type], [rdf('first'), objs[i]], [rdf('rest'), head])
+        return head
+      }
+    }
+
+    function reify(sign: boolean | null = null) {
+      return function (quad: FlatQuad, id: Subject | null = null): Subject {
+        const type =
+          sign === null
+            // this elides the difference between a triple and a quad
+            // which just happens to refer to the current graph
+            ? quad[3] === graph || quad[3] === defaultGraph()
+              ? rdf('Statement')
+              : fpc('Pattern')
+            : fpc('Mutation')
+
+        if (!id) id = scopedBlankNode(graph)
+        const args: PO[] = [
+          [A, type],
+          [rdf('subject'), quad[0]],
+          [rdf('predicate'), quad[1]],
+          [rdf('object'), quad[2]],
+        ]
+        if (type !== rdf('Statement'))
+          args.push([fpc('graph'), quad[3] as Object])
+        if (type === fpc('Mutation'))
+          args.push([fpc('sign'), literal(sign)])
+        return p(id!, ...args)
+      }
+    }
+
+    builder({
+      p,
+      r: pattern(graph, reify()),
+      b,
+      l: list(),
+      g,
+      rq: (g: Graph, s: Subject, ...t: PO[]) => pattern(g, reify())(s, ...t),
+      ass: pattern(graph, reify(true)),
+      ret: pattern(graph, reify(false)),
+      conj: list(fpc('Conjunction')),
+      disj: list(fpc('Disjunction')),
+    })
+
+    return data
   }
-
-  const s = base(t => [t]),
-    r = base(reify)
-
-  const b = (...terms: PO[]) => s(scopedBlankNode(graph), ...terms)
-
-  function l(...objs: Object[]): Subject {
-    let head: Object = rdf('nil')
-    for (let i = objs.length; i >= 0; i--)
-      head = b([A, rdf('List')], [rdf('first'), objs[i]], [rdf('rest'), head])
-    return head
-  }
-
-  builder({ s, r, b, l })
-
-  return out
 }
 
-export function reify(quad: FlatQuad, id: Subject | null = null): FlatQuad[] {
-  const graph = quad[3]
-  if (!id) id = scopedBlankNode(graph)
-  return g(graph, ({ s }) =>
-    s(
-      id!,
-      [A, rdf('Statement')],
-      [rdf('subject'), quad[0]],
-      [rdf('predicate'), quad[1]],
-      [rdf('object'), quad[2]],
-    ),
-  )
-}
+export const graph = grapher()
 
 export function randomString(length = 8): string {
   const charset = '0123456789abcdefghijklmnopqrztuvwxyz'.split('')
@@ -156,7 +194,7 @@ export function namedNode(value: string): NamedNode {
   return lookup({ termType: 'NamedNode', value })
 }
 
-function prefixer(prefix: string): Prefixer {
+export function prefixer(prefix: string): Prefixer {
   return (suffix: string) => namedNode(prefix + suffix)
 }
 

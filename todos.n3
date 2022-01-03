@@ -5,30 +5,44 @@
 
 <createTodo>
   a fpc:Mutator ;
-  fpc:head << [ a <Todo> ; rdfs:label ?l ] >> ;
-  fpc:body << fpc:tick rdfs:label ?l <system> >> .
+  fpc:head << [ a <Todo> ; rdfs:label ?label ] >> ;
+  fpc:body << fpc:tick rdfs:label ?label <system> >> .
 
 <TodoView>
   a fpc:View ;
-  fpc:head { [ a html:li ; html:children ( [ html:text ?l ] ) ] } ;
-  fpc:body { [ a <Todo> ; rdfs:label ?l ] } .
+  fpc:head << [
+    a html:li ;
+    html:children ( [ html:text ?label ] )
+  ] >> ;
+  fpc:body << ?todo a <Todo> ; rdfs:label ?label >> .
 
 <TodoList>
   a fpc:View ;
-  fpc:head { [ a html:ul ; html:children ?c ] } ;
-  fpc:body { ?c a fpc:FindAll ; fpc:query { ?t a <TodoView> } ; fpc:get ?t } .
+  fpc:head << [ a html:ul ; html:children ?child ] >> ;
+  fpc:body <<
+    ?child
+      a fpc:FindAll ;
+      fpc:query << ?todo a <TodoView> >> ;
+      fpc:get ?todo 
+  >> .
 
 <CreateTodoButton>
   a fpc:View ;
-  fpc:head { [
+  fpc:head << [
     a html:button ;
     html:onClick <createTodo> ;
     html:children ( [ html:text "new todo"@en ] )
-  ] } .
+  ] >> .
 
 <MainView>
   a fpc:View ;
-  fpc:head { [ a html:div ; html:children ( ?b, ?l ) ] } ;
-  fpc:body { ?b a <CreateTodoButton> & ?l a <TodoList> } .
+  fpc:head << [
+    a html:div ;
+    html:children ( ?button, ?list )
+  ] >> ;
+  fpc:body <<
+    ?button a <CreateTodoButton> .
+    ?list a <TodoList> .
+  >> .
 
 { ?_ a fpc:View ; fpc:head ?head ; fpc:body ? body } => { ?head <= ?body }

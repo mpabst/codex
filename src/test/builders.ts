@@ -2,13 +2,38 @@ import { A, g } from '../builders.js'
 import {
   variable as vari,
   namedNode as nn,
+  PREFIXES,
   Prefixers,
   prefixer,
 } from '../data-factory.js'
+import { BlankNode, FlatQuad, NamedNode, turtle } from '../term.js'
 
 const base = 'https://fingerpaint.systems/apps/todo'
 const todo = prefixer(base + '#')
 const { fpc, html, rdfs } = Prefixers
+
+function format({ value }: NamedNode | BlankNode): string {
+  const prefixes = Object.entries(PREFIXES).concat([
+    ['todo', base + '#'],
+    ['_', '_:https://fingerpaint.systems/apps/todo#_'],
+  ])
+  for (const [p, url] of prefixes)
+    if (value.startsWith(url)) return value.replace(url, p + ':')
+  return value
+}
+
+function formatQuads(quads: FlatQuad[]): string {
+  const out: string[] = []
+  for (const q of quads) {
+    const row = []
+    for (const t of [q[0], q[1], q[2]])
+      if (t.termType === 'NamedNode' || t.termType === 'BlankNode')
+        row.push(format(t))
+      else row.push(t.value.toString())
+    out.push(row.join(' '))
+  }
+  return out.join('\n')
+}
 
 describe('builders', () => {
   it('', () => {
@@ -18,7 +43,9 @@ describe('builders', () => {
         [A, fpc('Writer')],
         [
           fpc('head'),
-          r(({ ass }) => ass(b(), [A, todo('Todo')], [rdfs('label'), vari('label')])),
+          r(({ ass }) =>
+            ass(b(), [A, todo('Todo')], [rdfs('label'), vari('label')]),
+          ),
         ],
         [
           fpc('body'),
@@ -39,7 +66,7 @@ describe('builders', () => {
           fpc('head'),
           r(({ p, l }) => {
             p(
-              b(),
+              vari('li'),
               [A, html('li')],
               [html('children'), l(p(b(), [html('text'), vari('label')]))],
             )
@@ -59,6 +86,6 @@ describe('builders', () => {
         ],
       )
     })
-    console.log(TodoView)
+    console.log(formatQuads(TodoView))
   })
 })

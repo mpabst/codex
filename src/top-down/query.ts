@@ -1,8 +1,5 @@
-import {
-  variable as vari,
-  scopedBlankNode,
-  Prefixers,
-} from '../data-factory.js'
+import { scopedBlankNode } from '../builders.js'
+import { variable as vari, Prefixers } from '../data-factory.js'
 import { DefaultGraph, FlatQuad, NamedNode, Term, Variable } from '../term.js'
 import {
   add,

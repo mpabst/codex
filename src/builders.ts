@@ -39,9 +39,8 @@ const { fpc, rdf } = Prefixers
 export const A = rdf('type')
 
 function context(graph: Graph, quads: FlatQuad[]) {
-  function b(id: string = randomString()): BlankNode {
-    const prefix = graph.termType === 'NamedNode' ? graph.value + '#' : ''
-    return blankNode(`${prefix}_:${id}`)
+  function b(): BlankNode {
+    return scopedBlankNode(graph)
   }
 
   function expand(sub: Subject, ...po: PO[]): Subject {
@@ -86,6 +85,46 @@ function context(graph: Graph, quads: FlatQuad[]) {
   }
 
   return { b, expand, reify, list }
+}
+
+export function g(
+  doc: Graph,
+  builder: Builder,
+  quads: FlatQuad[] = [],
+): FlatQuad[] {
+  function r(builder: (helpers: RHelpers) => void): Subject[] {
+    const subs: Subject[] = []
+
+    function g(inner: Graph, builder: (fns: RHelpers) => void): Subject[] {
+      const subs: Subject[] = []
+      builder({ g, ...reificationContext(doc, inner, quads, subs) })
+      return subs
+    }
+
+    builder({ g, ...reificationContext(doc, doc, quads, subs) })
+    return subs
+  }
+
+  const { b, expand, list } = context(doc, quads)
+
+  builder({
+    r,
+    b,
+    p: expand,
+    l: list(rdf('List')),
+    and: list(fpc('And')),
+    or: list(fpc('Or')),
+  })
+
+  return quads
+}
+
+export function randomString(length = 8): string {
+  const charset = '0123456789abcdefghijklmnopqrztuvwxyz'.split('')
+  const out = []
+  for (let i = 0; i < length; i++)
+    out.push(charset[Math.floor(charset.length * Math.random())])
+  return out.join('')
 }
 
 function reificationContext(
@@ -135,42 +174,10 @@ function reificationContext(
   return { ass, ret, l, p }
 }
 
-export function randomString(length = 8): string {
-  const charset = '0123456789abcdefghijklmnopqrztuvwxyz'.split('')
-  const out = []
-  for (let i = 0; i < length; i++)
-    out.push(charset[Math.floor(charset.length * Math.random())])
-  return out.join('')
-}
-
-export function g(
-  doc: Graph,
-  builder: Builder,
-  quads: FlatQuad[] = [],
-): FlatQuad[] {
-  function r(builder: (helpers: RHelpers) => void): Subject[] {
-    const subs: Subject[] = []
-
-    function g(inner: Graph, builder: (fns: RHelpers) => void): Subject[] {
-      const subs: Subject[] = []
-      builder({ g, ...reificationContext(doc, inner, quads, subs) })
-      return subs
-    }
-
-    builder({ g, ...reificationContext(doc, doc, quads, subs) })
-    return subs
-  }
-
-  const { b, expand, list } = context(doc, quads)
-
-  builder({
-    r,
-    b,
-    p: expand,
-    l: list(rdf('List')),
-    and: list(fpc('And')),
-    or: list(fpc('Or')),
-  })
-
-  return quads
+export function scopedBlankNode(
+  graph: Graph,
+  id: string = randomString(),
+): BlankNode {
+  const prefix = graph.termType === 'NamedNode' ? graph.value + '#_' : ''
+  return blankNode(`_:${prefix}${id}`)
 }

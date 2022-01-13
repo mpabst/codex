@@ -4,6 +4,8 @@
 @prefix html: <https://fingerpaint.systems/core/html#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 
+use 
+
 :createTodo :: ?label out =
   [ a :Todo ; rdfs:label ?label ]
 <-
@@ -19,30 +21,25 @@
 # rule in this way can be used like decorators in other languages; rest of
 # def converts to properties on the rule name a la my prev syntax, which
 # ig you could still use
-:TodoView a fpc:View :: ?todo :Todo in =
+:TodoView a fpc:View :: ?todo :Todo in ~
   [ a html:li ; html:children ( [ html:text ?label ] ) ]
 <-
   ?todo rdfs:label ?label .
 
 # alternate form:
-:TodoView a fpc:View :: ?todo :Todo in =
+:todo-view a fpc:View :: ?todo :Todo in <<
 # slim-based syntax (pug?)
   li ?label
 <-
-  ?todo rdfs:label ?label .
+  ?todo rdfs:label ?label >>
 
-:TodoList a fpc:View =
+:todo-list a fpc:View :: ?children out =
   ul ?children
 <-
-
-  a fpc:View ;
-  fpc:head << [ a html:ul ; html:children ?child ] >> ;
-  fpc:body <<
-    ?child
-      a fpc:FindAll ;
-      fpc:query << ?todo a <TodoView> >> ;
-      fpc:get ?todo 
-  >> .
+ ?children
+    a fpc:FindAll ;
+    fpc:query << ?todo a :TodoView >> ;
+    fpc:get ?todo .
 
 <CreateTodoButton>
   a fpc:View ;

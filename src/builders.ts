@@ -1,183 +1,230 @@
-import { blankNode, defaultGraph, literal, Prefixers } from './data-factory.js'
 import {
-  BlankNode,
-  FlatQuad,
+  blankNode,
+  namedNode,
+  literal,
+  randomBlankNode,
+  variable,
+} from './data-factory.js'
+import {
   Graph,
-  NamedNode,
   Object,
   Predicate,
   Subject,
+  Triple,
+  Quad,
+  Term,
 } from './term.js'
 
-type PO = [Predicate, Object] | [Predicate, Object[]]
-type C = (subj: Subject, ...terms: PO[]) => Subject[]
-// // Object is superset of Subject, so no need to also specify it
-type L = (...objs: Object[]) => Subject
+type OrAry<T> = T | T[]
 
-type BaseHelpers = {
-  p: (subj: Subject, ...terms: PO[]) => Subject
-  l: L
-}
+type BuilderArgs = OrAry<Construction | Object> | Predicate
 
-type RHelpers = BaseHelpers & {
-  ass: C
-  ret: C
-  g: (graph: Graph, builder: (fns: RHelpers) => void) => Subject[]
-}
+type Builder = (...args: BuilderArgs[]) => Construction
 
-type Helpers = BaseHelpers & {
-  b: () => BlankNode
-  r: (builder: (fns: RHelpers) => void) => Subject[]
-  and: L
-  or: L
-}
+class Construction {
+  constructor(
+    public refs: Subject[] = [],
+    public data: (Triple | Quad)[] = [],
+  ) {}
 
-type Builder = (fns: Helpers) => void
-
-const { fpc, rdf } = Prefixers
-
-export const A = rdf('type')
-
-function context(graph: Graph, quads: FlatQuad[]) {
-  function b(): BlankNode {
-    return scopedBlankNode(graph)
-  }
-
-  function expand(sub: Subject, ...po: PO[]): Subject {
-    for (const [pred, obj] of po) {
-      const push = (o: Object) => quads.push([sub, pred, o, graph])
-      obj instanceof Array ? obj.forEach(push) : push(obj)
-    }
-    return sub
-  }
-
-  function list(type: NamedNode) {
-    return function (...oo: Object[]): Subject {
-      let head: Object = rdf('nil')
-      for (let i = oo.length - 1; i >= 0; i--) {
-        head = expand(
-          b(),
-          [A, type],
-          [rdf('first'), oo[i]],
-          [rdf('rest'), head],
-        )
-      }
-      return head as Subject
-    }
-  }
-
-  function reify(quad: FlatQuad, sign: boolean | null = null): Subject {
-    const po: PO[] = []
-    if (sign !== null) po.push([A, fpc('Change')], [fpc('sign'), literal(sign)])
-    else {
-      // this elides the difference between a triple and a quad
-      // which just happens to refer to the current graph
-      if (quad[3] === graph || quad[3] === defaultGraph())
-        po.push([A, rdf('Statement')])
-      else po.push([A, fpc('Pattern')], [fpc('graph'), quad[3] as Object])
-    }
-    po.push(
-      [rdf('subject'), quad[0]],
-      [rdf('predicate'), quad[1]],
-      [rdf('object'), quad[2]],
+  unwrap(): Term[][] {
+    return (this.data as Quad[]).map(
+      ({ subject, predicate, object, graph }) => {
+        const args: Term[] = [subject, predicate, object]
+        if (graph) args.push(graph)
+        return unwrap(...args)
+      },
     )
-    return context(graph, quads).expand(b(), ...po)
+  }
+}
+
+const PREFIXES = Object.freeze({
+  dc: 'http://purl.org/dc/terms/',
+  fp: 'https://fingerpaint.systems#',
+  fpc: 'https://fingerpaint.systems/core#',
+  fps: 'https://fingerpaint.systems/scratch#',
+  html: 'https://fingerpaint.systems/core/html#',
+  rdf: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
+  rdfs: 'http://www.w3.org/2000/01/rdf-schema#',
+  xsd: 'http://www.w3.org/2001/XMLSchema#',
+})
+
+export const Prefixers = Object.entries(PREFIXES).reduce(
+  (o, [name, head]) => ({ ...o, [name]: prefixer(head) }),
+  {} as { [n: string]: any },
+)
+
+const { rdf, fpc, html } = Prefixers
+
+export const A = rdf.type
+
+function blank(...args: BuilderArgs[]): Construction {
+  return build(randomBlankNode(), ...args)
+}
+
+function build(subject: Subject, ...rest: BuilderArgs[]): Construction {
+  if (rest.length % 2 !== 0)
+    throw new Error('must have even number of rest args')
+
+  function push(predicate: Predicate, arg: OrAry<Construction | Object>) {
+    if (arg instanceof Construction) {
+      for (const object of arg.refs)
+        out.data.push({ subject, predicate, object })
+      out.data.push(...arg.data)
+    } else if (arg instanceof Array)
+      for (const object of arg) push(predicate, object)
+    else out.data.push({ subject, predicate, object: arg as Object })
   }
 
-  return { b, expand, reify, list }
+  const out = new Construction([subject])
+  for (let i = 0; i < rest.length; i += 2)
+    push(rest[i] as Predicate, rest[i + 1])
+  return out
 }
 
-export function g(
-  doc: Graph,
-  builder: Builder,
-  quads: FlatQuad[] = [],
-): FlatQuad[] {
-  function r(builder: (helpers: RHelpers) => void): Subject[] {
-    const subs: Subject[] = []
-
-    function g(inner: Graph, builder: (fns: RHelpers) => void): Subject[] {
-      const subs: Subject[] = []
-      builder({ g, ...reificationContext(doc, inner, quads, subs) })
-      return subs
-    }
-
-    builder({ g, ...reificationContext(doc, doc, quads, subs) })
-    return subs
-  }
-
-  const { b, expand, list } = context(doc, quads)
-
-  builder({
-    r,
-    b,
-    p: expand,
-    l: list(rdf('List')),
-    and: list(fpc('And')),
-    or: list(fpc('Or')),
-  })
-
-  return quads
+function graph(name: Graph, ...rest: Construction[]): Construction {
+  const out = new Construction()
+  for (const { data } of rest)
+    for (const { subject, predicate, object, graph } of data as Quad[])
+      out.data.push({
+        subject,
+        predicate,
+        object,
+        graph: graph ?? name,
+      })
+  return out
 }
 
-export function randomString(length = 8): string {
-  const charset = '0123456789abcdefghijklmnopqrztuvwxyz'.split('')
-  const out = []
-  for (let i = 0; i < length; i++)
-    out.push(charset[Math.floor(charset.length * Math.random())])
-  return out.join('')
+function builderify(sub: Subject) {
+  return Object.assign((...args: BuilderArgs[]) => build(sub, ...args), sub)
 }
 
-function reificationContext(
-  doc: Graph,
-  inner: Graph,
-  quads: FlatQuad[],
-  subs: Subject[],
+function getHandler(
+  dataFactory: (s: string) => Subject,
+  iri: string,
+  extras: { [k: string]: (b: Builder) => any } = {},
 ) {
-  const { reify } = context(doc, quads)
-
-  function reifyPattern(
-    sign: boolean | null,
-    s: Subject,
-    ...po: PO[]
-  ): Subject[] {
-    const expanded: FlatQuad[] = []
-    context(inner, expanded).expand(s, ...po)
-    const localSubs: Subject[] = []
-    for (const q of expanded) {
-      const s = reify(q, sign)
-      subs.push(s)
-      localSubs.push(s)
-    }
-    return localSubs
+  return (_: any, prop: string) => {
+    const builder: { (...a: BuilderArgs[]): Construction; [k: string]: any } =
+      builderify(dataFactory(iri + prop))
+    for (const [k, v] of Object.entries(extras)) builder[k] = v(builder)
+    return builder
   }
-
-  function l(...oo: Object[]): Subject {
-    const list: FlatQuad[] = []
-    const head = context(inner, list).list(rdf('List'))(...oo)
-    for (const q of list) subs.push(reify(q))
-    return head
-  }
-
-  function ass(s: Subject, ...po: PO[]): Subject[] {
-    return reifyPattern(true, s, ...po)
-  }
-
-  function ret(s: Subject, ...po: PO[]): Subject[] {
-    return reifyPattern(true, s, ...po)
-  }
-
-  function p(s: Subject, ...po: PO[]): Subject {
-    reifyPattern(null, s, ...po)
-    return s
-  }
-
-  return { ass, ret, l, p }
 }
 
-export function scopedBlankNode(
-  graph: Graph,
-  id: string = randomString(),
-): BlankNode {
-  const prefix = graph.termType === 'NamedNode' ? graph.value + '#_' : ''
-  return blankNode(`_:${prefix}${id}`)
+const list =
+  (type: Subject) =>
+  (...rest: (Construction | Object)[]): Construction => {
+    const objects: Object[] = []
+    const data: (Triple | Quad)[] = []
+
+    for (const r of rest)
+      if (r instanceof Construction) {
+        objects.push(...r.refs)
+        data.push(...r.data)
+      } else objects.push(r)
+
+    let head: Subject = rdf.nil
+    for (let i = objects.length - 1; i >= 0; i--) {
+      const cell = blank(A, type, rdf.first, objects[i], rdf.rest, head)
+      data.push(...cell.data)
+      head = cell.refs[0]
+    }
+    return new Construction([head], data)
+  }
+
+export function prefixer(iri: string): any {
+  return new Proxy(builderify(namedNode(iri)), {
+    get: getHandler(namedNode, iri),
+  })
+}
+
+const reify =
+  (sign: boolean | null) =>
+  (...ctions: Construction[]): Construction => {
+    const out = new Construction()
+    for (const a of ctions)
+      for (const { subject, predicate, object, graph } of a.data as Quad[]) {
+        const args = [
+          rdf.subject,
+          subject,
+          rdf.predicate,
+          predicate,
+          rdf.object,
+          object,
+        ]
+        if (graph) args.push(fpc.graph, graph)
+        if (sign !== null) args.push(fpc.sign, literal(sign))
+        const type: Object =
+          sign !== null ? fpc.Change : graph ? fpc.Pattern : rdf.Statement
+        const ction = blank(...args, A, type)
+        out.refs.push(...ction.refs)
+        out.data.push(...ction.data)
+      }
+    return out
+  }
+
+function clause(
+  type: Object,
+  head: Construction,
+  body: Construction,
+): Construction {
+  return blank(
+    A,
+    type,
+    fpc.head,
+    builders.and(head),
+    fpc.body,
+    builders.and(body),
+  )
+}
+
+function rule(sub: Builder, ...clauses: Construction[]): Construction {
+  return sub(A, fpc.Rule, fpc.clause, clauses)
+}
+
+const factories: { [k: string]: (s: string) => Term } = {
+  BlankNode: blankNode,
+  Literal: literal,
+  NamedNode: namedNode,
+  Variable: variable,
+}
+
+export function unwrap<T extends Term[] | Term[][]>(...args: T): T {
+  const out = []
+  for (const a of args)
+    if (a instanceof Array) out.push(unwrap(...a))
+    else {
+      const t = a as Term
+      out.push(factories[t.termType](t.value))
+    }
+  return out as T
+}
+
+// variable builder
+const v = new Proxy(
+  {},
+  {
+    get: getHandler(variable, '', {
+      // html builder
+      h:
+        (sub: Builder) =>
+        (type: Subject, ...children: (Object | Construction)[]) =>
+          sub(A, type, html.children, list(rdf.List)(...children)),
+    }),
+  },
+)
+
+export const builders = {
+  g: graph,
+  b: blank,
+  v,
+  l: list(rdf.List),
+  r: reify(null),
+  rem: reify(false),
+  add: reify(true),
+  and: list(fpc.And),
+  or: list(fpc.Or),
+  clause,
+  rule,
 }

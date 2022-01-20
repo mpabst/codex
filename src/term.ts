@@ -25,6 +25,7 @@ export interface Variable extends Term {
   readonly termType: 'Variable'
 }
 
+// FIXME: special char escaping? ig it doesn't matter for dictionary keys
 export function turtle(term: Term): string {
   switch (term.termType) {
     case 'BlankNode':

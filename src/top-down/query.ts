@@ -1,5 +1,5 @@
-import { scopedBlankNode } from '../builders.js'
-import { variable as vari, Prefixers } from '../data-factory.js'
+import { A, Prefixers, builders, unwrap } from '../builders.js'
+import { randomBlankNode } from '../data-factory.js'
 import { DefaultGraph, FlatQuad, NamedNode, Term, Variable } from '../term.js'
 import {
   add,
@@ -20,7 +20,8 @@ import {
   VarMap,
 } from './syntax.js'
 
-const { fps, rdf } = Prefixers
+const { v } = builders
+const { fps } = Prefixers
 
 export type Bindings = Map<Variable, Term>
 
@@ -28,7 +29,7 @@ const rule: Rule = {
   head: {
     type: 'Pattern',
     // head patterns are triples, always in the graph declaring the rule?
-    terms: [vari('person'), rdf('type'), fps('mortal'), fps('test')],
+    terms: unwrap(v.person, A, fps.mortal, fps.test),
     order: 'SPOG',
   },
   body: {
@@ -36,13 +37,13 @@ const rule: Rule = {
     // TODO: use default graph here
     // what does using a default graph do to the type system?
     // I guess we can examine the subscriptions to know its type
-    terms: [vari('person'), rdf('type'), fps('man'), fps('test')],
+    terms: unwrap(v.person, A, fps.man, fps.test),
     order: 'SPOG',
   },
 }
 
 const rules: RuleStore = new Map()
-tupleMap.set(rules, [fps('foo'), fps('mortal')], rule)
+tupleMap.set(rules, unwrap(fps.foo, fps.mortal), rule)
 
 function assertHead(
   graph: NamedNode | DefaultGraph,
@@ -56,10 +57,12 @@ function assertHead(
   function doPattern() {
     const out: Term[] = []
     for (const term of (expr as Pattern).terms) {
+      // TODO: let heads express these as blank nodes, instead
+      // of vars?
       if (term.termType === 'Variable') {
         let bound = bindings.get(term)
         if (!bound) {
-          bound = scopedBlankNode(graph)
+          bound = randomBlankNode()
           bindings.set(term, bound)
         }
         out.push(bound)

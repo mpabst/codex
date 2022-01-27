@@ -145,6 +145,19 @@ export function evaluate(
     function doTwig(): boolean {
       dbNode = dbNode as Twig
       if (value) return dbNode.has(value)
+        // else
+        // fetch unifications for graph term by
+        // evaling query to get other options by examining
+        // rule heads - how to unify w variables in rule heads?
+        // could just evaluate with emit calling choose
+        // iterate through other choices of graph term
+        // (could use same logic for owl:sameAs)
+        // reflexive unification - bind var to query term?
+        //
+        // local memos, then extern EDBs, then extern memos
+        // if memo is empty, call
+        // check all memos before first call? only applicable for
+        // non-variable quad, but sure
       for (const t of dbNode) {
         bindings.set(term as Variable, t)
         choose([...stack])

@@ -23,9 +23,10 @@ console.log(DATA.length)
 const QUERY: Expression = {
   type: 'Conjunction',
   first: {
-    type: 'Call',
+    type: 'Pattern',
     terms: unwrap(v.who, A, fps.mortal, fps.test),
-    varMap: new Map([unwrap(v.who, v.person)]),
+    order: 'SPOG',
+    varMaps: new Map([unwrap(v.who, v.person)])
   },
   rest: null
   

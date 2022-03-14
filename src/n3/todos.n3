@@ -1,0 +1,99 @@
+@base <https://fingerpaint.systems/apps/todo> .
+@prefix : <https://fingerpaint.systems/apps/todo#> .
+@prefix fp: <https://fingerpaint.systems/core#> .
+@prefix html: <https://fingerpaint.systems/core/html#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+# todo app
+# - necessary code
+# - trace through execution
+# - what is executed where and when?
+# - what messages are sent between client and server, and when?
+
+<> fp:import :system, :ui-events, <https://fingerpaint.systems/todo> .
+
+# shapes?
+
+# our business mutation, emits two reified assertions into our
+# data graph; since it's declared as a Mutation we can omit the
+# explicit reification
+:create-todo a fp:Mutation ; fp:out ?label =
+  # don't need to declare mutation target as imported;
+  # allow variable term? require a separate configuration
+  # declaring how to propagate updates therefrom? infer
+  # default config for literal targets...
+  #
+  # I don't think we can always give the bnode a hashed ID
+  # because we might later add to it - it has permanent life
+  # and isn't totally incidental on other data. So, bnodes
+  # produced by mutations should be totally random
+  # though, what would be best is if 
+  <https://fingerpaint.systems/todo> {
+    [ a :Todo ; rdfs:label ?label ]
+  }
+<-
+  :system { fp:tick rdfs:label ?label } .
+
+# Register event handler
+:handle-create-todo
+  a fp:Event-Handler ;
+  fp:element-id "create-todo-button" ;
+  fp:mutator :create-todo .
+
+# event creation just has a JS helper which enqueues a mutation
+# recording the event to :ui-events
+
+:removeTodo a fp:Mutation ; fp:in ?todo =
+  # '?' with nothing after it is a don't-care var
+  <https://fingerpaint.systems/todo> - { ?todo ? ? }
+<-
+  # essentially just a type decl, remove at runtime?
+  ?todo a :Todo .
+  
+:Todo-Item
+  # View really should be something like HTML-Custom-Element
+  # but that's a lot of typing rn
+  a fp:View ;
+  fp:in ?todo ;
+  # auto-prefix tag name by package's preferred RDF prefix? hm
+  fp:tag-name "todo-item" ;
+  # key takes a list of variables we use to ID the generated element;
+  # convert the list elems to turtle, take a hash, that's the bnode's
+  # subject
+  fp:key ( ?todo )
+=
+  li ?label
+<-
+  ?todo a :Todo ; rdfs:label ?label .
+
+:Todo-List
+  a fp:View ;
+  fp:out ?children ;
+  fp:tag-name "todo-list"
+=
+  ul ?children
+<-
+ ?children
+    # Find-All does double duty as the first list element
+    # of the result?
+    a fp:Find-All ;
+    fp:query << ?todo a :Todo-Item >> ;
+    fp:get ?todo .
+
+:Create-Todo-Button
+  a fp:View ;
+  fp:tag-name "create-todo-button"
+=
+  # emit takes a list of events to track
+  button[emit=(click)] "new todo" .
+
+:Todo-App
+  a fp:View ;
+  fp:out ?button, ?list ;
+=
+  div
+    ?button
+    ?list
+<-
+  ?button a :Create-Todo-Button &
+  ?list a :Todo-List .

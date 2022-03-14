@@ -5,10 +5,6 @@ import { FlatQuad, Term, Variable } from '../term'
 
 export type VarMap = Map<Variable, Variable>
 
-interface User {
-  uses: 
-}
-
 // check whether graph term is memo iri to decide whether
 // to skip matching; this mode is interpreter state, not
 // part of the syntax, because a default graph creates

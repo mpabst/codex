@@ -12,6 +12,7 @@ export type VarMap = Map<Variable, Variable>
 export interface Pattern {
   type: 'Pattern'
   terms: FlatQuad
+  // calculate order lazily?
   order: Order
   // tuple order is [memo iri, local var, callee arg]
   // if a memo iri appears in varMap, then we know to

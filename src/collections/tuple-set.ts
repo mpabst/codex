@@ -13,6 +13,25 @@ function butLast<K>(tuple: K[]): K[] {
   return tuple.slice(0, -1)
 }
 
+export function forEach<K>(set: TupleSet<K>, cb: (t: K[]) => void): void {
+  const tuple: K[] = []
+  function inner(node: TupleSet<K> | Set<K>) {
+    if (node instanceof Set)
+      for (const n of node) {
+        tuple.push(n)
+        cb([...tuple])
+        tuple.pop()
+      }
+    else
+      for (const [k, v] of node) {
+        tuple.push(k)
+        inner(v)
+        tuple.pop()
+      }
+  }
+  inner(set)
+}
+
 function last<K>(tuple: K[]): K {
   return tuple[tuple.length - 1]
 }

@@ -4,63 +4,85 @@
 
 <App>
   a fp:Graph ;
-  fp:imports todo:ListView, user:todos .
+  fp:imports todo:ListView, user:todos ;
+  fp:exports
+    fp:LogMessage / fp:pattern ,
+    fp:Error / fp:pattern ,
+  # this is equivalent to using a property path, as above.
+  # maybe let exports be polymorphic and take a shape, and
+  # it goes looking for the pattern, finally falls back to
+  # the default pattern like below
+  <<
+    ?n a fp:HTMLNode .
+    ?n ?p ?o .
+  >> .
 
 [ a fp:Pipe ;
-  fp:source [
-    # this could also be an inline module which imports ListView
-    # and exports just the HTMLNodes, tho in practice ListView
-    # should export only HTMLNodes... or our dest could just
-    # declare its desired type, and the system filters out
-    # everything else
-    a fp:Query ;
-    fp:on todo:ListView ;
-    # using a class here grabs the shape of that class?
-    # maybe we could use prop paths too. 
-    fp:pattern fp:HTMLNode
-  ];
-# I'd love to be able to indicate the target element with
-# a fragment like this... we could say that frags like that
-# refer to the subtree at that node as a graph, if we want
-# subscription targets to always be a graph... this could be
-# one of those things which isn't really a graph but for
-# certain purposes the system treats it like one
-  fp:dest system:DOM#root-node
-# other props:
-#  fp:via [
-#    a fp:NetworkConnection ;
-#    networking config
-].
+  fp:source <App>;
+  fp:dest system:DOM#root-node ].
 
 [ a fp:Pipe ;
-  # the fragment means that logs are a subgraph of App;
-  # it's equivalent to doing your own Query on App with
-  # fp:LogMessage as the pattern, and is how it's defined
   fp:source todo:App#logs ;
-  fp:dest system:stdout
-].
+  fp:dest system:stdout ].
 
 [ a fp:Pipe ;
   fp:source todo:App#errors ;
-  fp:dest system:stderr
-].
+  fp:dest system:stderr ].
 
-# constructed automatically from our data graph's authority decl?
-# how do we know which graphs are getting updated? static analysis
-# on mutations?
+# I don't think this belongs in the session, it's inferred automatically
+# from the meta on user:todos itself. along with every other graph, possibly
+# internal to the import graph, that we need updates on
+# we also need a second session, which manages the server's subscriptions to
+# our updates
 [ a fp:Pipe ;
   fp:source user:todos ;
   fp:dest [
-    # represents a graph as it exists somewhere else
     a fp:Remote ;
     # just use the IRI of the graph itself; can also
     # have an #authority node in the graph meta
-    fp:where user:todos
+    fp:iri user:todos
   ]
   # network opts live alongside dest, not within it, for orthogonality
 ].
+
+# maybe omit the fp:what and even fp:where if they're all the same as fp:dest
+[ a fp:Subscription ;
+  # I had fp:where, but I don't think it's necessary, as a Session represents
+  # a pairing of two nodes, one of which is declared the controller, and all
+  # Subs are assumed to be relative to that controller. maybe use authority of
+  # the Session graph? sure, it fits
+  # though, what about local subs, like the pipes above? ig we need either two types
+  # of subs or two types of endpoint, and i'd rather do the latter, so Remotes it is.
+  # when we send our updates, we write to a resource on the remote representing their
+  # incoming event stream, and the subscription configured there tells the system
+  # what to do with the events
+  fp:source [ a fp:Remote ; fp:what user:todos ] ;
+  fp:sink user:todos ;
+  fp:behavior fp:fast-forward-merge ].
+# if we want to pass opts to fast-forward-merge, we can treat it like a class
+# maybe ditch capitalized class names if we want them to do double duty?
+
+[ a fp:Subscription ;
+  fp:source [ a fp:Remote ; fp:what user:todos ] ;
+  fp:dest user:todos ].
 
 # how do we handle remotes? do we keep it in a separate local module
 # intance, a la git branches? does the remote have its own mirror of
 # our copy? what exactly gets modified and when? should we do without
 # the mirrors?
+# yes to mirrors, a 'write' is really a write to the remote heads graph
+
+# maybe start out with a desired runtime config, incl everything that
+# would be codegenned or inferred
+
+# we probably want to write, from a dev's perspective, a single app
+# description, then add a distribution scheme which designates one
+# node as the authority/server and another as the user/client
+
+# the fact that user:todos is replicated should be hidden, though
+# still accessible, a la Git tracking references.
+
+# what would a distribution scheme look like? how much can be automatically inferred?
+# all we really need to know is that one node is the authority, and thus needs to
+# get updates, and moreover their notion of the current version of a graph is, well,
+# authoritative

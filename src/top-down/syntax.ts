@@ -24,7 +24,7 @@ export interface Pattern {
   // and make that set a choicepoint... i don't think i have
   // a collection which can automatically dedup, constructing
   // sets of sets, but i don't really need one
-  varMaps: TupleSet<Term>
+  // varMaps: TupleSet<Term>
 }
 
 interface Conjunction<T = Expression> {

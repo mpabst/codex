@@ -1,0 +1,66 @@
+# the runtime can locate all sessions without cross-graph
+# queries by flagging things at build time
+<> a fp:Session.
+
+<App>
+  a fp:Graph ;
+  fp:imports todo:ListView, user:todos .
+
+[ a fp:Pipe ;
+  fp:source [
+    # this could also be an inline module which imports ListView
+    # and exports just the HTMLNodes, tho in practice ListView
+    # should export only HTMLNodes... or our dest could just
+    # declare its desired type, and the system filters out
+    # everything else
+    a fp:Query ;
+    fp:on todo:ListView ;
+    # using a class here grabs the shape of that class?
+    # maybe we could use prop paths too. 
+    fp:pattern fp:HTMLNode
+  ];
+# I'd love to be able to indicate the target element with
+# a fragment like this... we could say that frags like that
+# refer to the subtree at that node as a graph, if we want
+# subscription targets to always be a graph... this could be
+# one of those things which isn't really a graph but for
+# certain purposes the system treats it like one
+  fp:dest system:DOM#root-node
+# other props:
+#  fp:via [
+#    a fp:NetworkConnection ;
+#    networking config
+].
+
+[ a fp:Pipe ;
+  # the fragment means that logs are a subgraph of App;
+  # it's equivalent to doing your own Query on App with
+  # fp:LogMessage as the pattern, and is how it's defined
+  fp:source todo:App#logs ;
+  fp:dest system:stdout
+].
+
+[ a fp:Pipe ;
+  fp:source todo:App#errors ;
+  fp:dest system:stderr
+].
+
+# constructed automatically from our data graph's authority decl?
+# how do we know which graphs are getting updated? static analysis
+# on mutations?
+[ a fp:Pipe ;
+  fp:source user:todos ;
+  fp:dest [
+    # represents a graph as it exists somewhere else
+    a fp:Remote ;
+    # just use the IRI of the graph itself; can also
+    # have an #authority node in the graph meta
+    fp:where user:todos
+  ]
+  # network opts live alongside dest, not within it, for orthogonality
+].
+
+# how do we handle remotes? do we keep it in a separate local module
+# intance, a la git branches? does the remote have its own mirror of
+# our copy? what exactly gets modified and when? should we do without
+# the mirrors?

@@ -1,7 +1,7 @@
 import { A, Prefixers, builders, unwrap } from '../../builders.js'
 import { namedNode as nn } from '../../data-factory.js'
 import { FlatQuad } from '../../term.js'
-import { add, store } from '../../collections/store.js'
+import { Store } from '../../collections/store.js'
 import { evaluate } from '../query.js'
 import { Expression } from '../syntax.js'
 
@@ -26,7 +26,7 @@ const QUERY: Expression = {
     type: 'Pattern',
     terms: unwrap(v.who, A, fps.mortal, fps.test),
     order: 'SPOG',
-    varMaps: new Map([unwrap(v.who, v.person)])
+    // varMaps: new Map([unwrap(v.who, v.person)])
   },
   rest: null
   
@@ -53,8 +53,8 @@ const QUERY: Expression = {
 // ]
 
 function buildStore(data: FlatQuad[]) {
-  const out = store()
-  for (const d of data) add(out, d)
+  const out = new Store()
+  for (const d of data) out.add(d)
   return out
 }
 

@@ -2,8 +2,6 @@ import { A, Prefixers, builders, unwrap } from '../builders.js'
 import { randomBlankNode } from '../data-factory.js'
 import { DefaultGraph, FlatQuad, NamedNode, Term, Variable } from '../term.js'
 import {
-  add,
-  store as newStore,
   Branch,
   Twig,
   Node,
@@ -11,7 +9,7 @@ import {
 } from '../collections/store.js'
 import * as tupleMap from '../collections/tuple-map.js'
 import {
-  Call,
+  // Call,
   Head,
   Pattern,
   Rule,
@@ -68,7 +66,7 @@ function assertHead(
         out.push(bound)
       } else out.push(term)
     }
-    add(store, out as FlatQuad)
+    store.add(out as FlatQuad)
   }
 
   while (true) {
@@ -91,7 +89,7 @@ export function evaluate(
   query: Expression,
   emit: (b: Bindings) => void,
   bindings: Bindings = new Map(),
-  heap: Store = newStore(),
+  heap: Store = new Store(),
 ) {
   function choose(
     stack: (Expression | null)[] = [],
@@ -100,41 +98,55 @@ export function evaluate(
   ) {
     let expr: Expression | null, term: Term, value: Term | undefined
 
-    function doCall() {
-      expr = expr as Call
-      // TODO: pick graph according to expr.order?
-      const graph = expr.terms[3] as NamedNode | DefaultGraph
-      const args: Bindings = new Map()
-      const unbound: VarMap = new Map()
-      for (const [caller, callee] of expr.varMap) {
-        const bound = bindings.get(caller)
-        if (!bound) unbound.set(caller, callee)
-        else args.set(callee, bound)
-      }
-      evaluate(
-        db,
-        rule.body,
-        () => {
-          assertHead(graph, rule.head, args, heap)
-          for (const [caller, callee] of unbound)
-            bindings.set(caller, args.get(callee)!)
-          choose([...stack])
-          // TODO: how to test this unbinding? a callee which has a choice?
-          for (const [caller] of unbound) bindings.delete(caller)
-        },
-        args,
-        heap,
-      )
-    }
+    // function doCall() {
+    //   expr = expr as Call
+    //   // TODO: pick graph according to expr.order?
+    //   const graph = expr.terms[3] as NamedNode | DefaultGraph
+    //   const args: Bindings = new Map()
+    //   const unbound: VarMap = new Map()
+    //   for (const [caller, callee] of expr.varMap) {
+    //     const bound = bindings.get(caller)
+    //     if (!bound) unbound.set(caller, callee)
+    //     else args.set(callee, bound)
+    //   }
+    //   evaluate(
+    //     db,
+    //     rule.body,
+    //     () => {
+    //       assertHead(graph, rule.head, args, heap)
+    //       for (const [caller, callee] of unbound)
+    //         bindings.set(caller, args.get(callee)!)
+    //       choose([...stack])
+    //       // TODO: how to test this unbinding? a callee which has a choice?
+    //       for (const [caller] of unbound) bindings.delete(caller)
+    //     },
+    //     args,
+    //     heap,
+    //   )
+    // }
 
     function doPattern(): boolean {
       expr = expr as Pattern
-      if (pIndex === 0) dbNode = db[expr.order]
+      if (pIndex === 0) dbNode = db.getIndex(expr.order)
       for (; pIndex < expr.terms.length; pIndex++) {
         term = expr.terms[pIndex]
         value =
           term.termType === 'Variable' ? bindings.get(term as Variable) : term
-        if (pIndex === expr.terms.length - 1) {
+        if (pIndex === 0) {
+          // graph term
+          // if default graph, loop through options
+          // local EDB: proceed
+          // rule:
+          //   local: we have a tuplemap, rule -> in-var -> value
+          //     choosing over both avail rules and possible choices of in-var,
+          //     the 2nd b/c a pattern might bind to more than one head triple
+          //     Given these choices, we check the memo. If it's complete, we
+          //     bind, remove that call from the pending list we call at the end,
+          //     and continue or fail. Also, we may need to accumulate multiple calls
+          //     to a given rule
+          //     copy bindings returned by call()
+          //   remote: accumulate query fragment somehow
+        } else if (pIndex === expr.terms.length - 1) {
           if (!doTwig()) return false
         } else if (!doBranch()) return false
       }
@@ -191,9 +203,9 @@ export function evaluate(
       }
 
       switch (expr.type) {
-        case 'Call':
-          doCall()
-          return
+        // case 'Call':
+        //   doCall()
+        //   return
         case 'Pattern':
           if (!doPattern()) return
           continue

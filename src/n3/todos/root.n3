@@ -1,0 +1,70 @@
+<> fp:import todos:app .
+
+# declare a rule whose results we fp:forward to system:DOM -
+# how do we specify a root DOM element? ig our forward can have
+# args. what do these args mean in general? what are our forward
+# targets? also, let's phrase it as just another subscription.
+# really i think the subscriber is just something that lives in
+# JS-land and is ctor'd with a ref to the root element. probs
+# done via a webcomponent implementation of a custom tag.
+# 
+# what does a subscription spec look like? ig we just need
+# an IRI for a destination, plus params? so the local DOM
+# listener can have different IRIs per root. just use bnode
+# ID? what if the in-args change? so we want something else,
+# stable across those changes, which could be external to FP
+#
+# for now we just control the entire HTML doc
+
+# subscriber fp:gets data.
+
+# specify a shape (fp:HTMLNode) to get everything that's
+# a part of that shape? ig text nodes aren't naked strings
+# anymore then. do we fetch properties by assuming we want
+# all predicates on matching subjects? what abt list nodes?
+# do shapes have a default selector, let u spec overrides?
+# i kinda like that idea. when default-deleting, if something is
+# 'owned' by another selector, preserve, otherwise delete.
+# override default selector by giving a rule at the IRI of
+# the shape itself.
+
+# there's a related problem: how much do we allow shapes to
+# constrain, or be constrained by, other data? really if we're
+# time-independent, then it's a bidirectional relationship, the
+# constraint is its own thing, relating two entities.
+# ig if the authority is the same, we can do whatever we want,
+# so default selectors will *typically* but not always be the set
+# of data which gets used in the constraint query.
+# big exception: open shapes. so, no constraints on add'l P-Os...
+# if we make the default closed then we can use the presence of
+# that specification to hint the default selector... and I think
+# that's fine? because we can still get composition because a subj
+# can have multiple shapes, and each property is declared by at
+# least one.
+
+# tho, if we have predicates that can apply to anything, then
+# closed shapes get in the way of that.
+
+# so, let's override the default selector for HTMLNode. declaring
+# one ourselves at all overrides the whole thing, but we can still
+# refer to what the default would be, and bind it as a clause, so
+# we don't have to restate everything.
+
+# also if this is HTML then we should restrict the type of property
+# values to strings, so they'll show up in the shape constraints...
+# what constraints do we have on prop predicates? how do we map them
+# to custom element props? can we just use XML ns's? if not we can
+# just add some facility for mapping to/from short names
+
+# we still need the children, too, and I
+# could use the HTMLElements themselves as list nodes... is there
+# any reason why not?
+<system:dom> fp:gets fp:HTMLNode .
+# 'gets the current graph'
+<system:stdout> fp:gets <> .
+
+<<
+  ?n a DomNode
+  & ?n ?p ?o
+  & ?n fp:first
+>>

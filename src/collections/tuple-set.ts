@@ -5,7 +5,7 @@ export type TupleSet<K> = Tree<K, Set<K>>
 
 export function add<K>(set: TupleSet<K>, tuple: K[]): void {
   fillTwig(set, butLast(tuple), (b, k) =>
-    defaulting.get(b, k, () => new Set())
+    defaulting.get(b, k, () => new Set()),
   ).add(last(tuple))
 }
 

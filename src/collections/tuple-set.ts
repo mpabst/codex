@@ -1,5 +1,5 @@
 import * as defaulting from './defaulting.js'
-import { Tree, fillTwig, prune } from './tree.js'
+import {Tree, fillTwig, prune} from './tree.js'
 
 export type TupleSet<K> = Tree<K, Set<K>>
 

@@ -1,16 +1,16 @@
-import { A, Prefixers, builders, unwrap } from '../../builders.js'
-import { namedNode as nn } from '../../data-factory.js'
-import { FlatQuad } from '../../term.js'
-import { Store } from '../../collections/store.js'
-import { evaluate } from '../query.js'
-import { Expression } from '../syntax.js'
+import {A, Prefixers, builders, unwrap} from '../../builders.js'
+import {namedNode as nn} from '../../data-factory.js'
+import {FlatQuad} from '../../term.js'
+import {Store} from '../../collections/store.js'
+import {evaluate} from '../query.js'
+import {Expression} from '../syntax.js'
 
-const { expect: x } = chai
-const { fps } = Prefixers
-const { v } = builders
+const {expect: x} = chai
+const {fps} = Prefixers
+const {v} = builders
 
 const DATA: FlatQuad[] = [
-  unwrap(fps.socrates, A, fps.man, fps.test)
+  unwrap(fps.socrates, A, fps.man, fps.test),
   // [nn(':a'), nn(':foo'), nn(':b'), nn(':test')],
   // [nn(':b'), nn(':foo'), nn(':c'), nn(':test')],
 ]
@@ -28,8 +28,8 @@ const QUERY: Expression = {
     order: 'SPOG',
     // varMaps: new Map([unwrap(v.who, v.person)])
   },
-  rest: null
-  
+  rest: null,
+
   // {
   //   type: 'Pattern',
   //   pattern: [vari('y'), nn(':foo'), vari('z'), nn(':test')],
@@ -38,18 +38,18 @@ const QUERY: Expression = {
 }
 
 // and: [
-  // ,
-  // [vari('y'), nn(':foo'), vari('z'), nn(':test')]
+// ,
+// [vari('y'), nn(':foo'), vari('z'), nn(':test')]
 // ],
 // or: [
-  // {
-  //   and: [[vari('y'), nn(':foo'), nn(':fail'), nn(':test')]],
-  //   or: []
-  // },
-  // {
-  //   and: [[vari('y'), nn(':foo'), vari('z'), nn(':test')]],
-  //   or: []
-  // }
+// {
+//   and: [[vari('y'), nn(':foo'), nn(':fail'), nn(':test')]],
+//   or: []
+// },
+// {
+//   and: [[vari('y'), nn(':foo'), vari('z'), nn(':test')]],
+//   or: []
+// }
 // ]
 
 function buildStore(data: FlatQuad[]) {

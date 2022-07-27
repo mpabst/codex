@@ -5,14 +5,14 @@ export type Tree<K, V> = Map<K, V | Tree<K, V>>
 export function fillTwig<K, V, M>(
   tree: Tree<K, V>,
   key: Iterable<K>,
-  doer: (t: Map<K, V>, k: K) => M
+  doer: (t: Map<K, V>, k: K) => M,
 ): M {
   return twigBase(tree, key, doer, true)!
 }
 
 export function get<K, V>(
   tree: Tree<K, V>,
-  key: Iterable<K>
+  key: Iterable<K>,
 ): V | Tree<K, V> | undefined {
   const [first, ...rest] = key
   if (!tree.has(first)) return
@@ -26,7 +26,7 @@ export function get<K, V>(
 export function prune<K, V>(
   tree: Tree<K, V> | undefined,
   key: Iterable<K>,
-  pruneLeaf: (l: V) => boolean
+  pruneLeaf: (l: V) => boolean,
 ): boolean {
   if (!tree) return true
   const [first, ...rest] = key
@@ -49,7 +49,7 @@ function twigBase<K, V, M>(
   tree: Tree<K, V>,
   key: Iterable<K>,
   doer: (t: Map<K, V>, k: K) => M,
-  fill: boolean
+  fill: boolean,
 ): M | undefined {
   const [first, ...rest] = key
   if (rest.length === 0) return doer(tree as Map<K, V>, first)

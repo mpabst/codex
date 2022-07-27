@@ -1,12 +1,7 @@
-import { A, Prefixers, builders, unwrap } from '../builders.js'
-import { randomBlankNode } from '../data-factory.js'
-import { DefaultGraph, FlatQuad, NamedNode, Term, Variable } from '../term.js'
-import {
-  Branch,
-  Twig,
-  Node,
-  Store,
-} from '../collections/store.js'
+import {A, Prefixers, builders, unwrap} from '../builders.js'
+import {randomBlankNode} from '../data-factory.js'
+import {DefaultGraph, FlatQuad, NamedNode, Term, Variable} from '../term.js'
+import {Branch, Twig, Node, Store} from '../collections/store.js'
 import * as tupleMap from '../collections/tuple-map.js'
 import {
   // Call,
@@ -18,8 +13,8 @@ import {
   VarMap,
 } from './syntax.js'
 
-const { v } = builders
-const { fps } = Prefixers
+const {v} = builders
+const {fps} = Prefixers
 
 export type Bindings = Map<Variable, Term>
 
@@ -157,19 +152,19 @@ export function evaluate(
     function doTwig(): boolean {
       dbNode = dbNode as Twig
       if (value) return dbNode.has(value)
-        // else
-        // fetch unifications for graph term by
-        // evaling query to get other options by examining
-        // rule heads - how to unify w variables in rule heads?
-        // could just evaluate with emit calling choose
-        // iterate through other choices of graph term
-        // (could use same logic for owl:sameAs)
-        // reflexive unification - bind var to query term?
-        //
-        // local memos, then extern EDBs, then extern memos
-        // if memo is empty, call
-        // check all memos before first call? only applicable for
-        // non-variable quad, but sure
+      // else
+      // fetch unifications for graph term by
+      // evaling query to get other options by examining
+      // rule heads - how to unify w variables in rule heads?
+      // could just evaluate with emit calling choose
+      // iterate through other choices of graph term
+      // (could use same logic for owl:sameAs)
+      // reflexive unification - bind var to query term?
+      //
+      // local memos, then extern EDBs, then extern memos
+      // if memo is empty, call
+      // check all memos before first call? only applicable for
+      // non-variable quad, but sure
       for (const t of dbNode) {
         bindings.set(term as Variable, t)
         choose([...stack])

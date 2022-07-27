@@ -1,7 +1,7 @@
-import { Store } from './collections/store.js'
-import { TupleSet, forEach } from './collections/tuple-set.js'
-import { randomBlankNode } from './data-factory.js'
-import { BlankNode, Subject, Term } from './term.js'
+import {Store} from './collections/store.js'
+import {TupleSet, forEach} from './collections/tuple-set.js'
+import {randomBlankNode} from './data-factory.js'
+import {BlankNode, Subject, Term} from './term.js'
 
 // maybe don't implement Pushee, because we expect a different
 // type? or maybe make all Pushees expect a type?
@@ -26,12 +26,14 @@ export class Interpreter {
   }
 }
 
-enum Status { Empty, Partial, Complete }
+enum Status {
+  Empty,
+  Partial,
+  Complete,
+}
 
 class Result {
-  constructor(public readonly staus: Status, ) {
-
-  }
+  constructor(public readonly staus: Status) {}
 }
 
 interface Pullee {
@@ -59,8 +61,8 @@ class Context {
   constructor(
     protected readonly system: Interpreter,
     readonly source: Subject,
-    // TODO: arguments
-  ) {
+  ) // TODO: arguments
+  {
     this.store = system.store
     this.build()
     system.contexts.set(this.name, this)
@@ -73,9 +75,7 @@ class Context {
     // ctor Rules
   }
 
-  eval() {
-
-  }
+  eval() {}
 
   remove() {
     this.system.contexts.delete(this.name)

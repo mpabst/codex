@@ -1,5 +1,5 @@
 import * as tupleSet from './tuple-set.js'
-import { FlatQuad, Term } from '../term.js'
+import {FlatQuad, Term} from '../term.js'
 
 export type Branch = tupleSet.TupleSet<Term>
 export type Twig = Set<Term>
@@ -25,7 +25,7 @@ export class Store {
   static indexOrder(pattern: FlatQuad): Order {
     let litPlaces = ''
     let varPlaces = ''
-  
+
     Store.TRIPLE_PLACES.forEach((p, i) => {
       // graph term is at the end, so this loop will never hit it
       const t = pattern[i]
@@ -36,9 +36,9 @@ export class Store {
     // so let's just not worry about it for now.
     return litPlaces + varPlaces + 'G'
   }
-  
+
   static reorder(order: Order, data: FlatQuad): FlatQuad {
-    return order.split('').map(o => data[Store.PLACES.indexOf(o)]) as FlatQuad
+    return order.split('').map((o) => data[Store.PLACES.indexOf(o)]) as FlatQuad
   }
 
   private readonly data: Data = {}
@@ -46,14 +46,14 @@ export class Store {
   constructor() {
     for (const o of Store.ORDERS) this.data[o] = new Map()
   }
-  
+
   add(quad: FlatQuad): void {
     // if (quad.some(t => t.termType === 'Variable'))
     //   throw new TypeError("Can't add variables")
     for (const [order, index] of Object.entries(this))
       tupleSet.add(index, Store.reorder(order, quad))
   }
-  
+
   getIndex(order: Order): Branch {
     return this.data[order]
   }

@@ -17,16 +17,16 @@ export function map<T, M>(iter: Iterable<T>, fn: (t: T) => M): M[] {
 }
 
 export function permute<T>(choose: number, from: Iterable<T>): T[][] {
-  if (choose === 1) return map(from, f => [f])
+  if (choose === 1) return map(from, (f) => [f])
   return concat(
-    map(from, f =>
+    map(from, (f) =>
       map(
         permute(
           choose - 1,
-          filter(from, g => g !== f)
+          filter(from, (g) => g !== f),
         ),
-        p => concat([[f], p])
-      )
-    )
+        (p) => concat([[f], p]),
+      ),
+    ),
   )
 }

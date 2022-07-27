@@ -5,15 +5,7 @@ import {
   randomBlankNode,
   variable,
 } from './data-factory.js'
-import {
-  Graph,
-  Object,
-  Predicate,
-  Subject,
-  Triple,
-  Quad,
-  Term,
-} from './term.js'
+import {Graph, Object, Predicate, Subject, Triple, Quad, Term} from './term.js'
 
 type OrAry<T> = T | T[]
 
@@ -28,13 +20,11 @@ class Construction {
   ) {}
 
   unwrap(): Term[][] {
-    return (this.data as Quad[]).map(
-      ({ subject, predicate, object, graph }) => {
-        const args: Term[] = [subject, predicate, object]
-        if (graph) args.push(graph)
-        return unwrap(...args)
-      },
-    )
+    return (this.data as Quad[]).map(({subject, predicate, object, graph}) => {
+      const args: Term[] = [subject, predicate, object]
+      if (graph) args.push(graph)
+      return unwrap(...args)
+    })
   }
 }
 
@@ -50,11 +40,11 @@ const PREFIXES = Object.freeze({
 })
 
 export const Prefixers = Object.entries(PREFIXES).reduce(
-  (o, [name, head]) => ({ ...o, [name]: prefixer(head) }),
-  {} as { [n: string]: any },
+  (o, [name, head]) => ({...o, [name]: prefixer(head)}),
+  {} as {[n: string]: any},
 )
 
-const { rdf, fpc, html } = Prefixers
+const {rdf, fpc, html} = Prefixers
 
 export const A = rdf.type
 
@@ -68,12 +58,11 @@ function build(subject: Subject, ...rest: BuilderArgs[]): Construction {
 
   function push(predicate: Predicate, arg: OrAry<Construction | Object>) {
     if (arg instanceof Construction) {
-      for (const object of arg.refs)
-        out.data.push({ subject, predicate, object })
+      for (const object of arg.refs) out.data.push({subject, predicate, object})
       out.data.push(...arg.data)
     } else if (arg instanceof Array)
       for (const object of arg) push(predicate, object)
-    else out.data.push({ subject, predicate, object: arg as Object })
+    else out.data.push({subject, predicate, object: arg as Object})
   }
 
   const out = new Construction([subject])
@@ -84,8 +73,8 @@ function build(subject: Subject, ...rest: BuilderArgs[]): Construction {
 
 function graph(name: Graph, ...rest: Construction[]): Construction {
   const out = new Construction()
-  for (const { data } of rest)
-    for (const { subject, predicate, object, graph } of data as Quad[])
+  for (const {data} of rest)
+    for (const {subject, predicate, object, graph} of data as Quad[])
       out.data.push({
         subject,
         predicate,
@@ -102,10 +91,10 @@ function builderify(sub: Subject) {
 function getHandler(
   dataFactory: (s: string) => Subject,
   iri: string,
-  extras: { [k: string]: (b: Builder) => any } = {},
+  extras: {[k: string]: (b: Builder) => any} = {},
 ) {
   return (_: any, prop: string) => {
-    const builder: { (...a: BuilderArgs[]): Construction; [k: string]: any } =
+    const builder: {(...a: BuilderArgs[]): Construction; [k: string]: any} =
       builderify(dataFactory(iri + prop))
     for (const [k, v] of Object.entries(extras)) builder[k] = v(builder)
     return builder
@@ -144,7 +133,7 @@ const reify =
   (...ctions: Construction[]): Construction => {
     const out = new Construction()
     for (const a of ctions)
-      for (const { subject, predicate, object, graph } of a.data as Quad[]) {
+      for (const {subject, predicate, object, graph} of a.data as Quad[]) {
         const args = [
           rdf.subject,
           subject,
@@ -183,7 +172,7 @@ function rule(sub: Builder, ...clauses: Construction[]): Construction {
   return sub(A, fpc.Rule, fpc.clause, clauses)
 }
 
-const factories: { [k: string]: (s: string) => Term } = {
+const factories: {[k: string]: (s: string) => Term} = {
   BlankNode: blankNode,
   Literal: literal,
   NamedNode: namedNode,

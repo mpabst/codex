@@ -1,7 +1,7 @@
-import { Order } from '../collections/store'
-import { TupleMap } from '../collections/tuple-map'
-import { TupleSet } from '../collections/tuple-set'
-import { FlatQuad, Term, Variable } from '../term'
+import {Order} from '../collections/store'
+import {TupleMap} from '../collections/tuple-map'
+import {TupleSet} from '../collections/tuple-set'
+import {FlatQuad, Term, Variable} from '../term'
 
 export type VarMap = Map<Variable, Variable>
 

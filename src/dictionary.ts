@@ -1,4 +1,4 @@
-import { Term, turtle, FlatTriple, FlatQuad, DEFAULT_GRAPH } from './term.js'
+import {Term, turtle, FlatTriple, FlatQuad, DEFAULT_GRAPH} from './term.js'
 
 abstract class Dictionary<T> {
   protected readonly data = new Map<string, T>()

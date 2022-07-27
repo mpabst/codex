@@ -47,7 +47,7 @@ export function turtle(term: Term): string {
 
 export const DEFAULT_GRAPH: DefaultGraph = {
   termType: 'DefaultGraph',
-  value: ''
+  value: '',
 }
 
 export type Subject = NamedNode | BlankNode | Variable
@@ -72,14 +72,23 @@ export interface Quad {
 
 export type FlatQuad = [Subject, Predicate, Object, Graph]
 
-export enum TriplePlace { Subject, Predicate, Object }
+export enum TriplePlace {
+  Subject,
+  Predicate,
+  Object,
+}
 
-export enum QuadPlace { Subject, Predicate, Object, Graph }
+export enum QuadPlace {
+  Subject,
+  Predicate,
+  Object,
+  Graph,
+}
 
 export type Version = number
 
 export type Patch<D> = {
-  readonly version?: Version,
-  readonly additions: D[],
-  readonly removals: D[] 
+  readonly version?: Version
+  readonly additions: D[]
+  readonly removals: D[]
 }

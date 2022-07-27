@@ -1,4 +1,4 @@
-import { clearDictionary } from '../data-factory.js'
+import {clearDictionary} from '../data-factory.js'
 
 beforeEach(clearDictionary)
 

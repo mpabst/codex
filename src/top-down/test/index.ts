@@ -2,7 +2,7 @@ import {A, Prefixers, builders, unwrap} from '../../builders.js'
 import {namedNode as nn} from '../../data-factory.js'
 import {FlatQuad} from '../../term.js'
 import {Store} from '../../collections/store.js'
-import {evaluate} from '../query.js'
+import {query} from '../query.js'
 import {Expression} from '../syntax.js'
 
 const {expect: x} = chai
@@ -61,7 +61,7 @@ function buildStore(data: FlatQuad[]) {
 describe('query()', () => {
   it('evaluate', () => {
     let count = 0
-    evaluate(buildStore(DATA), QUERY, console.log)
+    query(buildStore(DATA), QUERY, console.log)
     console.log(count)
   })
 })

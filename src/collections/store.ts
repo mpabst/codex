@@ -12,10 +12,9 @@ interface Data {
 }
 
 export class Store {
-  static TRIPLE_PLACES = 'SPO'.split('')
-  static PLACES = [...Store.TRIPLE_PLACES, 'G']
+  static PLACES = 'SPO'.split('')
   static ORDERS = [
-    'SPOG',
+    'SPO',
     // ...permute(3, TRIPLE_PLACES).map(o => o.join('') + 'G'),
     // GSPO index is only for the sake of whole graph operations; see comment in
     // #match()
@@ -26,15 +25,13 @@ export class Store {
     let litPlaces = ''
     let varPlaces = ''
 
-    Store.TRIPLE_PLACES.forEach((p, i) => {
+    Store.PLACES.forEach((p, i) => {
       // graph term is at the end, so this loop will never hit it
       const t = pattern[i]
       t.termType === 'Variable' ? (varPlaces += p) : (litPlaces += p)
     })
-    // TODO: We can only use the GSPO index if the graph term is a base - rather
-    // than virtual - graph (and we have the right selection of variable terms)
-    // so let's just not worry about it for now.
-    return litPlaces + varPlaces + 'G'
+
+    return litPlaces + varPlaces
   }
 
   static reorder(order: Order, data: FlatQuad): FlatQuad {

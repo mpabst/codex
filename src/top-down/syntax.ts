@@ -1,9 +1,6 @@
-import {Order} from '../collections/store'
+import {Order, Store} from '../collections/store'
 import {TupleMap} from '../collections/tuple-map'
-import {TupleSet} from '../collections/tuple-set'
 import {FlatQuad, Term, Variable} from '../term'
-
-export type VarMap = Map<Variable, Variable>
 
 // check whether graph term is memo iri to decide whether
 // to skip matching; this mode is interpreter state, not
@@ -12,19 +9,9 @@ export type VarMap = Map<Variable, Variable>
 export interface Pattern {
   type: 'Pattern'
   terms: FlatQuad
-  // calculate order lazily?
   order: Order
-  // tuple order is [memo iri, local var, callee arg]
-  // if a memo iri appears in varMap, then we know to
-  // make that call once we finish this pattern
-  // Q: multiple calls to the same rule via different
-  // var mappings? i think this is possible, though
-  // we can avoid it by duplicating quads in the syntax
-  // tree... still, we could make it map<memo iri -> set<varmap>>
-  // and make that set a choicepoint... i don't think i have
-  // a collection which can automatically dedup, constructing
-  // sets of sets, but i don't really need one
-  // varMaps: TupleSet<Term>
+  source: Rule | Store
+  varMap: Map<Variable, Term> // callee -> caller
 }
 
 interface Conjunction<T = Expression> {

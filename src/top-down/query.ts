@@ -1,10 +1,53 @@
-import {Branch, Node, Twig} from '../collections/store.js'
+import {Branch, Node, Store, Twig} from '../collections/store.js'
 import {Rule} from '../rule.js'
 import {RootIndex} from '../system.js'
-import {Term, Variable} from '../term.js'
+import {BlankNode, NamedNode, Term, Variable} from '../term.js'
 import {Expression, Pattern} from './syntax.js'
 
 export type Bindings = Map<Variable, Term>
+
+class Call {
+  varMap: any
+}
+
+class Lookup {
+  constructor(public context: Store, public pattern: Pattern) {}
+}
+
+class Option {
+  public first: Query
+  public rest: Query
+  constructor()
+}
+
+export class Query {
+  public plan: (Pattern | Call)[] = []
+
+  constructor(public rootIndex: RootIndex, public source: Expression) {
+    this.planExpr(source)
+  }
+
+  private planExpr(expr: Expression | null): void {
+    if (!expr) return
+    switch (expr.type) {
+      case 'Pattern':
+        const context = this.rootIndex.get(expr.terms[0] as NamedNode | BlankNode)
+        if (context instanceof Store) this.plan.push(expr)
+        else {
+
+        }
+        break
+      case 'Conjunction':
+        this.planExpr(expr.first)
+        this.planExpr(expr.rest)
+        break
+      case 'Disjunction':
+
+      case 'Negation':
+        this.planExpr()
+    }
+  }
+}
 
 export function query(
   rootIndex: RootIndex,

@@ -1,0 +1,13 @@
+<>
+  fp:imports todo:ListView, user:todos ;
+  fp:exports
+    fp:LogMessage / fp:pattern ,
+    fp:Error / fp:pattern ,
+  # this is equivalent to using a property path, as above.
+  # maybe let exports be polymorphic and take a shape, and
+  # it goes looking for the pattern, finally falls back to
+  # the default pattern like below
+  <<
+    ?n a fp:HTMLNode .
+    ?n ?p ?o .
+  >> .

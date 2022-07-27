@@ -2,23 +2,10 @@
 # queries by flagging things at build time
 <> a fp:Session.
 
-<App>
-  a fp:Graph ;
-  fp:imports todo:ListView, user:todos ;
-  fp:exports
-    fp:LogMessage / fp:pattern ,
-    fp:Error / fp:pattern ,
-  # this is equivalent to using a property path, as above.
-  # maybe let exports be polymorphic and take a shape, and
-  # it goes looking for the pattern, finally falls back to
-  # the default pattern like below
-  <<
-    ?n a fp:HTMLNode .
-    ?n ?p ?o .
-  >> .
-
 [ a fp:Pipe ;
   fp:source <App>;
+  # Define fragment as being a graph which is the subgraph rooted at that node?
+  # Do with macros? If we're GUIfying then maybe just a Pipe param would be fine
   fp:dest system:DOM#root-node ].
 
 [ a fp:Pipe ;
@@ -29,11 +16,11 @@
   fp:source todo:App#errors ;
   fp:dest system:stderr ].
 
-# I don't think this belongs in the session, it's inferred automatically
-# from the meta on user:todos itself. along with every other graph, possibly
-# internal to the import graph, that we need updates on
-# we also need a second session, which manages the server's subscriptions to
-# our updates
+# I don't think this needs to be explicitly declared in the session, it's
+# inferred automatically from the meta on user:todos itself. along with every
+# other graph, possibly internal to the import graph, that we need updates on we
+# also need a second session, which manages the server's subscriptions to our
+# updates
 [ a fp:Pipe ;
   fp:source user:todos ;
   fp:dest [

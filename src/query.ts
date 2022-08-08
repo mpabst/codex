@@ -15,6 +15,7 @@ class ChoicePoint {
   constructor(
     public instructionPtr: number,
     public clause: Clause | null,
+    public dbNode: Node | null,
     public iterator: Iterator<Term> | null,
   ) {}
 }
@@ -49,6 +50,7 @@ export class Query {
     const choicePoint = this.stack[length - 1]
     this.instructionPtr = choicePoint.instructionPtr
     this.clause = choicePoint.clause
+    this.dbNode = choicePoint.dbNode
     this.fail = false
     return true
   }
@@ -85,6 +87,7 @@ function newVariable(advanceNode: (q: Query, t: Term) => void): Operation {
       choicePoint = new ChoicePoint(
         query.instructionPtr,
         query.clause,
+        query.dbNode,
         query.dbNode!.keys(),
       )
       query.stack.push(choicePoint)

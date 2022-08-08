@@ -28,6 +28,6 @@
     "@types/mocha": "^9.0.0"
   },
   "dependencies": {
-    "n3": "^1.12.1"
+    "tslib": "^2.4.0"
   }
 }

@@ -70,7 +70,7 @@ export interface Quad {
   readonly graph: Graph
 }
 
-export type FlatQuad = [Subject, Predicate, Object, Graph]
+export type FlatQuad = [Graph, Subject, Predicate, Object]
 
 export enum TriplePlace {
   Subject,

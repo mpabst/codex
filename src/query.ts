@@ -1,14 +1,15 @@
 import { Clause } from './clause.js'
 import { Branch, Index, Node, Twig } from './collections/index.js'
-import { Context, Key, Store } from './store.js'
-import { Expression, Pattern, traverse } from './syntax.js'
+import { compile } from './compile.js'
+import { Context, Store } from './store.js'
+import { Expression } from './syntax.js'
 import { Term, Variable } from './term.js'
-import { Bindings } from './top-down/query.js'
 
+export type Bindings = Map<Variable, Term>
 type Argument = Term | Context | null
 type Operation = (m: Query, t: Argument) => void
 type Instruction = [Operation, Argument]
-type Program = Instruction[]
+export type Program = Instruction[]
 
 class ChoicePoint {
   constructor(
@@ -18,13 +19,16 @@ class ChoicePoint {
   ) {}
 }
 
-class Query {
+export class Query {
   program: Program
   instructionPtr: number = 0
 
   dbNode: Node | null = null
+  // instead of failing, just jump to whatever's on top of the stack?
+  // maybe negation will get messy, idk. better read the WAM book
   fail: boolean = false
 
+  bindings: Bindings = new Map()
   stack: ChoicePoint[] = []
   seenVars = new Set<Variable>()
 
@@ -33,12 +37,8 @@ class Query {
 
   emit: ((b: Bindings) => void) | null = null
 
-  constructor(
-    public hub: Store,
-    source: Expression,
-    public bindings: Bindings = new Map(),
-  ) {
-    const [program, variables] = compile(hub, source)
+  constructor(public store: Store, source: Expression) {
+    const [program, variables] = compile(store, source)
     this.program = program
     for (const v of variables) this.bindings.set(v, v)
   }
@@ -49,6 +49,7 @@ class Query {
     const choicePoint = this.stack[length - 1]
     this.instructionPtr = choicePoint.instructionPtr
     this.clause = choicePoint.clause
+    this.fail = false
     return true
   }
 
@@ -61,31 +62,21 @@ class Query {
     return found
   }
 
-  run(emit: (b: Bindings) => void = console.log): void {
+  evaluate(emit: (b: Bindings) => void = console.log, bindings: Bindings = new Map()): void {
     this.emit = emit
+    for (const [k, v] of bindings) this.bindings.set(k, v)
     while (true) {
       const instruction = this.program[this.instructionPtr]
       instruction[0](this, instruction[1])
       if (this.fail && !this.backtrack()) break
     }
+    for (const k of bindings.keys()) this.bindings.set(k, k)
     this.emit = null
   }
 }
 
-const operations: { [k: string]: Operation } = {
-  // make stored argument the Index, not the Term?
-  setClause(query: Query, clause: Argument): void {
-    query.clause = clause as Clause
-    query.dbNode = (clause as Clause).head.getIndex('GSPO')
-    query.instructionPtr++
-  },
-
-  setIndex(query: Query, index: Argument): void {
-    query.dbNode = (index as Index).getIndex('GSPO')
-    query.instructionPtr++
-  },
-
-  newVariable(query: Query, term: Argument) {
+function newVariable(advanceNode: (q: Query, t: Term) => void): Operation {
+  return function(query: Query, term: Argument) {
     let choicePoint: ChoicePoint
 
     if (query.seenVars.has(term as Variable)) {
@@ -107,8 +98,22 @@ const operations: { [k: string]: Operation } = {
       query.fail = true
     } else {
       query.bindings.set(term as Variable, result.value)
+      advanceNode(query, result.value)
       query.instructionPtr++
     }
+  }
+}
+
+export const operations: { [k: string]: Operation } = {
+  setClause(query: Query, clause: Argument): void {
+    query.clause = clause as Clause
+    query.dbNode = (clause as Clause).head.getOrder('SPO')
+    query.instructionPtr++
+  },
+
+  setIndex(query: Query, index: Argument): void {
+    query.dbNode = (index as Index).getOrder('SPO')
+    query.instructionPtr++
   },
 
   medialConstant(query: Query, term: Argument): void {
@@ -119,6 +124,8 @@ const operations: { [k: string]: Operation } = {
     } else query.fail = true
   },
 
+  medialNewVariable: newVariable((q: Query, t: Term) => q.dbNode = (q.dbNode as Branch).get(t)!),
+
   medialOldVariable(query: Query, term: Argument): void {
     operations.medialConstant(query, query.deref(term as Variable))
   },
@@ -127,6 +134,8 @@ const operations: { [k: string]: Operation } = {
     if ((query.dbNode as Twig).has(term as Term)) query.instructionPtr++
     else query.fail = true
   },
+
+  finalNewVariable: newVariable((q: Query, t: Term) => q.dbNode = null),
 
   finalOldVariable(query: Query, term: Argument): void {
     operations.finalConstant(query, query.deref(term as Variable))
@@ -139,49 +148,6 @@ const operations: { [k: string]: Operation } = {
 
   emitResult(query: Query, term: Argument): void {
     query.emit!(new Map(query.bindings))
+    query.fail = !query.backtrack()
   },
-}
-
-function compile(store: Store, query: Expression): [Program, Set<Variable>] {
-  const program: Program = []
-  const variables = new Set<Variable>()
-  let lastContext: Context | null = null
-
-  function pattern(expr: Pattern): void {
-    // assume GSPO
-    const context = store.get(expr.terms[0] as Key)!
-
-    if (lastContext && context !== lastContext) {
-      program.push([operations.call, null])
-      lastContext = context
-    }
-
-    if (context instanceof Clause)
-      // program.push([operations.setClause, context])
-      throw new Error('todo: calls')
-    else program.push([operations.setIndex, context])
-
-    expr.terms.slice(1).forEach((term, i) => {
-      let op: string
-      if (term.termType === 'Variable')
-        if (variables.has(term)) op = 'OldVariable'
-        else {
-          op = 'newVariable'
-          variables.add(term)
-        }
-      else op = 'Constant'
-
-      if (op !== 'newVariable')
-        op = (i === expr.terms.length - 1 ? 'final' : 'medial') + op
-
-      program.push([operations[op], term])
-    })
-  }
-
-  traverse(query, { pattern })
-
-  if (lastContext! instanceof Clause) program.push([operations.call, null])
-  program.push([operations.emitResult, null])
-
-  return [program, variables]
 }

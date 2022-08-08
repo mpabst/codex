@@ -6,11 +6,11 @@ import { Term, Variable } from './term.js'
 import { Bindings } from './top-down/query.js'
 
 type Argument = Term | Context | null
-type Operation = (m: Machine, t: Argument) => void
+type Operation = (m: Query, t: Argument) => void
 type Instruction = [Operation, Argument]
 type Program = Instruction[]
 
-class Machine {
+class Query {
   program: Program
   bindings: Bindings = new Map()
   instructionPtr: number = 0
@@ -19,8 +19,8 @@ class Machine {
   dbNode: Node | null = null
   fail: boolean = false
 
-  constructor(public hub: Store, query: Expression) {
-    const [program, variables] = compile(hub, query)
+  constructor(public hub: Store, source: Expression) {
+    const [program, variables] = compile(hub, source)
     this.program = program
     for (const v of variables) this.bindings.set(v, v)
   }
@@ -46,50 +46,50 @@ class Machine {
 
 const operations: { [k: string]: Operation } = {
   // make stored argument the Index, not the Term?
-  setClause(machine: Machine, clause: Argument): void {
-    machine.clause = clause as Clause
-    machine.dbNode = machine.clause.head.getIndex('GSPO')
-    machine.instructionPtr++
+  setClause(query: Query, clause: Argument): void {
+    query.clause = clause as Clause
+    query.dbNode = query.clause.head.getIndex('GSPO')
+    query.instructionPtr++
   },
 
-  setIndex(machine: Machine, index: Argument): void {
-    machine.dbNode = (index as Index).getIndex('GSPO')
-    machine.instructionPtr++
+  setIndex(query: Query, index: Argument): void {
+    query.dbNode = (index as Index).getIndex('GSPO')
+    query.instructionPtr++
   },
 
-  medialConstant(machine: Machine, term: Argument): void {
-    const found = (machine.dbNode as Branch).get(term as Term)
-    if (!found) machine.fail = true
-    else machine.dbNode = found
+  medialConstant(query: Query, term: Argument): void {
+    const found = (query.dbNode as Branch).get(term as Term)
+    if (!found) query.fail = true
+    else query.dbNode = found
 
     // if (found.termType === 'Variable')
 
-    machine.instructionPtr++
+    query.instructionPtr++
   },
 
-  medialNewVariable(machine: Machine, term: Argument): void {
+  medialNewVariable(query: Query, term: Argument): void {
 
   },
 
-  medialOldVariable(machine: Machine, term: Argument): void {},
+  medialOldVariable(query: Query, term: Argument): void {},
 
-  finalConstant(machine: Machine, term: Argument): void {
-    machine.fail = !(machine.dbNode as Twig).has(term as Term)
+  finalConstant(query: Query, term: Argument): void {
+    query.fail = !(query.dbNode as Twig).has(term as Term)
 
     // if (found.termType === 'Variable')
 
-    machine.instructionPtr++
+    query.instructionPtr++
   },
 
-  finalNewVariable(machine: Machine, term: Argument): void {
+  finalNewVariable(query: Query, term: Argument): void {
 
   },
 
-  finalOldVariable(machine: Machine, term: Argument): void {},
+  finalOldVariable(query: Query, term: Argument): void {},
 
-  call(machine: Machine, term: Argument): void {
-    machine.clause = null
-    machine.args = new Map()
+  call(query: Query, term: Argument): void {
+    query.clause = null
+    query.args = new Map()
   },
 }
 

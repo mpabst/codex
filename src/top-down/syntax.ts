@@ -1,4 +1,4 @@
-import {Order} from '../collections/store'
+import {Order} from '../collections/index'
 import {TupleMap} from '../collections/tuple-map'
 import {TupleSet} from '../collections/tuple-set'
 import {FlatQuad, Term, Variable} from '../term'

@@ -11,9 +11,9 @@ interface Data {
   [k: Order]: Branch
 }
 
-export class Store {
+export class Index {
   static TRIPLE_PLACES = 'SPO'.split('')
-  static PLACES = [...Store.TRIPLE_PLACES, 'G']
+  static PLACES = [...Index.TRIPLE_PLACES, 'G']
   static ORDERS = [
     'SPOG',
     // ...permute(3, TRIPLE_PLACES).map(o => o.join('') + 'G'),
@@ -26,7 +26,7 @@ export class Store {
     let litPlaces = ''
     let varPlaces = ''
 
-    Store.TRIPLE_PLACES.forEach((p, i) => {
+    Index.TRIPLE_PLACES.forEach((p, i) => {
       // graph term is at the end, so this loop will never hit it
       const t = pattern[i]
       t.termType === 'Variable' ? (varPlaces += p) : (litPlaces += p)
@@ -38,20 +38,20 @@ export class Store {
   }
 
   static reorder(order: Order, data: FlatQuad): FlatQuad {
-    return order.split('').map((o) => data[Store.PLACES.indexOf(o)]) as FlatQuad
+    return order.split('').map((o) => data[Index.PLACES.indexOf(o)]) as FlatQuad
   }
 
   private readonly data: Data = {}
 
   constructor() {
-    for (const o of Store.ORDERS) this.data[o] = new Map()
+    for (const o of Index.ORDERS) this.data[o] = new Map()
   }
 
   add(quad: FlatQuad): void {
     // if (quad.some(t => t.termType === 'Variable'))
     //   throw new TypeError("Can't add variables")
     for (const [order, index] of Object.entries(this))
-      tupleSet.add(index, Store.reorder(order, quad))
+      tupleSet.add(index, Index.reorder(order, quad))
   }
 
   getIndex(order: Order): Branch {

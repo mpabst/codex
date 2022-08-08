@@ -1,7 +1,7 @@
 import {A, Prefixers, builders, unwrap} from '../builders.js'
 import {randomBlankNode} from '../data-factory.js'
 import {DefaultGraph, FlatQuad, NamedNode, Term, Variable} from '../term.js'
-import {Branch, Twig, Node, Store} from '../collections/store.js'
+import {Branch, Twig, Node, Index} from '../collections/index.js'
 import * as tupleMap from '../collections/tuple-map.js'
 import {
   // Call,
@@ -42,7 +42,7 @@ function assertHead(
   graph: NamedNode | DefaultGraph,
   head: Head,
   bindings: Bindings,
-  store: Store,
+  store: Index,
 ) {
   const stack: [Head | null] = [head]
   let expr: Head | null
@@ -80,11 +80,11 @@ function assertHead(
 }
 
 export function evaluate(
-  db: Store,
+  db: Index,
   query: Expression,
   emit: (b: Bindings) => void,
   bindings: Bindings = new Map(),
-  heap: Store = new Store(),
+  heap: Index = new Index(),
 ) {
   function choose(
     stack: (Expression | null)[] = [],

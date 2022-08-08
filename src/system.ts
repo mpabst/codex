@@ -1,4 +1,4 @@
-import {Store} from './collections/store.js'
+import {Index} from './collections/index.js'
 import {TupleSet, forEach} from './collections/tuple-set.js'
 import {randomBlankNode} from './data-factory.js'
 import {BlankNode, Subject, Term} from './term.js'
@@ -14,7 +14,7 @@ export class Interpreter {
   // and which lists the incoming patches
   // readonly queue: TupleSet<Term>[] = []
 
-  constructor(readonly store: Store, readonly rootSource: Subject) {
+  constructor(readonly store: Index, readonly rootSource: Subject) {
     this.root = new Context(this, rootSource)
   }
 
@@ -56,7 +56,7 @@ class Context {
   // OPT, minor: this could probs b an array
   readonly down: Set<Pushee> = new Set()
   readonly name: BlankNode = randomBlankNode()
-  protected readonly store: Store
+  protected readonly store: Index
 
   constructor(
     protected readonly system: Interpreter,

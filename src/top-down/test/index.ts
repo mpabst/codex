@@ -1,7 +1,7 @@
 import {A, Prefixers, builders, unwrap} from '../../builders.js'
 import {namedNode as nn} from '../../data-factory.js'
 import {FlatQuad} from '../../term.js'
-import {Store} from '../../collections/store.js'
+import {Index} from '../../collections/index.js'
 import {evaluate} from '../query.js'
 import {Expression} from '../syntax.js'
 
@@ -53,7 +53,7 @@ const QUERY: Expression = {
 // ]
 
 function buildStore(data: FlatQuad[]) {
-  const out = new Store()
+  const out = new Index()
   for (const d of data) out.add(d)
   return out
 }

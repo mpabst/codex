@@ -11,11 +11,7 @@ type Instruction = [Operation, Argument]
 type Program = Instruction[]
 
 class ChoicePoint {
-  trail: Variable[] = []
-  done: boolean = false
-
   constructor(
-    public variable: Variable | null,
     public instructionPtr: number,
     public clause: Clause | null,
     public iterator: Iterator<Term> | null,
@@ -24,48 +20,41 @@ class ChoicePoint {
 
 class Query {
   program: Program
-  bindings: Bindings = new Map()
   instructionPtr: number = 0
-  clause: Clause | null = null
-  args: Bindings = new Map()
+
   dbNode: Node | null = null
   fail: boolean = false
-  // push a dummy choice point so we don't have to branch when
-  // pushing variables onto the trail
-  stack: ChoicePoint[] = [new ChoicePoint(null, 0, null, null)]
-  emit: ((b: Bindings) => void) | null = null
+
+  stack: ChoicePoint[] = []
   seenVars = new Set<Variable>()
 
-  constructor(public hub: Store, source: Expression) {
+  clause: Clause | null = null
+  args: Bindings = new Map()
+
+  emit: ((b: Bindings) => void) | null = null
+
+  constructor(
+    public hub: Store,
+    source: Expression,
+    public bindings: Bindings = new Map(),
+  ) {
     const [program, variables] = compile(hub, source)
     this.program = program
     for (const v of variables) this.bindings.set(v, v)
   }
 
   backtrack(): boolean {
-    while (true) {
-      if (this.stack.length === 1) return false
-
-      const choicePoint = this.stack[this.stack.length - 1]
-      if (choicePoint.done) {
-        this.stack.pop()
-        continue
-      }
-
-      // unbind trail vars
-      for (const v of choicePoint.trail) this.bindings.set(v, v)
-      choicePoint.trail = []
-
-      this.instructionPtr = choicePoint.instructionPtr
-      this.clause = choicePoint.clause
-
-      return true
-    }
+    const length = this.stack.length
+    if (length === 0) return false
+    const choicePoint = this.stack[length - 1]
+    this.instructionPtr = choicePoint.instructionPtr
+    this.clause = choicePoint.clause
+    return true
   }
 
   deref(variable: Variable): Term {
     let found = this.bindings.get(variable)!
-    while (found.termType === 'Variable' && found !== found) {
+    while (found.termType === 'Variable' && found !== variable) {
       variable = found as Variable
       found = this.bindings.get(variable)!
     }
@@ -87,7 +76,7 @@ const operations: { [k: string]: Operation } = {
   // make stored argument the Index, not the Term?
   setClause(query: Query, clause: Argument): void {
     query.clause = clause as Clause
-    query.dbNode = query.clause.head.getIndex('GSPO')
+    query.dbNode = (clause as Clause).head.getIndex('GSPO')
     query.instructionPtr++
   },
 
@@ -96,26 +85,16 @@ const operations: { [k: string]: Operation } = {
     query.instructionPtr++
   },
 
-  medialConstant(query: Query, term: Argument): void {
-    const found = (query.dbNode as Branch).get(term as Term)
-    if (!found) {
-      query.fail = true
-      return
-    } else query.dbNode = found
-    query.instructionPtr++
-  },
-
-  medialNewVariable(query: Query, term: Argument): void {
+  newVariable(query: Query, term: Argument) {
     let choicePoint: ChoicePoint
 
     if (query.seenVars.has(term as Variable)) {
       choicePoint = query.stack[query.stack.length - 1]
     } else {
       choicePoint = new ChoicePoint(
-        term as Variable,
         query.instructionPtr,
         query.clause,
-        (query.dbNode as Branch).keys(),
+        query.dbNode!.keys(),
       )
       query.stack.push(choicePoint)
       query.seenVars.add(term as Variable)
@@ -123,12 +102,21 @@ const operations: { [k: string]: Operation } = {
 
     const result = choicePoint.iterator?.next()!
     if (result.done) {
-      choicePoint.done = true
+      query.bindings.set(term as Variable, term as Term)
+      query.stack.pop()
       query.fail = true
-      return
-    } else query.bindings.set(term as Variable, result.value)
+    } else {
+      query.bindings.set(term as Variable, result.value)
+      query.instructionPtr++
+    }
+  },
 
-    query.instructionPtr++
+  medialConstant(query: Query, term: Argument): void {
+    const found = (query.dbNode as Branch).get(term as Term)
+    if (found) {
+      query.dbNode = found
+      query.instructionPtr++
+    } else query.fail = true
   },
 
   medialOldVariable(query: Query, term: Argument): void {
@@ -139,8 +127,6 @@ const operations: { [k: string]: Operation } = {
     if ((query.dbNode as Twig).has(term as Term)) query.instructionPtr++
     else query.fail = true
   },
-
-  finalNewVariable(query: Query, term: Argument): void {},
 
   finalOldVariable(query: Query, term: Argument): void {
     operations.finalConstant(query, query.deref(term as Variable))
@@ -159,10 +145,17 @@ const operations: { [k: string]: Operation } = {
 function compile(store: Store, query: Expression): [Program, Set<Variable>] {
   const program: Program = []
   const variables = new Set<Variable>()
+  let lastContext: Context | null = null
 
   function pattern(expr: Pattern): void {
     // assume GSPO
     const context = store.get(expr.terms[0] as Key)!
+
+    if (lastContext && context !== lastContext) {
+      program.push([operations.call, null])
+      lastContext = context
+    }
+
     if (context instanceof Clause)
       // program.push([operations.setClause, context])
       throw new Error('todo: calls')
@@ -173,22 +166,21 @@ function compile(store: Store, query: Expression): [Program, Set<Variable>] {
       if (term.termType === 'Variable')
         if (variables.has(term)) op = 'OldVariable'
         else {
-          op = 'NewVariable'
+          op = 'newVariable'
           variables.add(term)
         }
       else op = 'Constant'
-      program.push([
-        operations[(i === expr.terms.length - 1 ? 'final' : 'medial') + op],
-        term,
-      ])
-    })
 
-    // this is wrong, we only call as we change to a new context
-    if (context instanceof Clause) program.push([operations.call, null])
+      if (op !== 'newVariable')
+        op = (i === expr.terms.length - 1 ? 'final' : 'medial') + op
+
+      program.push([operations[op], term])
+    })
   }
 
   traverse(query, { pattern })
 
+  if (lastContext! instanceof Clause) program.push([operations.call, null])
   program.push([operations.emitResult, null])
 
   return [program, variables]

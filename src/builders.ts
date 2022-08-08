@@ -28,7 +28,7 @@ class Construction {
   }
 }
 
-const PREFIXES = Object.freeze({
+export const PREFIXES = Object.freeze({
   dc: 'http://purl.org/dc/terms/',
   fp: 'https://fingerpaint.systems#',
   fpc: 'https://fingerpaint.systems/core#',

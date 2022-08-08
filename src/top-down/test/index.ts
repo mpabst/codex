@@ -3,7 +3,7 @@ import {namedNode as nn} from '../../data-factory.js'
 import {FlatQuad} from '../../term.js'
 import {Index} from '../../collections/index.js'
 import {evaluate} from '../query.js'
-import {Expression} from '../syntax.js'
+import {Expression} from '../../syntax.js'
 
 const {expect: x} = chai
 const {fps} = Prefixers

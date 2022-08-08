@@ -11,7 +11,7 @@ import {
   RuleStore,
   Expression,
   VarMap,
-} from './syntax.js'
+} from '../syntax.js'
 
 const {v} = builders
 const {fps} = Prefixers

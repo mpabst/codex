@@ -1,7 +1,7 @@
-import {Order} from './collections/index'
-import {TupleMap} from './collections/tuple-map'
-import {TupleSet} from './collections/tuple-set'
-import {FlatQuad, Term, Variable} from './term'
+import { Order } from './collections/index'
+import { TupleMap } from './collections/tuple-map'
+import { TupleSet } from './collections/tuple-set'
+import { FlatQuad, Term, Variable } from './term'
 
 export type VarMap = Map<Variable, Variable>
 
@@ -27,7 +27,7 @@ export interface Pattern {
   // varMaps: TupleSet<Term>
 }
 
-interface Conjunction<T = Expression> {
+export interface Conjunction<T = Expression> {
   type: 'Conjunction'
   first: T
   rest: T | null
@@ -63,3 +63,23 @@ export interface Rule {
 }
 
 export type RuleStore = TupleMap<Term, Rule>
+
+export function traverse(
+  expr: Expression,
+  handlers: { [k: string]: (expr: any) => void },
+) {
+  const stack: (Expression | null)[] = [expr]
+  while (true) {
+    const expr = stack.pop()!
+    if (expr === null) continue
+    if (expr === undefined) return
+    switch (expr.type) {
+      case 'Conjunction':
+        stack.push(expr.rest, expr.first)
+        continue
+      case 'Pattern':
+        handlers.pattern(expr)
+        continue
+    }
+  }
+}

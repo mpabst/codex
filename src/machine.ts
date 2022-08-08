@@ -1,53 +1,26 @@
 import { Clause } from './clause.js'
-import { Index, Node } from './collections/index.js'
+import { Branch, Index, Node, Twig } from './collections/index.js'
 import { Context, Key, Store } from './store.js'
+import { Expression, Pattern, traverse } from './syntax.js'
 import { Term, Variable } from './term.js'
 import { Bindings } from './top-down/query.js'
-import { Expression } from './syntax.js'
 
-type Instruction = [(m: Machine, t: Term) => void, Term]
+type Argument = Term | Context | null
+type Operation = (m: Machine, t: Argument) => void
+type Instruction = [Operation, Argument]
 type Program = Instruction[]
 
-function compile(query: Expression): [Program, Set<Variable>] {
-  const stack: (Expression | null)[] = [query]
-  const program: Program = []
-  const variables = new Set<Variable>()
-
-  while (true) {
-    const expr = stack.pop()!
-    if (expr === null) continue
-    if (expr === undefined) return [program, variables]
-    switch (expr.type) {
-      case 'Conjunction':
-        stack.push(expr.rest, expr.first)
-        continue
-      case 'Pattern':
-        // assume GSPO
-        program.push([setContext, expr.terms[0]])
-        for (const term of expr.terms.slice(1)) {
-          if (term.termType === 'Variable')
-            if (variables.has(term)) program.push([oldVariable, term])
-            else {
-              variables.add(term)
-              program.push([newVariable, term])
-            }
-          else program.push([constant, term])
-        }
-        continue
-    }
-  }
-}
-
 class Machine {
-  dbNode: Node | null = null
   program: Program
-  instructionPtr: number = 0
-  index: Index | null = null
-  fail: boolean = false
   bindings: Bindings = new Map()
+  instructionPtr: number = 0
+  clause: Clause | null = null
+  args: Bindings = new Map()
+  dbNode: Node | null = null
+  fail: boolean = false
 
   constructor(public hub: Store, query: Expression) {
-    const [program, variables] = compile(query)
+    const [program, variables] = compile(hub, query)
     this.program = program
     for (const v of variables) this.bindings.set(v, v)
   }
@@ -61,29 +34,95 @@ class Machine {
     return found
   }
 
-  run(): void {
+  run(): boolean {
     let instruction: Instruction
     while (!this.fail) {
       instruction = this.program[this.instructionPtr]
       instruction[0](this, instruction[1])
     }
+    return !this.fail
   }
 }
 
-// make stored argument the Index, not the Term
-function setContext(machine: Machine, term: Term): void {
-  const context = machine.hub.get(term as Key)!
+const operations: { [k: string]: Operation } = {
+  // make stored argument the Index, not the Term?
+  setClause(machine: Machine, clause: Argument): void {
+    machine.clause = clause as Clause
+    machine.dbNode = machine.clause.head.getIndex('GSPO')
+    machine.instructionPtr++
+  },
 
-  if (context instanceof Clause) machine.dbNode = context.head.getIndex('GSPO')
+  setIndex(machine: Machine, index: Argument): void {
+    machine.dbNode = (index as Index).getIndex('GSPO')
+    machine.instructionPtr++
+  },
 
-  machine.dbNode = machine.context.getIndex('GSPO')
-  machine.instructionPtr++
+  medialConstant(machine: Machine, term: Argument): void {
+    const found = (machine.dbNode as Branch).get(term as Term)
+    if (!found) machine.fail = true
+    else machine.dbNode = found
+
+    // if (found.termType === 'Variable')
+
+    machine.instructionPtr++
+  },
+
+  medialNewVariable(machine: Machine, term: Argument): void {
+
+  },
+
+  medialOldVariable(machine: Machine, term: Argument): void {},
+
+  finalConstant(machine: Machine, term: Argument): void {
+    machine.fail = !(machine.dbNode as Twig).has(term as Term)
+
+    // if (found.termType === 'Variable')
+
+    machine.instructionPtr++
+  },
+
+  finalNewVariable(machine: Machine, term: Argument): void {
+
+  },
+
+  finalOldVariable(machine: Machine, term: Argument): void {},
+
+  call(machine: Machine, term: Argument): void {
+    machine.clause = null
+    machine.args = new Map()
+  },
 }
 
-function oldVariable(machine: Machine, term: Term): void {}
+function compile(store: Store, query: Expression): [Program, Set<Variable>] {
+  const program: Program = []
+  const variables = new Set<Variable>()
 
-function newVariable(machine: Machine, term: Term): void {
-  machine.bindings.set(term, )
+  function pattern(expr: Pattern): void {
+    // assume GSPO
+    const context = store.get(expr.terms[0] as Key)!
+    if (context instanceof Clause)
+      program.push([operations.setClause, context])
+    else program.push([operations.setIndex, context])
+
+    expr.terms.slice(1).forEach((term, i) => {
+      let op: string
+      if (term.termType === 'Variable')
+        if (variables.has(term)) op = 'OldVariable'
+        else {
+          op = 'NewVariable'
+          variables.add(term)
+        }
+      else op = 'Constant'
+      program.push([
+        operations[(i === expr.terms.length - 1 ? 'final' : 'medial') + op],
+        term,
+      ])
+    })
+
+    if (context instanceof Clause) program.push([operations.call, null])
+  }
+
+  traverse(query, { pattern })
+
+  return [program, variables]
 }
-
-function constant(machine: Machine, term: Term): void {}

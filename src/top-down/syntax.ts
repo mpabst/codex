@@ -1,6 +1,7 @@
+import { Clause } from '../clause'
 import {Order, Store} from '../collections/store'
 import {TupleMap} from '../collections/tuple-map'
-import {FlatQuad, Term, Variable} from '../term'
+import {FlatQuad, Term} from '../term'
 
 // check whether graph term is memo iri to decide whether
 // to skip matching; this mode is interpreter state, not
@@ -10,8 +11,7 @@ export interface Pattern {
   type: 'Pattern'
   terms: FlatQuad
   order: Order
-  source: Rule | Store
-  varMap: Map<Variable, Term> // callee -> caller
+  source?: Clause | Store
 }
 
 interface Conjunction<T = Expression> {

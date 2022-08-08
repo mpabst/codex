@@ -1,66 +1,53 @@
-import {Branch, Node, Store, Twig} from '../collections/store.js'
-import {Rule} from '../rule.js'
-import {RootIndex} from '../system.js'
-import {BlankNode, NamedNode, Term, Variable} from '../term.js'
+import {Clause} from '../clause.js'
+import {Branch, Node, Twig} from '../collections/store.js'
+import {Hub, Key} from '../hub.js'
+import {Term, Variable} from '../term.js'
 import {Expression, Pattern} from './syntax.js'
 
 export type Bindings = Map<Variable, Term>
 
-class Call {
-  varMap: any
-}
+export function evaluate(
+  hub: Hub,
+  source: Expression,
+  bindings: Bindings = new Map(),
+): Bindings[] {
+  const results: Bindings[] = []
+  // Bindings are callee var -> caller var or constant term,
+  // go through and bind caller var values to callee vars at
+  // moment of call
+  const pendingCalls: Map<Clause, Bindings> = new Map()
+  let callList: [Clause, Bindings][]
 
-class Lookup {
-  constructor(public context: Store, public pattern: Pattern) {}
-}
+  function call(cIndex: number): void {
+    if (cIndex === callList.length) {
+      results.push(new Map(bindings))
+      return
+    }
 
-class Option {
-  public first: Query
-  public rest: Query
-  constructor()
-}
+    const [clause, params] = callList[cIndex]
+    const inArgs: Bindings = new Map()
+    const outArgs: [Variable, Variable][] = []
 
-export class Query {
-  public plan: (Pattern | Call)[] = []
+    for (const [callee, caller] of params)
+      if (caller.termType === 'Variable') {
+        const bound = bindings.get(caller as Variable)
+        if (bound) inArgs.set(callee, bound)
+        else outArgs.push([callee, caller as Variable])
+      } else inArgs.set(callee, caller)
 
-  constructor(public rootIndex: RootIndex, public source: Expression) {
-    this.planExpr(source)
-  }
-
-  private planExpr(expr: Expression | null): void {
-    if (!expr) return
-    switch (expr.type) {
-      case 'Pattern':
-        const context = this.rootIndex.get(expr.terms[0] as NamedNode | BlankNode)
-        if (context instanceof Store) this.plan.push(expr)
-        else {
-
-        }
-        break
-      case 'Conjunction':
-        this.planExpr(expr.first)
-        this.planExpr(expr.rest)
-        break
-      case 'Disjunction':
-
-      case 'Negation':
-        this.planExpr()
+    for (const result of clause.call(inArgs)) {
+      for (const [callee, caller] of outArgs)
+        bindings.set(callee, result.get(caller)!)
+      call(cIndex + 1)
+      for (const [callee] of outArgs) bindings.delete(callee)
     }
   }
-}
 
-export function query(
-  rootIndex: RootIndex,
-  query: Expression,
-  emit: (b: Bindings) => void,
-  bindings: Bindings = new Map(),
-) {
-  function choose(
+  function traverse(
     stack: (Expression | null)[] = [],
     dbNode: Node | null = null,
     pIndex: number = 0,
   ) {
-    const pendingCalls: Rule[] = []
     let expr: Expression | null, term: Term, value: Term | undefined
 
     function doBranch(): boolean {
@@ -71,20 +58,10 @@ export function query(
       }
       for (const [k, v] of dbNode.entries()) {
         bindings.set(term as Variable, k)
-        choose([...stack, expr], v, pIndex + 1)
+        traverse([...stack, expr], v, pIndex + 1)
       }
       bindings.delete(term as Variable)
       return false
-    }
-
-    function doCalls(cIndex: number = 0): void {
-      if (cIndex === pendingCalls.length) {
-        emit(new Map(bindings))
-        return
-      }
-      // make first call, pass in mapped bindings - in its callback,
-      // make second call, mapping bindings again. undo bindings?
-      pendingCalls[0].call(mapBindings(bindings, ))
     }
 
     function doPattern(): boolean {
@@ -96,10 +73,14 @@ export function query(
           term.termType === 'Variable' ? bindings.get(term as Variable) : term
         switch (pIndex) {
           case 0:
-            if (expr.source instanceof Rule) {
-              pendingCalls.push(expr.source)
-              break loop
-            }
+            if (!value) throw new Error('graph terms must be in-vars')
+            const module = hub.get(value as Key)
+            if (module instanceof Clause) {
+              let pending = pendingCalls.get(module)
+              if (!pending) {
+                pending = module.unify(expr.terms)
+              }
+            } else dbNode = module!.getIndex(expr.order)
             break
           case expr.terms.length - 1:
             if (!doTwig()) return false
@@ -118,7 +99,7 @@ export function query(
       if (value) return dbNode.has(value)
       for (const t of dbNode) {
         bindings.set(term as Variable, t)
-        choose([...stack])
+        traverse([...stack])
       }
       bindings.delete(term as Variable)
       return false
@@ -130,7 +111,8 @@ export function query(
       if (expr === null) continue
 
       if (expr === undefined) {
-        doCalls()
+        callList = Array.from(pendingCalls.entries())
+        call(0)
         return
       }
 
@@ -142,8 +124,8 @@ export function query(
           stack.push(expr.rest, expr.first)
           continue
         case 'Disjunction':
-          choose([...stack, expr.first])
-          choose([...stack, expr.rest])
+          traverse([...stack, expr.first])
+          traverse([...stack, expr.rest])
           return
         default:
           throw new Error(`not implemented: ${expr.type}`)
@@ -151,5 +133,6 @@ export function query(
     }
   }
 
-  choose([query])
+  traverse([source])
+  return results
 }

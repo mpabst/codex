@@ -1,5 +1,7 @@
+export type TermType = 'BlankNode' | 'DefaultGraph' | 'Literal' | 'NamedNode' | 'Variable'
+
 export interface Term {
-  readonly termType: string
+  readonly termType: TermType
   readonly value: string
 }
 

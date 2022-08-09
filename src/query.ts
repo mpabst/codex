@@ -64,7 +64,10 @@ export class Query {
     return found
   }
 
-  evaluate(emit: (b: Bindings) => void = console.log, bindings: Bindings = new Map()): void {
+  evaluate(
+    emit: (b: Bindings) => void = console.log,
+    bindings: Bindings = new Map(),
+  ): void {
     this.emit = emit
     for (const [k, v] of bindings) this.bindings.set(k, v)
     while (true) {
@@ -77,7 +80,11 @@ export class Query {
   }
 }
 
-function newVariable(query: Query, term: Argument, advanceNode: (q: Query, t: Term) => void): void {
+function newVariable(
+  query: Query,
+  term: Argument,
+  advanceNode: (q: Query, t: Term) => void,
+): void {
   let choicePoint = query.stack[query.stack.length - 1]
   if (!choicePoint || choicePoint.variable !== term) {
     choicePoint = new ChoicePoint(
@@ -122,7 +129,11 @@ export const operations: { [k: string]: Operation } = {
   },
 
   medialNewVariable(query: Query, term: Argument): void {
-    newVariable(query, term, (q: Query, t: Term) => q.dbNode = (q.dbNode as Branch).get(t)!)
+    newVariable(
+      query,
+      term,
+      (q: Query, t: Term) => (q.dbNode = (q.dbNode as Branch).get(t)!),
+    )
   },
 
   medialOldVariable(query: Query, term: Argument): void {
@@ -135,7 +146,7 @@ export const operations: { [k: string]: Operation } = {
   },
 
   finalNewVariable(query: Query, term: Argument): void {
-    newVariable(query, term, (q: Query, t: Term) => q.dbNode = null)
+    newVariable(query, term, (q: Query, t: Term) => (q.dbNode = null))
   },
 
   finalOldVariable(query: Query, term: Argument): void {

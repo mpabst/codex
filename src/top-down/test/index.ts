@@ -1,5 +1,5 @@
 import {A, Prefixers, builders, unwrap} from '../../builders.js'
-import {namedNode as nn} from '../../data-factory.js'
+import {namedNode as nn, variable as vari} from '../../data-factory.js'
 import {FlatQuad} from '../../term.js'
 import {Store} from '../../collections/store.js'
 import {evaluate} from '../query.js'
@@ -10,47 +10,27 @@ const {fps} = Prefixers
 const {v} = builders
 
 const DATA: FlatQuad[] = [
-  unwrap(fps.socrates, A, fps.man, fps.test),
+  // unwrap(fps.socrates, A, fps.man, fps.test),
   // [nn(':a'), nn(':foo'), nn(':b'), nn(':test')],
   // [nn(':b'), nn(':foo'), nn(':c'), nn(':test')],
 ]
 
-// for (let i = 0; i < 100_000; i++)
-//   DATA.push([nn(`:${i}`), nn(':foo'), nn(`:${i + 1}`), nn(':test')])
-
-console.log(DATA.length)
+for (let i = 0; i < 100_000; i++)
+  DATA.push([nn(`:${i}`), nn(':foo'), nn(`:${i + 1}`), nn(':test')])
 
 const QUERY: Expression = {
   type: 'Conjunction',
   first: {
     type: 'Pattern',
-    terms: unwrap(v.who, A, fps.mortal, fps.test),
+    terms: [vari('left'), nn(':foo'), vari('middle'), nn(':test')],
     order: 'SPOG',
-    // varMaps: new Map([unwrap(v.who, v.person)])
   },
-  rest: null,
-
-  // {
-  //   type: 'Pattern',
-  //   pattern: [vari('y'), nn(':foo'), vari('z'), nn(':test')],
-  //   order: 'SPOG'
-  // }
+  rest: {
+    type: 'Pattern',
+    terms: [vari('middle'), nn(':foo'), vari('right'), nn(':test')],
+    order: 'SPOG',
+  },
 }
-
-// and: [
-// ,
-// [vari('y'), nn(':foo'), vari('z'), nn(':test')]
-// ],
-// or: [
-// {
-//   and: [[vari('y'), nn(':foo'), nn(':fail'), nn(':test')]],
-//   or: []
-// },
-// {
-//   and: [[vari('y'), nn(':foo'), vari('z'), nn(':test')]],
-//   or: []
-// }
-// ]
 
 function buildStore(data: FlatQuad[]) {
   const out = new Store()
@@ -61,7 +41,7 @@ function buildStore(data: FlatQuad[]) {
 describe('query()', () => {
   it('evaluate', () => {
     let count = 0
-    evaluate(buildStore(DATA), QUERY, console.log)
+    evaluate(buildStore(DATA), QUERY, () => count++)
     console.log(count)
   })
 })

@@ -50,7 +50,7 @@ export class Store {
   add(quad: FlatQuad): void {
     // if (quad.some(t => t.termType === 'Variable'))
     //   throw new TypeError("Can't add variables")
-    for (const [order, index] of Object.entries(this))
+    for (const [order, index] of Object.entries(this.data))
       tupleSet.add(index, Store.reorder(order, quad))
   }
 

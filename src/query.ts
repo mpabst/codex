@@ -31,6 +31,11 @@ export class Query {
 
   bindings: Bindings = new Map()
   stack: ChoicePoint[] = []
+
+  // we can turn this lookup from a set to an array if we bring
+  // the trail back, then the current var should always be on top
+  // of the stack if we've seen it before, else push it on when we
+  // create the CP
   seenVars = new Set<Variable>()
 
   clause: Clause | null = null

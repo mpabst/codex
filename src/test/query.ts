@@ -1,9 +1,9 @@
-import { A, builders, Prefixers, unwrap } from '../builders.js'
+import { A, builders, Prefixers, PREFIXES, unwrap } from '../builders.js'
 import { Index } from '../collections/index.js'
 import { Bindings, Query } from '../query.js'
 import { Key, Store } from '../store.js'
 import { Expression } from '../syntax.js'
-import { FlatQuad, FlatTriple } from '../term.js'
+import { FlatQuad, FlatTriple, Term } from '../term.js'
 
 const { expect: x } = chai
 const { fps } = Prefixers
@@ -20,6 +20,27 @@ function buildStore(data: FlatQuad[]) {
     ;(context as Index).add(d.slice(1) as FlatTriple)
   }
   return out
+}
+
+const prefixes = new Map()
+for (const [abbrev, url] of Object.entries(PREFIXES)) prefixes.set(url, abbrev)
+
+function prefixify({ value }: Term): string {
+  for (const [url, abbrev] of prefixes)
+    if (value.startsWith(url)) return value.replace(url, abbrev + ':')
+  return value
+}
+
+function printBindings(bindings: Bindings): void {
+  const out = []
+  for (const pair of bindings) out.push(pair.map(prefixify).join(': '))
+  console.log(out.join('\n'))
+}
+
+function printQuad(q: FlatQuad): void {
+  const out = []
+  for (const t of q) out.push(prefixify(t))
+  console.log(out.join(' '))
 }
 
 describe('query()', () => {
@@ -48,11 +69,11 @@ describe('query()', () => {
 
   it.only('perf', () => {
     const data: FlatQuad[] = []
-    for (let i = 0; i < 4; i += 2)
-      data.push(
-        unwrap(fps.test, fps[i], fps.foo, fps[i + 1]),
-        unwrap(fps.test, fps[i + 1], fps.foo, fps[i + 2]),
-      )
+    for (let i = 0; i < 5; i++) {
+      const quad = unwrap(fps.test, fps[i], fps.foo, fps[i + 1])
+      printQuad(quad)
+      data.push(quad)
+    }
 
     const query: Expression = {
       type: 'Conjunction',
@@ -61,16 +82,17 @@ describe('query()', () => {
         terms: unwrap(fps.test, v.left, fps.foo, v.middle),
         order: 'GSPO',
       },
-      rest: {
-        type: 'Pattern',
-        terms: unwrap(fps.test, v.middle, fps.foo, v.right),
-        order: 'GSPO',
-      },
+      rest: null,
+      // rest: {
+      //   type: 'Pattern',
+      //   terms: unwrap(fps.test, v.middle, fps.foo, v.right),
+      //   order: 'GSPO',
+      // },
     }
 
     let results = 0
-    new Query(buildStore(data), query).evaluate()
-
+    new Query(buildStore(data), query).evaluate(printBindings)
+    console.log(results)
     // x(results).eql(1)
   })
 })

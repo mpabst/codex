@@ -69,9 +69,9 @@ describe('query()', () => {
 
   it.only('perf', () => {
     const data: FlatQuad[] = []
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 100_000; i++) {
       const quad = unwrap(fps.test, fps[i], fps.foo, fps[i + 1])
-      printQuad(quad)
+      // printQuad(quad)
       data.push(quad)
     }
 
@@ -82,16 +82,16 @@ describe('query()', () => {
         terms: unwrap(fps.test, v.left, fps.foo, v.middle),
         order: 'GSPO',
       },
-      rest: null,
-      // rest: {
-      //   type: 'Pattern',
-      //   terms: unwrap(fps.test, v.middle, fps.foo, v.right),
-      //   order: 'GSPO',
-      // },
+      // rest: null,
+      rest: {
+        type: 'Pattern',
+        terms: unwrap(fps.test, v.middle, fps.foo, v.right),
+        order: 'GSPO',
+      },
     }
 
     let results = 0
-    new Query(buildStore(data), query).evaluate(printBindings)
+    new Query(buildStore(data), query).evaluate(() => results++)
     console.log(results)
     // x(results).eql(1)
   })

@@ -102,6 +102,7 @@ function newVariable(advanceNode: (q: Query, t: Term) => void): Operation {
     const result = choicePoint.iterator?.next()!
     if (result.done) {
       query.bindings.set(term as Variable, term as Term)
+      query.seenVars.delete(term as Variable)
       query.stack.pop()
       query.fail = true
     } else {

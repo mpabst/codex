@@ -10,5 +10,5 @@
     "allowSyntheticDefaultImports": true,
     "experimentalDecorators": true
   },
-  "include": ["src", "src/scratch.ts"]
+  "include": ["src"]
 }

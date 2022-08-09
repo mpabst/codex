@@ -13,6 +13,7 @@ export type Program = Instruction[]
 
 class ChoicePoint {
   constructor(
+    public variable: Variable,
     public instructionPtr: number,
     public clause: Clause | null,
     public dbNode: Node | null,
@@ -31,12 +32,6 @@ export class Query {
 
   bindings: Bindings = new Map()
   stack: ChoicePoint[] = []
-
-  // we can turn this lookup from a set to an array if we bring
-  // the trail back, then the current var should always be on top
-  // of the stack if we've seen it before, else push it on when we
-  // create the CP
-  seenVars = new Set<Variable>()
 
   clause: Clause | null = null
   args: Bindings = new Map()
@@ -82,34 +77,27 @@ export class Query {
   }
 }
 
-function newVariable(advanceNode: (q: Query, t: Term) => void): Operation {
-  return function(query: Query, term: Argument) {
-    let choicePoint: ChoicePoint
-
-    if (query.seenVars.has(term as Variable)) {
-      choicePoint = query.stack[query.stack.length - 1]
-    } else {
-      choicePoint = new ChoicePoint(
-        query.instructionPtr,
-        query.clause,
-        query.dbNode,
-        query.dbNode!.keys(),
-      )
-      query.stack.push(choicePoint)
-      query.seenVars.add(term as Variable)
-    }
-
-    const result = choicePoint.iterator?.next()!
-    if (result.done) {
-      query.bindings.set(term as Variable, term as Term)
-      query.seenVars.delete(term as Variable)
-      query.stack.pop()
-      query.fail = true
-    } else {
-      query.bindings.set(term as Variable, result.value)
-      advanceNode(query, result.value)
-      query.instructionPtr++
-    }
+function newVariable(query: Query, term: Argument, advanceNode: (q: Query, t: Term) => void): void {
+  let choicePoint = query.stack[query.stack.length - 1]
+  if (!choicePoint || choicePoint.variable !== term) {
+    choicePoint = new ChoicePoint(
+      term as Variable,
+      query.instructionPtr,
+      query.clause,
+      query.dbNode,
+      query.dbNode!.keys(),
+    )
+    query.stack.push(choicePoint)
+  }
+  const result = choicePoint.iterator?.next()!
+  if (result.done) {
+    query.bindings.set(term as Variable, term as Term)
+    query.stack.pop()
+    query.fail = true
+  } else {
+    query.bindings.set(term as Variable, result.value)
+    advanceNode(query, result.value)
+    query.instructionPtr++
   }
 }
 
@@ -133,7 +121,9 @@ export const operations: { [k: string]: Operation } = {
     } else query.fail = true
   },
 
-  medialNewVariable: newVariable((q: Query, t: Term) => q.dbNode = (q.dbNode as Branch).get(t)!),
+  medialNewVariable(query: Query, term: Argument): void {
+    newVariable(query, term, (q: Query, t: Term) => q.dbNode = (q.dbNode as Branch).get(t)!)
+  },
 
   medialOldVariable(query: Query, term: Argument): void {
     operations.medialConstant(query, query.deref(term as Variable))
@@ -144,7 +134,9 @@ export const operations: { [k: string]: Operation } = {
     else query.fail = true
   },
 
-  finalNewVariable: newVariable((q: Query, t: Term) => q.dbNode = null),
+  finalNewVariable(query: Query, term: Argument): void {
+    newVariable(query, term, (q: Query, t: Term) => q.dbNode = null)
+  },
 
   finalOldVariable(query: Query, term: Argument): void {
     operations.finalConstant(query, query.deref(term as Variable))

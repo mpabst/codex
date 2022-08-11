@@ -1,0 +1,155 @@
+# need the in and out predicates to unify with the body of Map
+[ a CustomMapper ; in ?in ; out ?out ] :- [ a SomeRule ; foo ?in ; bar ?out ]
+# Ig we can define a clause inline and bind it to a variable, since :- is just
+# another predicate
+
+[ a Map; from ?in; to ?out; via ?via ] :-
+  # prefer guards within a single clause using if-thens over
+  # multiple clauses. it just seems less confusing, and a way
+  # we can maintain order
+  ?in = nil
+  -> ?out = nil
+  ; (
+    [ a ?via ; in ?fin ; out ?fout ] &
+    [ a Map ; from ?rin ; to ?rout ] .
+  ) .
+
+# but if we do have multiple clauses...
+
+{ # lets open things up to better understand; +/-/? indicate mode
+  -root a Map.
+  -root from +in.
+  -root via +via.
+  -root to -out.
+
+  # these destructurings belong in the body, because they're
+  # actually queries, not looking for something stated in the calling
+  # query. it would be nice to be able to "create" bnodes in queries for
+  # pattern matching. but then we have the same problem, of needing a
+  # different form for bnodes vs named. ig we can mint bnodes in the
+  # body, too. we can't destructure directly in heads, but we still can
+  # in a body
+  +in a List.
+  +in first +fin.
+  +in rest +rin.
+
+  -out a List.
+  -out first -fout.
+  -out rest -rout.
+} :- {
+  # quads for graphs
+  +via _1 a +via.
+  +via _1 in +fin.
+  # what graph does -fout live in? how does our caller have
+  # access to its data? ig bnodes are graph-scoped, just like
+  # named nodes; follow usual rule of assuming graph is IRI of
+  # subject, minus any fragment
+  +via _1 out -fout.
+
+  # could also do
+  +via { -out a +via ; in +fin }.
+  # and grab the generated bnode
+
+  # default graph?
+  _2 a Map.
+  _2 from +rin.
+  _2 via +via.
+  _2 to -rout.
+}
+
+# the above fails to unify if +in = nil, because there's no +fin or +rin
+# well, unless someone attaches those properties to nil in the graph defining
+# Map
+
+# could -root, above, be ?root - ie supply an extant node? if it exists,
+# do we then query for +in and +via? what if +root lives in a different graph?
+# ig we could use a variable graph for +root to find +in and +via, but does
+# that mean we're inferring -out into that graph?
+#
+# extending objects with further inferences does seem useful... i think we can
+# give a good balance by making the inferences available if the graph containing
+# the node to be extended imports the extending rule - then, we don't have to worry
+# about which graph hosts the extension - it should be the extending rule's graph,
+# since there's a notion of 'who says' with graphs, but then we split between graphs
+# for our params by in vs out args, which seems workable but feels messy
+#
+# plus, by forcing the definer of an object to do the import, we let authors extend
+# their own objects, but everyone else has to use composition.
+#
+# what am i saying? just import both. extension done.
+# that does mean, i think, that if it's +root, then we do have to query for the other
+# +args, and across everything included in the default graph? or do we assume
+#
+# idk. all this seems weird and convoluted. it's also the case that we only need to
+# extend an object if someone *asks for the extension*, which means they've imported
+# the rule.
+#
+# this whole related-term fetching stuff should look like this:
+{
+  +foo a Foo.
+  +foo some -otherProp.
+} :- {
+  +foo somethingElse ?else.
+  [ a Rule; in ?else; out -otherProp ].
+}
+# so instead of querying for an +arg from the head we state it in the body.
+#
+# Is this confusing? It seems like total noobs will say "but +foo has that thing!"
+# and honestly they have a point. This also means we need two different forms for
+# extending extant data and composing new data, even though the result is the same
+# shape, constructed with almost the same logic. ig there's a difference, in that
+# with -foo, we say that the caller *must* provide the +args, they're basically
+# ginned up into existence *by the call*, and that's the only way they can exist.
+# making other queries to bind +args is kinda the same but also different... in a
+# query, we're asking if something exists, but with +args in a query, we're kinda
+# supposing something.
+
+
+[ a Map;
+  from ?in;
+  ?in 
+  to ?out; via ?via ] :-
+  ?in = nil
+  -> ?out = nil
+  ; (
+    [ a ?via ; in ?fin ; out ?fout ] &
+    [ a Map ; from ?rin ; to ?rout ] .
+  ) .
+
+
+{
+  -root a Map.
+  -root from +in.
+  -root via +via.
+  -root to -to.
+} :- {
+  # do list nodes live in the List graph? it might
+  # make sense, because they could have custom storage
+  # but then does an unknown User always live in graph User?
+  # hm. what if a graph imports List, so the list is addressable
+  # via the importing graph, but we also want a custom backend
+  # provided by the List module?
+  List +in a List.
+  List +in first ?fin.
+  List +in rest ?rin.
+
+  # GUI sets up graph term to match call target if subj is var?
+  # we can leave it unbound until subj is bound, then infer graph
+  +via ?fout a +via.
+  +via ?fout from +fin.
+  # fout gets other props - are they memo'd? do they have to be?
+
+  -to a List.
+  -to first ?fout.
+  -to rest -rout.
+
+  # default graph
+  _ a Map.
+  _ from +rin.
+  _ via +via.
+  _ to -rout.
+}
+
+# for list, it makes sense to 'make up' a bnode in a query, because List is just
+# a pattern, it has no body. and it works in this example because that bnode is
+# memo'd and thus still visible in Map's body

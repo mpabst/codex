@@ -27,7 +27,8 @@ export class Query {
 
   dbNode: Node | null = null
   // instead of failing, just jump to whatever's on top of the stack?
-  // maybe negation will get messy, idk. better read the WAM book
+  // maybe negation will get messy, idk. better read the WAM book.
+  // maybe: set fail, fetch next instr, if 'not', then continue, else backtrack
   fail: boolean = false
 
   bindings: Bindings = new Map()

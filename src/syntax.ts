@@ -1,7 +1,8 @@
 import { Order } from './collections/index.js'
-import { FlatQuad, Term, Variable } from './term.js'
+import { Bindings } from './query.js'
+import { FlatQuad, Variable } from './term.js'
 
-export type VarMap = Map<Variable, Variable>
+export type VarMap = Bindings<Variable>
 
 export interface Pattern {
   type: 'Pattern'

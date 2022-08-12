@@ -6,8 +6,9 @@ export function fillTwig<K, V, M>(
   tree: Tree<K, V>,
   key: Iterable<K>,
   doer: (t: Map<K, V>, k: K) => M,
+  nodeCtor: MapConstructor = Map,
 ): M {
-  return twigBase(tree, key, doer, true)!
+  return twigBase(tree, key, doer, true, nodeCtor)!
 }
 
 export function get<K, V>(
@@ -38,24 +39,25 @@ export function prune<K, V>(
   return tree.size === 0
 }
 
-export function set<K, V>(tree: Tree<K, V>, key: Iterable<K>, value: V): void {
+export function set<K, V>(tree: Tree<K, V>, key: Iterable<K>, value: V, nodeCtor: MapConstructor = Map): void {
   const [first, ...rest] = key
   if (rest.length === 0) tree.set(first, value)
   else
-    set(defaulting.get(tree, first, () => new Map()) as Tree<K, V>, rest, value)
+    set(defaulting.get(tree, first, () => new nodeCtor()) as Tree<K, V>, rest, value)
 }
 
-function twigBase<K, V, M>(
+const twigBase = <K, V, M>(
   tree: Tree<K, V>,
   key: Iterable<K>,
   doer: (t: Map<K, V>, k: K) => M,
   fill: boolean,
-): M | undefined {
+  nodeCtor: MapConstructor = Map,
+): M | undefined => {
   const [first, ...rest] = key
   if (rest.length === 0) return doer(tree as Map<K, V>, first)
   const branch = fill
-    ? defaulting.get(tree, first, () => new Map())
+    ? defaulting.get(tree, first, () => new nodeCtor())
     : tree.get(first)
   if (!branch) return
-  return twigBase(branch as Tree<K, V>, rest, doer, fill)
+  return twigBase(branch as Tree<K, V>, rest, doer, fill, nodeCtor)
 }

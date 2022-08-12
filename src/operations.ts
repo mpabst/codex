@@ -1,5 +1,6 @@
 import { Clause } from './clause.js'
 import { Branch, Index, Twig } from './collections/index.js'
+import { VTMap } from './collections/var-tracking.js'
 import { Argument, ChoicePoint, Operation, Query } from './query.js'
 import { Term, Variable } from './term.js'
 
@@ -9,7 +10,12 @@ import { Term, Variable } from './term.js'
 // 3. push choicepoint, iterate
 // 4. at end of CP, unbind keys from 1, backtrack
 
-// convert cp.trail into a stack of [var, side] pairs
+// instead of dynamically branching through the heads,
+// we can just do those same queries at compile time,
+// and in the emitter, generate ops covering the
+// combination of caller and callee terms, not just
+// the former, with a bunch of branching to determine
+// the latter
 
 function advanceMedial(query: Query, term: Argument): void {
   query.dbNode = (query.dbNode as Branch).get(term as Term)!
@@ -41,7 +47,7 @@ function iPre(
   term: Argument,
   doConst: Operation,
 ): ChoicePoint<Variable> | null {
-  const vars = query.dbNode!.varKeys
+  const vars = (query.dbNode as VTMap).varKeys
 
   if (vars.size === 0) {
     doConst(query, term)
@@ -127,7 +133,7 @@ function iOldVar(
 
 export const operations: { [k: string]: Operation } = {
   setClause(query: Query, clause: Argument): void {
-    query.clause = clause as Clause
+    query.pending = [clause as Clause, (clause as Clause).body.newScope()]
     query.dbNode = (clause as Clause).head.getOrder('SPO')
     query.programP++
   },
@@ -175,7 +181,7 @@ export const operations: { [k: string]: Operation } = {
   },
 
   call(query: Query, term: Argument): void {
-    query.clause = null
+    query.pending = null
     query.callee = new Map()
   },
 

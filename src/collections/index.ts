@@ -1,5 +1,5 @@
 import * as tupleSet from './tuple-set.js'
-import {FlatTriple, Term} from '../term.js'
+import { FlatTriple, Term } from '../term.js'
 
 export type Branch = tupleSet.TupleSet<Term>
 export type Twig = Set<Term>
@@ -34,20 +34,24 @@ export class Index {
   }
 
   static reorder(order: Order, triple: FlatTriple): FlatTriple {
-    return order.split('').map((o) => triple[Index.PLACES.indexOf(o)]) as FlatTriple
+    return order
+      .split('')
+      .map(o => triple[Index.PLACES.indexOf(o)]) as FlatTriple
   }
 
   private readonly data: Data = {}
 
-  constructor() {
-    for (const o of Index.ORDERS) this.data[o] = new Map()
+  constructor(nodeCtor: MapConstructor = Map) {
+    for (const o of Index.ORDERS) this.data[o] = new nodeCtor()
   }
 
   add(triple: FlatTriple): void {
-    // if (quad.some(t => t.termType === 'Variable'))
-    //   throw new TypeError("Can't add variables")
-    for (const [order, index] of Object.entries(this.data))
-      tupleSet.add(index, Index.reorder(order, triple))
+    for (const order in this.data)
+      this.addData(this.data[order], Index.reorder(order, triple))
+  }
+
+  protected addData(index: Branch, data: FlatTriple): void {
+    tupleSet.add(index, data)
   }
 
   getOrder(order: Order): Branch {

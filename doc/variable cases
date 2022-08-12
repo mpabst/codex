@@ -1,0 +1,18 @@
+variable cases:
+L const, R var
+  deref var
+    unbound: bind ultimate - set as cp.var
+    bound: equality check
+  backtrack: unbind cp.trail
+  deref: 
+
+L var, R const
+  cp.var || deref var
+    bound: eq check
+    unbound: bind ultimate, set as cp.var
+  bt: unbind cp.trail
+
+L var, R var
+  deref
+    both still vars: set L := R
+    otherwise as above

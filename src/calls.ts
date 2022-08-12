@@ -1,89 +1,79 @@
-import { Argument, ChoicePoint, Operation, Query, Side } from './query.js'
+import { Argument, ChoicePoint, Operation, Query } from './query.js'
 import { Term, Variable } from './term.js'
 
-function iTerm(
+function iPre(
   query: Query,
   term: Argument,
   doConst: Operation,
-  doVar: (cp: ChoicePoint, r: IteratorResult<Variable>) => void,
-): void {
-  const options = query.dbNode!.varKeys
+): ChoicePoint<Variable> | null {
+  const vars = query.dbNode!.varKeys
 
-  if (options.size === 0) {
+  if (vars.size === 0) {
     doConst(query, term)
-    return
+    return null
   }
 
-  const cp = query.peek(options)
-  if (cp.trail) {
-    if (cp.side === Side.Caller) query.scope.set(cp.trail, cp.trail)
-    else query.calling.delete(cp.trail)
-  }
+  const cp = query.currentCP(vars) as ChoicePoint<Variable>
+  if (!cp.current) query.unbind()
 
-  const result = (cp.iterator as Iterator<Variable>).next()
+  const result = cp.next()
   if (result.done) {
     query.stack.pop()
     doConst(query, term)
-    return
+    return null
   }
 
-  doVar(cp, result)
+  return cp
 }
 
 function iConst(
   query: Query,
-  term: Argument,
+  caller: Argument,
   advance: Operation,
   eConst: Operation,
 ): void {
-  function doVar(cp: ChoicePoint, result: IteratorResult<Variable>) {
-    const proxi = query.calling.get(result.value as Variable)
-    if (!proxi) {
-      query.calling.set(result.value, term as Term)
-      cp.trail = result.value
-      cp.side = Side.Callee
-    } else if (proxi.termType !== 'Variable') {
-      if (proxi !== term) {
-        query.fail = true
-        return
-      }
-    } else {
-      const ulti = query.deref(proxi as Variable)
-      if (ulti.termType === 'Variable') {
-        query.scope.set(ulti as Variable, term as Term)
-        cp.trail = ulti as Variable
-        cp.side = Side.Caller
-      } else if (ulti !== term) {
-        query.fail = true
-        return
-      }
+  const cp = iPre(query, caller, eConst)
+  if (!cp) return
+
+  const { value: callee } = cp.current!
+  const proxi = query.callee.get(callee as Variable)
+  if (!proxi) query.bindCallee(callee, caller as Term)
+  else if (proxi.termType !== 'Variable') {
+    if (proxi !== caller) {
+      query.fail = true
+      return
     }
-    advance(query, result.value)
+  } else {
+    const ulti = query.deref(proxi as Variable)
+    if (ulti.termType === 'Variable')
+      query.bindScope(ulti as Variable, caller as Term)
+    else if (ulti !== caller) {
+      query.fail = true
+      return
+    }
   }
-  iTerm(query, term, eConst, doVar)
+
+  advance(query, caller)
 }
 
 function iNewVar(
   query: Query,
-  term: Argument,
+  caller: Argument,
   advance: Operation,
   eNewVar: Operation,
 ) {
-  function doVar(cp: ChoicePoint, result: IteratorResult<Variable>) {
-    let found = query.calling.get(result.value as Variable)
-    if (!found) {
-      query.calling.set(result.value, term as Term)
-      cp.trail = result.value
-      cp.side = Side.Callee
-    } else {
-      if (found.termType === 'Variable') found = query.deref(found as Variable)
-      query.scope.set(term as Variable, found)
-      cp.trail = term as Variable
-      cp.side = Side.Caller
-    }
-    advance(query, result.value)
+  const cp = iPre(query, caller, eNewVar)
+  if (!cp) return
+
+  const { value: callee } = cp.current!
+  let found = query.callee.get(callee as Variable)!
+  if (found === callee) query.bindCallee(callee, caller as Term)
+  else {
+    if (found.termType === 'Variable') found = query.deref(found as Variable)
+    query.bindScope(caller as Variable, found as Variable)
   }
-  iTerm(query, term, eNewVar, doVar)
+
+  advance(query, caller)
 }
 
 function iOldVar(
@@ -103,3 +93,5 @@ function iOldVar(
 // 2. do call, collect these out-args as caller var -> value
 // 3. push choicepoint, iterate
 // 4. at end of CP, unbind keys from 1, backtrack
+
+// convert cp.trail into a stack of [var, side] pairs

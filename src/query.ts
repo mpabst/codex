@@ -19,17 +19,25 @@ export enum Side {
   Callee,
 }
 
-export class ChoicePoint {
-  public pc: number
+type TrailItem = [Variable, Side]
+
+export class ChoicePoint<T extends Term = Term> {
+  public programP: number
   public clause: Clause | null
   public dbNode: Node | null
-  public trail: Variable | null = null
-  public side: Side | null = null
+  public trailP: number
+  public current: IteratorResult<T> | null = null // move to Query?
 
-  constructor(query: Query, public iterator: Iterator<Term>) {
-    this.pc = query.pc
+  constructor(query: Query, public iterator: Iterator<T>) {
+    this.programP = query.programP
     this.clause = query.clause
     this.dbNode = query.dbNode
+    this.trailP = query.trailP
+  }
+
+  next(): IteratorResult<T> {
+    this.current = this.iterator.next()
+    return this.current
   }
 }
 
@@ -38,24 +46,26 @@ export class Query {
   returning: VarMap = new Map()
 
   program: Program
-  pc: number = 0
+  programP: number = 0
 
+  scope: Bindings = new Map()
   dbNode: Node | null = null
   // instead of failing, just jump to whatever's on top of the stack?
   // maybe negation will get messy, idk. better read the WAM book.
   // maybe: set fail, fetch next instr, if 'not', then continue, else backtrack
   fail: boolean = false
 
-  scope: Bindings = new Map()
   stack: ChoicePoint[] = []
+  stackP: number = -1
+
+  trail: TrailItem[] = []
+  trailP: number = -1
 
   clause: Clause | null = null
   // just reach into clause.scope?
-  calling: Bindings = new Map()
+  callee: Bindings = new Map()
 
   emit: ((b: Bindings) => void) | null = null
-
-  iFound: Term | null = null
 
   constructor(public store: Store, source: Expression) {
     const [program, variables] = compile(store, source)
@@ -68,16 +78,22 @@ export class Query {
   }
 
   backtrack(): boolean {
-    const length = this.stack.length
-    if (length === 0) return false
-    const choicePoint = this.stack[length - 1]
-    this.pc = choicePoint.pc
-    this.clause = choicePoint.clause
-    this.dbNode = choicePoint.dbNode
+    if (this.stackP < 0) return false
+
+    this.stackP--
+    const cp = this.stack[this.stackP]
+
+    while (this.trailP > cp.trailP) this.unbind()
+
+    this.programP = cp.programP
+    this.clause = cp.clause
+    this.dbNode = cp.dbNode
     this.fail = false
+
     return true
   }
 
+  // should return [var, side]
   deref(variable: Variable): Term {
     const found = this.scope.get(variable)!
     if (found.termType === 'Variable')
@@ -86,70 +102,77 @@ export class Query {
   }
 
   derefCalling(variable: Variable): Term {
-    const found = this.calling.get(variable)!
+    const found = this.callee.get(variable)!
     return found.termType === 'Variable' ? this.deref(found as Variable) : found
   }
 
-  evaluate(
-    emit: (b: Bindings) => void = console.log,
-    args: Bindings = new Map(),
-  ): void {
+  bindScope(vari: Variable, val: Term): void {
+    this.scope.set(vari, val)
+    this.trailP++
+    this.trail[this.trailP] = [vari, Side.Caller]
+  }
+
+  bindCallee(vari: Variable, value: Term): void {
+    this.callee.set(vari, value)
+    this.trailP++
+    this.trail[this.trailP] = [vari, Side.Callee]
+  }
+
+  unbind(): void {
+    const [v, side] = this.trail[this.trailP]
+    if (side === Side.Caller) this.scope.set(v, v)
+    else this.callee.set(v, v)
+    this.trailP--
+  }
+
+  evaluate(emit: (b: Bindings) => void = console.log): void {
     this.emit = emit
-    for (const [k, v] of args) this.scope.set(k, v)
     while (true) {
-      const instruction = this.program[this.pc]
-      instruction[0](this, instruction[1])
+      const [op, arg] = this.program[this.programP]
+      op(this, arg)
       if (this.fail && !this.backtrack()) break
     }
-
-    // only unbind vars which were unbound at start of eval
-    for (const k of args.keys()) this.scope.set(k, k)
-
     this.emit = null
   }
 
-  next(it: Keyable): IteratorResult<Term> {
-    return this.peek(it).iterator?.next()!
+  nextChoice(it: Keyable): IteratorResult<Term> {
+    return this.currentCP(it).iterator.next()
   }
 
-  peek(it: Keyable): ChoicePoint {
-    let out = this.stack[this.stack.length - 1]
-    if (!out || out.pc !== this.pc) {
+  currentCP(it: Keyable): ChoicePoint {
+    let out
+    if (this.stackP > -1) out = this.stack[this.stackP]
+    if (!out || out.programP !== this.programP) {
       out = new ChoicePoint(this, it.keys())
-      this.stack.push(out)
+      this.stackP++
+      this.stack[this.stackP] = out
     }
     return out
-  }
-
-  pop(): void {
-    this.stack.pop()
-    this.fail = true
   }
 }
 
 function advanceMedial(query: Query, term: Argument): void {
   query.dbNode = (query.dbNode as Branch).get(term as Term)!
-  query.pc++
+  query.programP++
 }
 
 function advanceFinal(query: Query, term: Argument): void {
-  query.dbNode = null
-  query.pc++
+  // query.dbNode = null
+  query.programP++
 }
 
 function eAnonVar(query: Query, advance: Operation): void {
-  const result = query.next(query.dbNode!)
-  if (result.done) query.pop()
+  const result = query.nextChoice(query.dbNode!)
+  if (result.done) query.fail = true
   else advance(query, result.value)
 }
 
 function eNewVar(query: Query, term: Argument, advance: Operation): void {
-  const result = query.next(query.dbNode!)
-  if (result.done) {
-    query.scope.set(term as Variable, term as Term)
-    query.pop()
-  } else {
-    query.scope.set(term as Variable, result.value)
+  const result = query.nextChoice(query.dbNode!)
+  if (result.done) query.fail = true
+  else {
+    query.bindScope(term as Variable, result.value)
+
     advance(query, result.value)
   }
 }
@@ -158,19 +181,19 @@ export const operations: { [k: string]: Operation } = {
   setClause(query: Query, clause: Argument): void {
     query.clause = clause as Clause
     query.dbNode = (clause as Clause).head.getOrder('SPO')
-    query.pc++
+    query.programP++
   },
 
   setIndex(query: Query, index: Argument): void {
     query.dbNode = (index as Index).getOrder('SPO')
-    query.pc++
+    query.programP++
   },
 
   medialEConst(query: Query, term: Argument): void {
     const found = (query.dbNode as Branch).get(term as Term)
     if (found) {
       query.dbNode = found
-      query.pc++
+      query.programP++
     } else query.fail = true
   },
 
@@ -189,7 +212,7 @@ export const operations: { [k: string]: Operation } = {
   },
 
   finalEConst(query: Query, term: Argument): void {
-    if ((query.dbNode as Twig).has(term as Term)) query.pc++
+    if ((query.dbNode as Twig).has(term as Term)) query.programP++
     else query.fail = true
   },
 
@@ -205,7 +228,7 @@ export const operations: { [k: string]: Operation } = {
 
   call(query: Query, term: Argument): void {
     query.clause = null
-    query.calling = new Map()
+    query.callee = new Map()
   },
 
   emitResult(query: Query, term: Argument): void {

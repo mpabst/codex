@@ -1,6 +1,7 @@
 import { Clause } from './clause.js'
 import { randomString, variable } from './data-factory.js'
-import { operations, Program } from './query.js'
+import { operations } from './operations.js'
+import { Program } from './query.js'
 import { Context, Key, Store } from './store.js'
 import { Expression, Pattern, traverse } from './syntax.js'
 import { Term, Variable } from './term.js'

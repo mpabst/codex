@@ -1,5 +1,5 @@
 import { Clause } from './clause.js'
-import { Branch, Index, Node, Twig } from './collections/index.js'
+import { Node } from './collections/index.js'
 import { compile } from './compile.js'
 import { Context, Store } from './store.js'
 import { Expression } from './syntax.js'
@@ -149,90 +149,4 @@ export class Query {
     }
     return out
   }
-}
-
-function advanceMedial(query: Query, term: Argument): void {
-  query.dbNode = (query.dbNode as Branch).get(term as Term)!
-  query.programP++
-}
-
-function advanceFinal(query: Query, term: Argument): void {
-  // query.dbNode = null
-  query.programP++
-}
-
-function eAnonVar(query: Query, advance: Operation): void {
-  const result = query.nextChoice(query.dbNode!)
-  if (result.done) query.fail = true
-  else advance(query, result.value)
-}
-
-function eNewVar(query: Query, term: Argument, advance: Operation): void {
-  const result = query.nextChoice(query.dbNode!)
-  if (result.done) query.fail = true
-  else {
-    query.bindScope(term as Variable, result.value)
-
-    advance(query, result.value)
-  }
-}
-
-export const operations: { [k: string]: Operation } = {
-  setClause(query: Query, clause: Argument): void {
-    query.clause = clause as Clause
-    query.dbNode = (clause as Clause).head.getOrder('SPO')
-    query.programP++
-  },
-
-  setIndex(query: Query, index: Argument): void {
-    query.dbNode = (index as Index).getOrder('SPO')
-    query.programP++
-  },
-
-  medialEConst(query: Query, term: Argument): void {
-    const found = (query.dbNode as Branch).get(term as Term)
-    if (found) {
-      query.dbNode = found
-      query.programP++
-    } else query.fail = true
-  },
-
-  medialENewVar(query: Query, term: Argument): void {
-    eNewVar(query, term, advanceMedial)
-  },
-
-  medialEOldVar(query: Query, term: Argument): void {
-    const found = query.deref(term as Variable)
-    if (found.termType === 'Variable') operations.medialENewVar(query, found)
-    else operations.medialEConst(query, found)
-  },
-
-  medialEAnonVar(query: Query, term: Argument): void {
-    eAnonVar(query, advanceMedial)
-  },
-
-  finalEConst(query: Query, term: Argument): void {
-    if ((query.dbNode as Twig).has(term as Term)) query.programP++
-    else query.fail = true
-  },
-
-  finalENewVar(query: Query, term: Argument): void {
-    eNewVar(query, term, advanceFinal)
-  },
-
-  finalEOldVar(query: Query, term: Argument): void {
-    const found = query.deref(term as Variable)
-    if (found.termType === 'Variable') operations.finalENewVar(query, found)
-    else operations.finalEConst(query, found)
-  },
-
-  call(query: Query, term: Argument): void {
-    query.clause = null
-    query.callee = new Map()
-  },
-
-  emitResult(query: Query, term: Argument): void {
-    query.emit!(new Map(query.scope))
-    query.fail = !query.backtrack()
-  },
 }

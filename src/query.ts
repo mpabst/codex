@@ -12,13 +12,15 @@ type Instruction = [Operation, Argument]
 export type Program = Instruction[]
 
 class ChoicePoint {
-  constructor(
-    public variable: Variable,
-    public instructionPtr: number,
-    public clause: Clause | null,
-    public dbNode: Node | null,
-    public iterator: Iterator<Term> | null,
-  ) {}
+  public instructionPtr: number
+  public clause: Clause | null
+  public dbNode: Node | null
+
+  constructor(query: Query, public iterator: Iterator<Term> | null) {
+    this.instructionPtr = query.instructionPtr
+    this.clause = query.clause
+    this.dbNode = query.dbNode
+  }
 }
 
 export class Query {
@@ -39,10 +41,17 @@ export class Query {
 
   emit: ((b: Bindings) => void) | null = null
 
+  incoming: Map<Variable, Variable>
+  outgoing = new Map<Variable, Variable>()
+
   constructor(public store: Store, source: Expression) {
     const [program, variables] = compile(store, source)
     this.program = program
-    for (const v of variables) this.bindings.set(v, v)
+    this.incoming = variables
+    for (const [k, v] of variables) {
+      this.outgoing.set(v, k)
+      this.bindings.set(v, v)
+    }
   }
 
   backtrack(): boolean {
@@ -79,6 +88,43 @@ export class Query {
     for (const k of bindings.keys()) this.bindings.set(k, k)
     this.emit = null
   }
+
+  pushChoicePoint(it: Iterator<Term>): ChoicePoint {
+    const out = new ChoicePoint(this, it)
+    this.stack.push(out)
+    return out
+  }
+}
+
+function getNext(query: Query, it: Iterator<Term>): IteratorResult<Term> {
+  let choicePoint = query.stack[query.stack.length - 1]
+  if (!choicePoint || choicePoint.instructionPtr !== query.instructionPtr)
+    choicePoint = query.pushChoicePoint(it)
+  return choicePoint.iterator?.next()!
+}
+
+function advanceMedial(query: Query, term: Term): void {
+  query.dbNode = (query.dbNode as Branch).get(term)!
+  query.instructionPtr++
+}
+
+function advanceFinal(query: Query, term: Term): void {
+  query.dbNode = null
+  query.instructionPtr++
+}
+
+function noMore(query: Query): void {
+  query.stack.pop()
+  query.fail = true
+}
+
+function anonVariable(
+  query: Query,
+  advanceNode: (q: Query, t: Term) => void,
+): void {
+  const result = getNext(query, query.dbNode!.keys())
+  if (result.done) noMore(query)
+  else advanceNode(query, result.value)
 }
 
 function newVariable(
@@ -86,26 +132,13 @@ function newVariable(
   term: Argument,
   advanceNode: (q: Query, t: Term) => void,
 ): void {
-  let choicePoint = query.stack[query.stack.length - 1]
-  if (!choicePoint || choicePoint.variable !== term) {
-    choicePoint = new ChoicePoint(
-      term as Variable,
-      query.instructionPtr,
-      query.clause,
-      query.dbNode,
-      query.dbNode!.keys(),
-    )
-    query.stack.push(choicePoint)
-  }
-  const result = choicePoint.iterator?.next()!
+  const result = getNext(query, query.dbNode!.keys())
   if (result.done) {
     query.bindings.set(term as Variable, term as Term)
-    query.stack.pop()
-    query.fail = true
+    noMore(query)
   } else {
     query.bindings.set(term as Variable, result.value)
     advanceNode(query, result.value)
-    query.instructionPtr++
   }
 }
 
@@ -130,15 +163,15 @@ export const operations: { [k: string]: Operation } = {
   },
 
   medialNewVariable(query: Query, term: Argument): void {
-    newVariable(
-      query,
-      term,
-      (q: Query, t: Term) => (q.dbNode = (q.dbNode as Branch).get(t)!),
-    )
+    newVariable(query, term, advanceMedial)
   },
 
   medialOldVariable(query: Query, term: Argument): void {
     operations.medialConstant(query, query.deref(term as Variable))
+  },
+
+  medialAnonVariable(query: Query, term: Argument): void {
+    anonVariable(query, advanceMedial)
   },
 
   finalConstant(query: Query, term: Argument): void {
@@ -147,7 +180,7 @@ export const operations: { [k: string]: Operation } = {
   },
 
   finalNewVariable(query: Query, term: Argument): void {
-    newVariable(query, term, (q: Query, t: Term) => (q.dbNode = null))
+    newVariable(query, term, advanceFinal)
   },
 
   finalOldVariable(query: Query, term: Argument): void {

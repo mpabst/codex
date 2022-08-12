@@ -1,15 +1,16 @@
 import { Clause } from './clause.js'
+import { randomString, variable } from './data-factory.js'
 import { operations, Program } from './query.js'
 import { Context, Key, Store } from './store.js'
 import { Expression, Pattern, traverse } from './syntax.js'
-import { Variable } from './term.js'
+import { Term, Variable } from './term.js'
 
 export function compile(
   store: Store,
   query: Expression,
-): [Program, Set<Variable>] {
+): [Program, Map<Variable, Variable>] {
   const program: Program = []
-  const variables = new Set<Variable>()
+  const variables = new Map<Variable, Variable>()
   let lastContext: Context | null = null
 
   function pattern(expr: Pattern): void {
@@ -26,14 +27,23 @@ export function compile(
       throw new Error('todo: calls')
     else program.push([operations.setIndex, context])
 
-    expr.terms.slice(1).forEach((term, i) => {
+    expr.terms.slice(1).forEach((term: Term | null, i) => {
       let op: string
-      if (term.termType === 'Variable')
-        if (variables.has(term)) op = 'OldVariable'
-        else {
-          op = 'NewVariable'
-          variables.add(term)
+      if (term!.termType === 'Variable') {
+        if (term!.value[0] === '_') {
+          op = 'AnonVariable'
+          term = null
+        } else {
+          let mapped = variables.get(term as Variable)
+          if (mapped) op = 'OldVariable'
+          else {
+            op = 'NewVariable'
+            mapped = variable(randomString())
+            variables.set(term as Variable, mapped)
+          }
+          term = mapped
         }
+      }
       else op = 'Constant'
 
       program.push([

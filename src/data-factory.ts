@@ -69,7 +69,7 @@ export function randomBlankNode(): BlankNode {
 }
 
 // TODO: replace with https://github.com/ai/nanoid
-function randomString(length = 8): string {
+export function randomString(length = 8): string {
   const charset = '0123456789abcdefghijklmnopqrztuvwxyz'.split('')
   const out = []
   for (let i = 0; i < length; i++)

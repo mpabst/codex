@@ -103,12 +103,12 @@ function getNext(query: Query, it: Iterator<Term>): IteratorResult<Term> {
   return choicePoint.iterator?.next()!
 }
 
-function advanceMedial(query: Query, term: Term): void {
-  query.dbNode = (query.dbNode as Branch).get(term)!
+function advanceMedial(query: Query, term: Argument): void {
+  query.dbNode = (query.dbNode as Branch).get(term as Term)!
   query.instructionPtr++
 }
 
-function advanceFinal(query: Query, term: Term): void {
+function advanceFinal(query: Query, term: Argument): void {
   query.dbNode = null
   query.instructionPtr++
 }
@@ -118,27 +118,20 @@ function noMore(query: Query): void {
   query.fail = true
 }
 
-function anonVariable(
-  query: Query,
-  advanceNode: (q: Query, t: Term) => void,
-): void {
+function anonEVar(query: Query, advance: Operation): void {
   const result = getNext(query, query.dbNode!.keys())
   if (result.done) noMore(query)
-  else advanceNode(query, result.value)
+  else advance(query, result.value)
 }
 
-function newVariable(
-  query: Query,
-  term: Argument,
-  advanceNode: (q: Query, t: Term) => void,
-): void {
+function newEVar(query: Query, term: Argument, advance: Operation): void {
   const result = getNext(query, query.dbNode!.keys())
   if (result.done) {
     query.bindings.set(term as Variable, term as Term)
     noMore(query)
   } else {
     query.bindings.set(term as Variable, result.value)
-    advanceNode(query, result.value)
+    advance(query, result.value)
   }
 }
 
@@ -154,7 +147,7 @@ export const operations: { [k: string]: Operation } = {
     query.instructionPtr++
   },
 
-  medialConstant(query: Query, term: Argument): void {
+  medialEConst(query: Query, term: Argument): void {
     const found = (query.dbNode as Branch).get(term as Term)
     if (found) {
       query.dbNode = found
@@ -162,29 +155,29 @@ export const operations: { [k: string]: Operation } = {
     } else query.fail = true
   },
 
-  medialNewVariable(query: Query, term: Argument): void {
-    newVariable(query, term, advanceMedial)
+  medialENewVar(query: Query, term: Argument): void {
+    newEVar(query, term, advanceMedial)
   },
 
-  medialOldVariable(query: Query, term: Argument): void {
-    operations.medialConstant(query, query.deref(term as Variable))
+  medialEOldVar(query: Query, term: Argument): void {
+    operations.medialEConst(query, query.deref(term as Variable))
   },
 
-  medialAnonVariable(query: Query, term: Argument): void {
-    anonVariable(query, advanceMedial)
+  medialEAnonVar(query: Query, term: Argument): void {
+    anonEVar(query, advanceMedial)
   },
 
-  finalConstant(query: Query, term: Argument): void {
+  finalEConst(query: Query, term: Argument): void {
     if ((query.dbNode as Twig).has(term as Term)) query.instructionPtr++
     else query.fail = true
   },
 
-  finalNewVariable(query: Query, term: Argument): void {
-    newVariable(query, term, advanceFinal)
+  finalENewVar(query: Query, term: Argument): void {
+    newEVar(query, term, advanceFinal)
   },
 
-  finalOldVariable(query: Query, term: Argument): void {
-    operations.finalConstant(query, query.deref(term as Variable))
+  finalEOldVar(query: Query, term: Argument): void {
+    operations.finalEConst(query, query.deref(term as Variable))
   },
 
   call(query: Query, term: Argument): void {

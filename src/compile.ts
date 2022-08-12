@@ -12,6 +12,7 @@ export function compile(
   const program: Program = []
   const variables = new Map<Variable, Variable>()
   let lastContext: Context | null = null
+  let mode: 'E' | 'I' = 'E' // EDB vs IDB
 
   function pattern(expr: Pattern): void {
     // assume GSPO
@@ -22,35 +23,35 @@ export function compile(
       lastContext = context
     }
 
-    if (context instanceof Clause)
-      // program.push([operations.setClause, context])
-      throw new Error('todo: calls')
-    else program.push([operations.setIndex, context])
+    if (context instanceof Clause) {
+      mode = 'I'
+      program.push([operations.setClause, context])
+    } else {
+      mode = 'E'
+      program.push([operations.setIndex, context])
+    }
 
     expr.terms.slice(1).forEach((term: Term | null, i) => {
       let op: string
       if (term!.termType === 'Variable') {
-        if (term!.value[0] === '_') {
-          op = 'AnonVariable'
+        if (term!.value === '_') {
+          op = 'AnonVar'
           term = null
         } else {
           let mapped = variables.get(term as Variable)
-          if (mapped) op = 'OldVariable'
+          if (mapped) op = 'OldVar'
           else {
-            op = 'NewVariable'
+            op = 'NewVar'
             mapped = variable(randomString())
             variables.set(term as Variable, mapped)
           }
           term = mapped
         }
-      }
-      else op = 'Constant'
+      } else op = 'Const'
 
-      program.push([
-        // minus 2 because we're in a slice(1)
-        operations[(i === expr.terms.length - 2 ? 'final' : 'medial') + op],
-        term,
-      ])
+      // minus 2 because we're in a slice(1)
+      const position = i === expr.terms.length - 2 ? 'final' : 'medial'
+      program.push([operations[position + mode + op], term])
     })
   }
 

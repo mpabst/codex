@@ -18,19 +18,6 @@ import { Term, Variable } from './term.js'
 // the former, with a bunch of branching to determine
 // the latter
 
-class ResultIterator implements Iterator<Bindings> {
-  source: Iterator<Bindings>
-
-  constructor(public outParams: VarMap, source: Iterable<Bindings>) {
-    this.source = source[Symbol.iterator]()
-  }
-
-  // remove this, put outVars on CP?
-  next(): IteratorResult<Bindings> {
-    return this.source.next()
-  }
-}
-
 function advanceMedial(query: Query, term: Argument): void {
   query.dbNode = (query.dbNode as Branch).get(term as Term)!
   query.programP++
@@ -137,12 +124,25 @@ function iOldVar(
   query: Query,
   term: Argument,
   advance: Operation,
-  eNewVar: Operation,
   eConst: Operation,
+  eNewVar: Operation,
 ): void {
   const found = query.deref(term as Variable)
   if (found.termType === 'Variable') iNewVar(query, found, advance, eNewVar)
   else iConst(query, found, advance, eConst)
+}
+
+class ResultIterator implements Iterator<Bindings> {
+  source: Iterator<Bindings>
+
+  constructor(public outArgs: VarMap, source: Iterable<Bindings>) {
+    this.source = source[Symbol.iterator]()
+  }
+
+  // remove this, put outVars on CP?
+  next(): IteratorResult<Bindings> {
+    return this.source.next()
+  }
 }
 
 export const operations: { [k: string]: Operation } = {
@@ -179,6 +179,24 @@ export const operations: { [k: string]: Operation } = {
     eAnonVar(query, advanceMedial)
   },
 
+  medialIConst(query: Query, term: Argument): void {
+    iConst(query, term, advanceMedial, operations.medialEConst)
+  },
+
+  medialINewVar(query: Query, term: Argument): void {
+    iNewVar(query, term, advanceMedial, operations.medialENewVar)
+  },
+
+  medialIOldVar(query: Query, term: Argument): void {
+    iOldVar(
+      query,
+      term,
+      advanceMedial,
+      operations.medialEConst,
+      operations.medialENewVar,
+    )
+  },
+
   finalEConst(query: Query, term: Argument): void {
     if ((query.dbNode as Twig).has(term as Term)) query.programP++
     else query.fail = true
@@ -192,6 +210,24 @@ export const operations: { [k: string]: Operation } = {
     const found = query.deref(term as Variable)
     if (found.termType === 'Variable') operations.finalENewVar(query, found)
     else operations.finalEConst(query, found)
+  },
+
+  finalIConst(query: Query, term: Argument): void {
+    iConst(query, term, advanceFinal, operations.finalEConst)
+  },
+
+  finalINewVar(query: Query, term: Argument): void {
+    iNewVar(query, term, advanceFinal, operations.finalENewVar)
+  },
+
+  finalIOldVar(query: Query, term: Argument): void {
+    iOldVar(
+      query,
+      term,
+      advanceFinal,
+      operations.finalEConst,
+      operations.finalENewVar,
+    )
   },
 
   call(query: Query, _: Argument): void {
@@ -214,7 +250,7 @@ export const operations: { [k: string]: Operation } = {
       return
     }
 
-    for (const [k, v] of (cp.iterator as ResultIterator).outParams)
+    for (const [k, v] of (cp.iterator as ResultIterator).outArgs)
       query.bindScope(v, value.get(k))
     query.programP++
   },

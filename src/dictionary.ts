@@ -1,4 +1,4 @@
-import {Term, turtle, FlatTriple, FlatQuad, DEFAULT_GRAPH} from './term.js'
+import { DEFAULT_GRAPH, Term, turtle } from './term.js'
 
 abstract class Dictionary<T> {
   protected readonly data = new Map<string, T>()
@@ -32,14 +32,3 @@ export class TermDictionary extends Dictionary<Term> {
     return turtle(t)
   }
 }
-
-// TODO: Convert to TupleMap? Do perf test
-abstract class TupleDictionary<T extends Term[]> extends Dictionary<T> {
-  key(q: T): string {
-    return q.map(turtle).join(' ')
-  }
-}
-
-export class TripleDictionary extends TupleDictionary<FlatTriple> {}
-
-export class QuadDictionary extends TupleDictionary<FlatQuad> {}

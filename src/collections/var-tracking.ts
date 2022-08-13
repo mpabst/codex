@@ -37,7 +37,8 @@ export class VTMap extends Map<Term, VTBranch> {
 
 const tupleSet = {
   // args really should be VTBranches, but otherwise getting
-  // args missing varKeys, even though neither function here needs
+  // args missing varKeys, even though neither function here
+  // needs it
 
   add(set: Branch, tuple: Term[]): void {
     fillTwig(set, tuple.slice(0, -1), (b, k) =>

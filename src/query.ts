@@ -98,7 +98,7 @@ export class Query {
     return true
   }
 
-  // should return [var, side?]
+  // should return [var, side] ?
   deref(variable: Variable): Term {
     const found = this.scope!.get(variable)!
     if (found.termType === 'Variable')
@@ -108,7 +108,7 @@ export class Query {
 
   derefCalling(variable: Variable): Term {
     const found = this.callee.get(variable)!
-    return found.termType === '1Variable' ? this.deref(found as Variable) : found
+    return found.termType === 'Variable' ? this.deref(found as Variable) : found
   }
 
   bindScope(vari: Variable, val: Term): void {

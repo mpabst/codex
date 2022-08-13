@@ -1,5 +1,5 @@
 import { VTIndex } from './collections/var-tracking.js'
-import { randomBlankNode, randomString, variable } from './data-factory.js'
+import { randomString, variable } from './data-factory.js'
 import { Bindings, Query } from './query.js'
 import { Store } from './store.js'
 import { Expression, Head, traverse, VarMap } from './syntax.js'
@@ -40,10 +40,10 @@ export class Clause {
     store.set(id, this)
   }
 
-  call(): Bindings[] {
+  call(args: Bindings): Bindings[] {
     // TODO: check memo
     const out: Bindings[] = []
-    this.body.evaluate((b: Bindings) => out.push(b))
+    this.body.evaluate((b: Bindings) => out.push(b), args)
     return out
   }
 

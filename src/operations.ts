@@ -1,7 +1,8 @@
 import { Clause } from './clause.js'
 import { Branch, Index, Twig } from './collections/index.js'
 import { VTMap } from './collections/var-tracking.js'
-import { Argument, ChoicePoint, Operation, Query } from './query.js'
+import { Argument, Bindings, ChoicePoint, Operation, Query } from './query.js'
+import { VarMap } from './syntax.js'
 import { Term, Variable } from './term.js'
 
 // call:
@@ -17,12 +18,25 @@ import { Term, Variable } from './term.js'
 // the former, with a bunch of branching to determine
 // the latter
 
+class ResultIterator implements Iterator<Bindings> {
+  source: Iterator<Bindings>
+
+  constructor(public outParams: VarMap, source: Iterable<Bindings>) {
+    this.source = source[Symbol.iterator]()
+  }
+
+  // remove this, put outVars on CP?
+  next(): IteratorResult<Bindings> {
+    return this.source.next()
+  }
+}
+
 function advanceMedial(query: Query, term: Argument): void {
   query.dbNode = (query.dbNode as Branch).get(term as Term)!
   query.programP++
 }
 
-function advanceFinal(query: Query, term: Argument): void {
+function advanceFinal(query: Query, _: Argument): void {
   // query.dbNode = null
   query.programP++
 }
@@ -79,7 +93,7 @@ function iConst(
   if (!cp) return
 
   const { value: callee } = cp.current!
-  const proxi = query.callee.get(callee as Variable)
+  const proxi = query.pending![1].get(callee as Variable)
   if (!proxi) query.bindCallee(callee, caller as Term)
   else if (proxi.termType !== 'Variable') {
     if (proxi !== caller) {
@@ -109,7 +123,7 @@ function iNewVar(
   if (!cp) return
 
   const { value: callee } = cp.current!
-  let found = query.callee.get(callee as Variable)!
+  let found = query.pending![1].get(callee as Variable)!
   if (found === callee) query.bindCallee(callee, caller as Term)
   else {
     if (found.termType === 'Variable') found = query.deref(found as Variable)
@@ -161,7 +175,7 @@ export const operations: { [k: string]: Operation } = {
     else operations.medialEConst(query, found)
   },
 
-  medialEAnonVar(query: Query, term: Argument): void {
+  medialEAnonVar(query: Query, _: Argument): void {
     eAnonVar(query, advanceMedial)
   },
 
@@ -180,12 +194,32 @@ export const operations: { [k: string]: Operation } = {
     else operations.finalEConst(query, found)
   },
 
-  call(query: Query, term: Argument): void {
-    query.pending = null
-    query.callee = new Map()
+  call(query: Query, _: Argument): void {
+    let cp: ChoicePoint<Bindings>
+    if (query.stackP > -1) cp = query.stack[query.stackP]
+
+    if (!cp! || cp.programP !== query.programP) {
+      const [clause, args] = query.pending!
+      const inArgs: Bindings = new Map()
+      const outArgs: VarMap = new Map()
+      for (const [k, v] of args)
+        if (v.termType === 'Variable' && v !== k) outArgs.set(v as Variable, k)
+        else inArgs.set(k, v)
+      cp = query.pushCP(new ResultIterator(outArgs, clause.call(inArgs)))
+    }
+
+    const { value, done } = cp.next()
+    if (done) {
+      query.fail = true
+      return
+    }
+
+    for (const [k, v] of (cp.iterator as ResultIterator).outParams)
+      query.bindScope(v, value.get(k))
+    query.programP++
   },
 
-  emitResult(query: Query, term: Argument): void {
+  emitResult(query: Query, _: Argument): void {
     query.emit!(new Map(query.scope))
     query.fail = !query.backtrack()
   },

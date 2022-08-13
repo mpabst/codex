@@ -13,7 +13,7 @@ export type Program = Instruction[]
 
 type Keyable = { keys: () => Iterator<Term> }
 
-export enum Side {
+enum Side {
   Caller,
   Callee,
 }
@@ -21,12 +21,14 @@ export enum Side {
 type Pending = [Clause, Bindings]
 type TrailItem = [Variable, Side]
 
-export class ChoicePoint<T extends Term = Term> {
+export class ChoicePoint<T = Term> {
   public programP: number
   public pending: Pending | null
   public dbNode: Node | null
   public trailP: number
-  public current: IteratorResult<T> | null = null // move to Query?
+  // it'd be nice to get rid of this and just stay
+  // in the call stack
+  public current: IteratorResult<T> | null = null
 
   constructor(query: Query, public iterator: Iterator<T>) {
     this.programP = query.programP
@@ -54,15 +56,13 @@ export class Query {
   // maybe: set fail, fetch next instr, if 'not', then continue, else backtrack
   fail: boolean = false
 
-  stack: ChoicePoint[] = []
+  stack: ChoicePoint<any>[] = []
   stackP: number = -1
 
   trail: TrailItem[] = []
   trailP: number = -1
 
   pending: Pending | null = null
-  // just reach into clause.scope?
-  callee: Bindings = new Map()
 
   emit: ((b: Bindings) => void) | null = null
 
@@ -70,6 +70,10 @@ export class Query {
     const [program, variables] = compile(store, source)
     this.program = program
     this.varNames = variables
+  }
+
+  get callee(): Bindings {
+    return this.pending![1]
   }
 
   newScope(): Bindings {
@@ -103,7 +107,7 @@ export class Query {
   }
 
   derefCalling(variable: Variable): Term {
-    const found = this.pending![1].get(variable)!
+    const found = this.callee.get(variable)!
     return found.termType === '1Variable' ? this.deref(found as Variable) : found
   }
 
@@ -114,7 +118,7 @@ export class Query {
   }
 
   bindCallee(vari: Variable, value: Term): void {
-    this.pending![1].set(vari, value)
+    this.callee.set(vari, value)
     this.trailP++
     this.trail[this.trailP] = [vari, Side.Callee]
   }
@@ -122,7 +126,7 @@ export class Query {
   unbind(): void {
     const [v, side] = this.trail[this.trailP]
     if (side === Side.Caller) this.scope!.set(v, v)
-    else this.pending![1].set(v, v)
+    else this.callee.set(v, v)
     this.trailP--
   }
 
@@ -135,7 +139,6 @@ export class Query {
       op(this, arg)
       if (this.fail && !this.backtrack()) break
     }
-    this.emit = null
   }
 
   nextChoice(it: Keyable): IteratorResult<Term> {
@@ -145,11 +148,14 @@ export class Query {
   currentCP(it: Keyable): ChoicePoint {
     let out
     if (this.stackP > -1) out = this.stack[this.stackP]
-    if (!out || out.programP !== this.programP) {
-      out = new ChoicePoint(this, it.keys())
-      this.stackP++
-      this.stack[this.stackP] = out
-    }
+    if (!out || out.programP !== this.programP) return this.pushCP(it.keys())
+    else return out
+  }
+
+  pushCP<T = Term>(it: Iterator<T>): ChoicePoint<T> {
+    const out = new ChoicePoint<T>(this, it)
+    this.stackP++
+    this.stack[this.stackP] = out
     return out
   }
 }

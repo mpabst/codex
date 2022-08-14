@@ -10,6 +10,9 @@ export function compile(
   store: Store,
   query: Expression,
 ): [Program, Map<Variable, Variable>] {
+  // For bodiless rules
+  if (!query) return [[[operations.emitResult, null]], new Map()]
+
   const program: Program = []
   const variables = new Map<Variable, Variable>()
   let lastContext: Context | null = null

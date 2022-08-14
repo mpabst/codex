@@ -1,6 +1,7 @@
 import { Clause } from './clause.js'
 import { Node } from './collections/index.js'
 import { compile } from './compile.js'
+import { operations } from './operations.js'
 import { Context, Store } from './store.js'
 import { Expression, VarMap } from './syntax.js'
 import { Term, Variable } from './term.js'
@@ -66,7 +67,7 @@ export class Query {
 
   emit: ((b: Bindings) => void) | null = null
 
-  constructor(public store: Store, source: Expression) {
+  constructor(public store: Store, source: Expression | null) {
     const [program, variables] = compile(store, source)
     this.program = program
     this.varNames = variables
@@ -87,8 +88,8 @@ export class Query {
     const cp = this.stack[this.stackP]
     this.programP = cp.programP
     this.dbNode = cp.dbNode
+    // restore pending before unbind()
     this.pending = cp.pending
-    // must restore pending first
     while (this.trailP > cp.trailP) this.unbind()
     this.fail = false
     return true
@@ -126,7 +127,10 @@ export class Query {
     this.trailP--
   }
 
-  evaluate(emit: (b: Bindings) => void = console.log, args: Bindings = this.newScope()): void {
+  evaluate(
+    emit: (b: Bindings) => void = console.log,
+    args: Bindings = this.newScope(),
+  ): void {
     this.emit = emit
     this.scope = args
     this.programP = 0

@@ -84,17 +84,13 @@ export class Query {
 
   backtrack(): boolean {
     if (this.stackP < 0) return false
-
-    this.stackP--
     const cp = this.stack[this.stackP]
-
-    while (this.trailP > cp.trailP) this.unbind()
-
     this.programP = cp.programP
-    this.pending = cp.pending
     this.dbNode = cp.dbNode
+    this.pending = cp.pending
+    // must restore pending first
+    while (this.trailP > cp.trailP) this.unbind()
     this.fail = false
-
     return true
   }
 
@@ -142,10 +138,10 @@ export class Query {
   }
 
   nextChoice(it: Keyable): IteratorResult<Term> {
-    return this.currentCP(it).iterator.next()
+    return this.getOrPushCP(it).iterator.next()
   }
 
-  currentCP(it: Keyable): ChoicePoint {
+  getOrPushCP(it: Keyable): ChoicePoint {
     let out
     if (this.stackP > -1) out = this.stack[this.stackP]
     if (!out || out.programP !== this.programP) return this.pushCP(it.keys())

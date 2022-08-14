@@ -19,10 +19,8 @@ export function compile(
     // assume GSPO
     const context = store.get(expr.terms[0] as Key)!
 
-    if (lastContext && context !== lastContext) {
+    if (lastContext && context !== lastContext)
       program.push([operations.call, null])
-      lastContext = context
-    }
 
     if (context instanceof Clause) {
       mode = 'I'
@@ -54,6 +52,8 @@ export function compile(
       const position = i === expr.terms.length - 2 ? 'final' : 'medial'
       program.push([operations[position + mode + op], term])
     })
+
+    lastContext = context
   }
 
   traverse(query, { pattern })

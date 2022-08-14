@@ -34,7 +34,7 @@ export class Clause {
       } else return t
     }
     traverse(head, {
-      pattern: expr => this.head.add(expr.terms.slice(1).map(mapVar)),
+      pattern: expr => this.head.add(expr.terms.map(mapVar)),
     })
 
     store.set(id, this)
@@ -43,7 +43,7 @@ export class Clause {
   call(args: Bindings): Bindings[] {
     // TODO: check memo
     const out: Bindings[] = []
-    this.body.evaluate((b: Bindings) => out.push(b), args)
+    this.body.evaluate((b: Bindings) => out.push(new Map(b)), args)
     return out
   }
 

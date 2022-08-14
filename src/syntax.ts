@@ -1,12 +1,12 @@
 import { Order } from './collections/index.js'
 import { Bindings } from './query.js'
-import { FlatQuad, Variable } from './term.js'
+import { Term, Variable } from './term.js'
 
 export type VarMap = Bindings<Variable>
 
-export interface Pattern {
+export interface Pattern{
   type: 'Pattern'
-  terms: FlatQuad
+  terms: Term[]
   // calculate order lazily?
   order: Order
 }
@@ -38,11 +38,6 @@ interface IfThenElse {
 export type Expression = Pattern | Conjunction | Disjunction | Negation // | IfThenElse
 
 export type Head = Pattern | Conjunction<Head>
-
-export interface Rule {
-  head: Head
-  body: Expression
-}
 
 export function traverse(
   expr: Expression,

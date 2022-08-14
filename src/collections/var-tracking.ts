@@ -41,13 +41,16 @@ const tupleSet = {
   // needs it
 
   add(set: Branch, tuple: Term[]): void {
-    fillTwig(set, tuple.slice(0, -1), (b, k) =>
-      defaulting.get(b, k, () => new VTSet()),
+    fillTwig(
+      set,
+      tuple.slice(0, -1),
+      (b, k) => defaulting.get(b, k, () => new VTSet()),
+      VTMap,
     ).add(tuple[tuple.length - 1])
   },
 
   remove(set: Branch, tuple: Term[]): void {
-    prune(set, tuple.slice(0, -1), (leaf) => {
+    prune(set, tuple.slice(0, -1), leaf => {
       leaf.delete(tuple[tuple.length - 1])
       return leaf.size === 0
     })
@@ -58,7 +61,7 @@ export class VTIndex extends Index {
   constructor() {
     super(VTMap)
   }
-  
+
   protected addData(index: Branch, data: FlatTriple): void {
     tupleSet.add(index, data)
   }

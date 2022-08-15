@@ -5,12 +5,6 @@ import { Argument, Bindings, ChoicePoint, Operation, Query } from './query.js'
 import { VarMap } from './syntax.js'
 import { Term, Variable } from './term.js'
 
-// call:
-// 1. copy list of keys bound to unbound caller var -
-// 2. do call, collect these out-args as caller var -> value
-// 3. push choicepoint, iterate
-// 4. at end of CP, unbind keys from 1, backtrack
-
 // instead of dynamically branching through the heads,
 // we can just do those same queries at compile time,
 // and in the emitter, generate ops covering the
@@ -29,19 +23,15 @@ function advanceFinal(query: Query, _: Argument): void {
 }
 
 function eAnonVar(query: Query, advance: Operation): void {
-  const result = query.nextChoice(query.dbNode!)
-  if (result.done) query.fail = true
-  else advance(query, result.value)
+  const { done, value } = query.nextChoice()
+  if (!done) advance(query, value)
 }
 
 function eNewVar(query: Query, term: Argument, advance: Operation): void {
-  const result = query.nextChoice(query.dbNode!)
-  if (result.done) {
-    query.stackP--
-    query.fail = true
-  } else {
-    query.bindScope(term as Variable, result.value)
-    advance(query, result.value)
+  const { done, value } = query.nextChoice()
+  if (!done) {
+    query.bindScope(term as Variable, value)
+    advance(query, value)
   }
 }
 
@@ -59,17 +49,14 @@ function iConst(
   }
 
   const cp = query.getOrPushCP(vars) as ChoicePoint<Variable>
-  if (!cp.current) {
+  if (!cp.constDone) {
     eConst(query, caller)
+    cp.constDone = true
     return
   }
 
   const { done, value: callee } = cp.next()
-  if (done) {
-    query.stackP--
-    query.fail = true
-    return
-  }
+  if (done) return
 
   const proxi = query.pending![1].get(callee as Variable)
 
@@ -93,13 +80,8 @@ function iConst(
 }
 
 function iNewVar(query: Query, caller: Argument, advance: Operation): void {
-  const { done, value: callee } = query.nextChoice(query.dbNode!)
-
-  if (done) {
-    query.stackP--
-    query.fail = true
-    return
-  }
+  const { done, value: callee } = query.nextChoice()
+  if (done) return
 
   if (callee.termType === 'Variable') {
     let found = query.callee.get(callee as Variable)!
@@ -125,22 +107,9 @@ function iOldVar(
   else iConst(query, found, advance, eConst)
 }
 
-class ResultIterator implements Iterator<Bindings> {
-  source: Iterator<Bindings>
-
-  constructor(public outArgs: VarMap, source: Iterable<Bindings>) {
-    this.source = source[Symbol.iterator]()
-  }
-
-  // remove this, put outVars on CP?
-  next(): IteratorResult<Bindings> {
-    return this.source.next()
-  }
-}
-
 export const operations: { [k: string]: Operation } = {
   setClause(query: Query, clause: Argument): void {
-    query.pending = [clause as Clause, (clause as Clause).body.newScope()]
+    query.pending = [clause as Clause, (clause as Clause).body.newScope(null)]
     query.dbNode = (clause as Clause).head.getOrder('SPO')
     query.programP++
   },
@@ -215,25 +184,21 @@ export const operations: { [k: string]: Operation } = {
     let cp: ChoicePoint<Bindings>
     if (query.stackP > -1) cp = query.stack[query.stackP]
 
-    if (!cp! || cp.programP !== query.programP) {
+    if (!cp!?.isCurrent(query)) {
       const [clause, args] = query.pending!
       const inArgs: Bindings = new Map()
       const outArgs: VarMap = new Map()
       for (const [k, v] of args)
         if (v.termType === 'Variable' && v !== k) outArgs.set(k, v as Variable)
         else inArgs.set(k, v)
-      cp = query.pushCP(new ResultIterator(outArgs, clause.call(inArgs)))
+      cp = new ChoicePoint(query, clause.call(query, inArgs), outArgs)
+      query.pushCP(cp)
     }
 
     const { value, done } = cp.next()
-    if (done) {
-      query.stackP--
-      query.fail = true
-      return
-    }
+    if (done) return
 
-    for (const [k, v] of (cp.iterator as ResultIterator).outArgs)
-      query.bindScope(v, value.get(k))
+    for (const [k, v] of cp.outArgs!) query.bindScope(v, value.get(k))
     query.programP++
   },
 

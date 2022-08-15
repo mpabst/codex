@@ -11,9 +11,9 @@
   "type": "module",
   "scripts": {
     "build": "npm run clean && tsc -p .",
-    "test": "npm start # && open http://localhost:3000/test.html",
+    "test": "npm run build && npm start -- -o test.html",
     "clean": "rm -rf lib",
-    "start": "http-server -p 3000 public"
+    "start": "http-server -U -c-1"
   },
   "repository": {
     "type": "git",

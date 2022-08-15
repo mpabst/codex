@@ -1,7 +1,6 @@
 import { Clause } from './clause.js'
 import { Node } from './collections/index.js'
 import { compile } from './compile.js'
-import { operations } from './operations.js'
 import { Context, Store } from './store.js'
 import { Expression, VarMap } from './syntax.js'
 import { Term, Variable } from './term.js'
@@ -11,8 +10,6 @@ export type Argument = Term | Context | null
 export type Operation = (m: Query, t: Argument) => void
 type Instruction = [Operation, Argument]
 export type Program = Instruction[]
-
-type Keyable = { keys: () => Iterator<Term> }
 
 enum Side {
   Caller,
@@ -27,20 +24,36 @@ export class ChoicePoint<T = Term> {
   public pending: Pending | null
   public dbNode: Node | null
   public trailP: number
-  // it'd be nice to get rid of this and just stay
-  // in the call stack
-  public current: IteratorResult<T> | null = null
+  protected iterator: Iterator<T>
+  public done: boolean = false
+  public constDone: boolean = false
 
-  constructor(query: Query, public iterator: Iterator<T>) {
+  constructor(
+    protected query: Query,
+    iterable: Iterable<T>,
+    public outArgs: VarMap | null,
+  ) {
     this.programP = query.programP
     this.pending = query.pending
     this.dbNode = query.dbNode
     this.trailP = query.trailP
+    this.iterator = iterable[Symbol.iterator]()
+  }
+
+  isCurrent(query: Query): boolean {
+    return !this.done && query.programP === this.programP
   }
 
   next(): IteratorResult<T> {
-    this.current = this.iterator.next()
-    return this.current
+    const out = this.iterator.next()
+    // save an iteration by checking IteratorHasMore instead
+    // of waiting for done?
+    if (out.done) {
+      this.done = true
+      this.query.stackP--
+      this.query.fail = true
+    }
+    return out
   }
 }
 
@@ -77,20 +90,22 @@ export class Query {
     return this.pending![1]
   }
 
-  newScope(): Bindings {
+  newScope(args: Bindings | null): Bindings {
     const out = new Map()
-    for (const v of this.varNames.values()) out.set(v, v)
+    if (args)
+      for (const v of this.varNames.values()) out.set(v, args.get(v) ?? v)
+    else for (const v of this.varNames.values()) out.set(v, v)
     return out
   }
 
   backtrack(): boolean {
     if (this.stackP < 0) return false
     const cp = this.stack[this.stackP]
-    this.programP = cp.programP
-    this.dbNode = cp.dbNode
     // restore pending before unbind()
     this.pending = cp.pending
     while (this.trailP > cp.trailP) this.unbind()
+    this.programP = cp.programP
+    this.dbNode = cp.dbNode
     this.fail = false
     return true
   }
@@ -129,11 +144,12 @@ export class Query {
 
   evaluate(
     emit: (b: Bindings) => void = console.log,
-    args: Bindings = this.newScope(),
+    args: Bindings = new Map(),
   ): void {
     this.emit = emit
-    this.scope = args
+    this.scope = this.newScope(args)
     this.programP = 0
+    this.fail = false
     while (true) {
       const [op, arg] = this.program[this.programP]
       op(this, arg)
@@ -141,21 +157,21 @@ export class Query {
     }
   }
 
-  nextChoice(it: Keyable): IteratorResult<Term> {
-    return this.getOrPushCP(it).iterator.next()
+  nextChoice(): IteratorResult<Term> {
+    return this.getOrPushCP(this.dbNode!.keys()).next()
   }
 
-  getOrPushCP(it: Keyable): ChoicePoint {
+  getOrPushCP<T = Term>(it: Iterable<T>): ChoicePoint<T> {
     let out
     if (this.stackP > -1) out = this.stack[this.stackP]
-    if (!out || out.programP !== this.programP) return this.pushCP(it.keys())
-    else return out
+    if (out?.isCurrent(this)) return out
+    out = new ChoicePoint(this, it, null)
+    this.pushCP(out)
+    return out
   }
 
-  pushCP<T = Term>(it: Iterator<T>): ChoicePoint<T> {
-    const out = new ChoicePoint<T>(this, it)
+  pushCP<T = Term>(cp: ChoicePoint<T>): void {
     this.stackP++
-    this.stack[this.stackP] = out
-    return out
+    this.stack[this.stackP] = cp
   }
 }

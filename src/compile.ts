@@ -8,7 +8,7 @@ import { Term, Variable } from './term.js'
 
 export function compile(
   store: Store,
-  query: Expression,
+  query: Expression | null,
 ): [Program, Map<Variable, Variable>] {
   // For bodiless rules
   if (!query) return [[[operations.emitResult, null]], new Map()]

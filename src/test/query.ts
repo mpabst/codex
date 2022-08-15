@@ -1,21 +1,30 @@
 import { A, builders, Prefixers, unwrap } from '../builders.js'
 import { Clause } from '../clause.js'
-import { Index } from '../collections/index.js'
 import { Bindings, Query } from '../query.js'
-import { Store } from '../store.js'
 import { Expression } from '../syntax.js'
-import { FlatQuad } from '../term.js'
+import { FlatQuad, NamedNode, Term, Variable } from '../term.js'
 import { buildStore } from './helpers.js'
 
 const { expect: x } = chai
 const { fps } = Prefixers
 const { v } = builders
 
+const collectResult = (query: Query, ary: Bindings[]) => (b: Bindings) => {
+  const r: Bindings = new Map()
+  for (const [source, internal] of query.varNames)
+    r.set(source, b.get(internal)!)
+  ary.push(r)
+}
+
+function u(builder: any): Term {
+  return unwrap(builder)[0]
+}
+
 describe('Query', () => {
   it('unify one quad', () => {
     const store = buildStore([unwrap(fps.test, fps.socrates, A, fps.man)])
 
-    const query: Expression = {
+    const source: Expression = {
       type: 'Conjunction',
       first: {
         type: 'Pattern',
@@ -25,14 +34,16 @@ describe('Query', () => {
       rest: null,
     }
 
+    const query = new Query(store, source)
+
     let results: Bindings[] = []
-    new Query(store, query).evaluate(b => results.push(b))
+    query.evaluate(collectResult(query, results))
 
     x(results.length).eql(1)
 
     const [r] = results
     x(r.size).eql(1)
-    x(r.get(unwrap(v.who)[0])).eql(unwrap(fps.socrates)[0])
+    x(r.get(u(v.who) as Variable)).eql(u(fps.socrates))
   })
 
   describe('basic conjunction performance', () => {
@@ -66,7 +77,7 @@ describe('Query', () => {
     it('socrates is mortal', () => {
       const store = buildStore([unwrap(fps.test, fps.socrates, A, fps.Man)])
       new Clause(
-        unwrap(fps.rule)[0],
+        u(fps.rule) as NamedNode,
         store,
         { type: 'Pattern', terms: unwrap(v.who, A, fps.Mortal), order: 'SPO' },
         {
@@ -80,7 +91,14 @@ describe('Query', () => {
         terms: unwrap(fps.rule, v.someone, A, fps.Mortal),
         order: 'GSPO',
       })
-      query.evaluate(console.log)
+
+      const results: Bindings[] = []
+      query.evaluate(collectResult(query, results))
+
+      x(results.length).eql(1)
+      const [r] = results
+      x(r.size).eql(1)
+      x(r.get(u(v.someone) as Variable)).eql(u(fps.socrates))
     })
   })
 })

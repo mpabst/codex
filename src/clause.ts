@@ -1,14 +1,16 @@
 import { CallIndex, map } from './collections/call-index.js'
+import { TupleMultiSet } from './collections/tuple-multi-set.js'
 import { TupleSet } from './collections/tuple-set.js'
 import { VTIndex } from './collections/var-tracking.js'
 import { randomString, variable } from './data-factory.js'
 import { Bindings, Query } from './query.js'
 import { Store } from './store.js'
 import { Expression, Head, traverse, VarMap } from './syntax.js'
-import { BlankNode, NamedNode, Term, Variable } from './term.js'
+import { BlankNode, NamedNode, Quad, Term, Variable } from './term.js'
 
 export class Clause {
   head = new VTIndex()
+  memo: TupleMultiSet<Term> = new Map()
   body: Query
 
   // var -> value -> bindings
@@ -21,7 +23,7 @@ export class Clause {
     public id: NamedNode | BlankNode,
     store: Store,
     head: Head,
-    body: Expression,
+    body: Expression<Quad>,
   ) {
     this.body = new Query(store, body)
 

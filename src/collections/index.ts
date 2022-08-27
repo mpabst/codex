@@ -1,5 +1,5 @@
-import * as tupleSet from './tuple-set.js'
 import { FlatTriple, Term } from '../term.js'
+import * as tupleSet from './tuple-set.js'
 
 export type Branch = tupleSet.TupleSet<Term>
 export type Twig = Set<Term>
@@ -56,5 +56,14 @@ export class Index {
 
   getOrder(order: Order): Branch {
     return this.data[order]
+  }
+
+  remove(triple: FlatTriple): void {
+    for (const order in this.data)
+      this.removeData(this.data[order], Index.reorder(order, triple))
+  }
+
+  protected removeData(index: Branch, data: FlatTriple): void {
+    tupleSet.remove(index, data)
   }
 }

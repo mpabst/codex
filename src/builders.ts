@@ -5,28 +5,7 @@ import {
   randomBlankNode,
   variable,
 } from './data-factory.js'
-import {Graph, Object, Predicate, Subject, Triple, Quad, Term} from './term.js'
-
-type OrAry<T> = T | T[]
-
-type BuilderArgs = OrAry<Construction | Object> | Predicate
-
-type Builder = (...args: BuilderArgs[]) => Construction
-
-class Construction {
-  constructor(
-    public refs: Subject[] = [],
-    public data: (Triple | Quad)[] = [],
-  ) {}
-
-  unwrap(): Term[][] {
-    return (this.data as Quad[]).map(({subject, predicate, object, graph}) => {
-      const args: Term[] = [subject, predicate, object]
-      if (graph) args.push(graph)
-      return unwrap(...args)
-    })
-  }
-}
+import {Graph, Object, Predicate, Subject, Triple, Quad, Term, Statement} from './term.js'
 
 export const PREFIXES = Object.freeze({
   dc: 'http://purl.org/dc/terms/',
@@ -47,6 +26,27 @@ export const Prefixers = Object.entries(PREFIXES).reduce(
 const {rdf, fpc, html} = Prefixers
 
 export const A = rdf.type
+
+
+type OrAry<T> = T | T[]
+
+type BuilderArgs = OrAry<Construction | Object> | Predicate
+
+type Builder = (...args: BuilderArgs[]) => Construction
+
+class Construction {
+  constructor(
+    public refs: Subject[] = [],
+    public data: Statement[] = [],
+  ) {}
+
+  unwrap(): Statement[] {
+    return this.data.map(d => {
+      if ('graph' in d) return quad(d.graph, d.subject, d.predicate, d.object)
+      else return triple(d.subject, d.predicate, d.object)
+    })
+  }
+}
 
 function blank(...args: BuilderArgs[]): Construction {
   return build(randomBlankNode(), ...args)
@@ -84,8 +84,8 @@ function graph(name: Graph, ...rest: Construction[]): Construction {
   return out
 }
 
-function builderify(sub: Subject) {
-  return Object.assign((...args: BuilderArgs[]) => build(sub, ...args), sub)
+function builderify(s: Subject) {
+  return Object.assign((...args: BuilderArgs[]) => build(s, ...args), s)
 }
 
 function getHandler(
@@ -153,7 +153,7 @@ const reify =
     return out
   }
 
-function clause(
+export function clause(
   type: Object,
   head: Construction,
   body: Construction,
@@ -168,8 +168,25 @@ function clause(
   )
 }
 
+export function quad(g: Graph, s: Subject, p: Predicate, o: Object): Quad {
+  return {
+    graph: unwrap(g),
+    subject: unwrap(s),
+    predicate: unwrap(p),
+    object: unwrap(o),
+  }
+}
+
 function rule(sub: Builder, ...clauses: Construction[]): Construction {
   return sub(A, fpc.Rule, fpc.clause, clauses)
+}
+
+export function triple(s: Subject, p: Predicate, o: Object): Triple {
+  return {
+    subject: unwrap(s),
+    predicate: unwrap(p),
+    object: unwrap(o),
+  }
 }
 
 const factories: {[k: string]: (s: string) => Term} = {
@@ -179,15 +196,8 @@ const factories: {[k: string]: (s: string) => Term} = {
   Variable: variable,
 }
 
-export function unwrap<T extends Term[] | Term[][]>(...args: T): T {
-  const out = []
-  for (const a of args)
-    if (a instanceof Array) out.push(unwrap(...a))
-    else {
-      const t = a as Term
-      out.push(factories[t.termType](t.value))
-    }
-  return out as T
+export function unwrap<T extends Term>(t: T): T {
+  return factories[t.termType](t.value) as T
 }
 
 // variable builder

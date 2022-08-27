@@ -85,10 +85,15 @@ export enum QuadPlace {
   Graph,
 }
 
+export type Statement = Quad | Triple
+
 export type Version = number
 
-export type Patch<D> = {
-  readonly version?: Version
-  readonly additions: D[]
-  readonly removals: D[]
+// will make something more RDFy later
+export interface Diff {
+  id: NamedNode
+  target: NamedNode
+  meta: FlatTriple[]
+  assertions: FlatTriple[]
+  retractions: FlatTriple[]
 }

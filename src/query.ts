@@ -3,7 +3,7 @@ import { Node } from './collections/index.js'
 import { compile } from './compile.js'
 import { Context, Store } from './store.js'
 import { Expression, VarMap } from './syntax.js'
-import { Term, Variable } from './term.js'
+import { Quad, Term, Variable } from './term.js'
 
 export type Bindings<T extends Term = Term> = Map<Variable, T>
 export type Argument = Term | Context | null
@@ -57,6 +57,8 @@ export class ChoicePoint<T = Term> {
   }
 }
 
+// rename this class Invocation, separate out varNames and program into
+// a new Query class
 export class Query {
   varNames: VarMap // source -> internal names
 
@@ -80,8 +82,8 @@ export class Query {
 
   emit: ((b: Bindings) => void) | null = null
 
-  constructor(public store: Store, source: Expression | null) {
-    const [program, variables] = compile(store, source)
+  constructor(public engine: Store, source: Expression<Quad> | null) {
+    const [program, variables] = compile(engine, source)
     this.program = program
     this.varNames = variables
   }

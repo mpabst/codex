@@ -36,9 +36,8 @@ export class VTMap extends Map<Term, VTBranch> {
 }
 
 const tupleSet = {
-  // args really should be VTBranches, but otherwise getting
-  // args missing varKeys, even though neither function here
-  // needs it
+  // Branch args really should be VTBranches, but then TS complains abt getting
+  // args missing varKeys (what am i passing that yields those errors?)
 
   add(set: Branch, tuple: Term[]): void {
     fillTwig(
@@ -64,5 +63,9 @@ export class VTIndex extends Index {
 
   protected addData(index: Branch, data: FlatTriple): void {
     tupleSet.add(index, data)
+  }
+
+  protected removeData(index: Branch, data: FlatTriple): void {
+    tupleSet.remove(index, data)
   }
 }

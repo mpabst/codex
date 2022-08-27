@@ -1,21 +1,6 @@
 import { PREFIXES } from '../builders.js'
-import { Index } from '../collections/index.js'
 import { Bindings } from '../query.js'
-import { Key, Store } from '../store.js'
-import { FlatQuad, FlatTriple, Term } from '../term.js'
-
-export function buildStore(data: FlatQuad[]) {
-  const out = new Store()
-  for (const d of data) {
-    let context = out.get(d[0] as Key)
-    if (!context) {
-      context = new Index()
-      out.set(d[0] as Key, context)
-    }
-    ;(context as Index).add(d.slice(1) as FlatTriple)
-  }
-  return out
-}
+import { FlatQuad, Term } from '../term.js'
 
 const prefixes = new Map()
 for (const [abbrev, url] of Object.entries(PREFIXES)) prefixes.set(url, abbrev)

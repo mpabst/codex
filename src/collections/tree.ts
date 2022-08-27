@@ -25,7 +25,7 @@ export function get<K, V>(
 // Return value is whether the tree parameter is empty after we're done with it,
 // meaning our caller can safely delete it
 export function prune<K, V>(
-  tree: Tree<K, V> | undefined,
+  tree: Tree<K, V> | undefined, // does this hurt monomorpho?
   key: Iterable<K>,
   pruneLeaf: (l: V) => boolean,
 ): boolean {
@@ -39,11 +39,20 @@ export function prune<K, V>(
   return tree.size === 0
 }
 
-export function set<K, V>(tree: Tree<K, V>, key: Iterable<K>, value: V, nodeCtor: MapConstructor = Map): void {
+export function set<K, V>(
+  tree: Tree<K, V>,
+  key: Iterable<K>,
+  value: V,
+  nodeCtor: MapConstructor = Map,
+): void {
   const [first, ...rest] = key
   if (rest.length === 0) tree.set(first, value)
   else
-    set(defaulting.get(tree, first, () => new nodeCtor()) as Tree<K, V>, rest, value)
+    set(
+      defaulting.get(tree, first, () => new nodeCtor()) as Tree<K, V>,
+      rest,
+      value,
+    )
 }
 
 const twigBase = <K, V, M>(

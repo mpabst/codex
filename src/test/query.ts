@@ -1,9 +1,16 @@
-import { A, builders, Prefixers, unwrap } from '../builders.js'
+import {
+  A,
+  builders,
+  Prefixers,
+  triple as t,
+  quad as q,
+  unwrap as u,
+} from '../builders.js'
 import { Clause } from '../clause.js'
+import { Store } from '../store.js'
 import { Bindings, Query } from '../query.js'
 import { Expression } from '../syntax.js'
-import { FlatQuad, NamedNode, Term, Variable } from '../term.js'
-import { buildStore } from './helpers.js'
+import { NamedNode, Quad, Variable } from '../term.js'
 
 const { expect: x } = chai
 const { fps } = Prefixers
@@ -16,25 +23,21 @@ const collectResult = (query: Query, ary: Bindings[]) => (b: Bindings) => {
   ary.push(r)
 }
 
-function u(builder: any): Term {
-  return unwrap(builder)[0]
-}
-
 describe('Query', () => {
   it('unify one quad', () => {
-    const store = buildStore([unwrap(fps.test, fps.socrates, A, fps.man)])
+    const engine = new Store([q(fps.test, fps.socrates, A, fps.man)])
 
-    const source: Expression = {
+    const source: Expression<Quad> = {
       type: 'Conjunction',
       first: {
         type: 'Pattern',
-        terms: unwrap(fps.test, v.who, A, fps.man),
+        terms: q(fps.test, v.who, A, fps.man),
         order: 'GSPO',
       },
       rest: null,
     }
 
-    const query = new Query(store, source)
+    const query = new Query(engine, source)
 
     let results: Bindings[] = []
     query.evaluate(collectResult(query, results))
@@ -47,48 +50,48 @@ describe('Query', () => {
   })
 
   describe('basic conjunction performance', () => {
-    const data: FlatQuad[] = []
+    const data: Quad[] = []
     for (let i = 0; i < 100_000; i++)
-      data.push(unwrap(fps.test, fps[i], fps.foo, fps[i + 1]))
-    const store = buildStore(data)
+      data.push(q(fps.test, fps[i], fps.foo, fps[i + 1]))
+    const engine = new Store(data)
 
-    const query: Expression = {
+    const query: Expression<Quad> = {
       type: 'Conjunction',
       first: {
         type: 'Pattern',
-        terms: unwrap(fps.test, v.left, fps.foo, v.middle),
+        terms: q(fps.test, v.left, fps.foo, v.middle),
         order: 'GSPO',
       },
       rest: {
         type: 'Pattern',
-        terms: unwrap(fps.test, v.middle, fps.foo, v.right),
+        terms: q(fps.test, v.middle, fps.foo, v.right),
         order: 'GSPO',
       },
     }
 
     it('is fast', () => {
       let results = 0
-      new Query(store, query).evaluate(() => results++)
+      new Query(engine, query).evaluate(() => results++)
       x(results).eql(99_999)
     })
   })
 
   describe('basic rule invocation', () => {
     it('socrates is mortal', () => {
-      const store = buildStore([unwrap(fps.test, fps.socrates, A, fps.Man)])
+      const engine = new Store([q(fps.test, fps.socrates, A, fps.Man)])
       new Clause(
         u(fps.rule) as NamedNode,
-        store,
-        { type: 'Pattern', terms: unwrap(v.who, A, fps.Mortal), order: 'SPO' },
+        engine,
+        { type: 'Pattern', terms: t(v.who, A, fps.Mortal), order: 'SPO' },
         {
           type: 'Pattern',
-          terms: unwrap(fps.test, v.who, A, fps.Man),
+          terms: q(fps.test, v.who, A, fps.Man),
           order: 'GSPO',
         },
       )
-      const query = new Query(store, {
+      const query = new Query(engine, {
         type: 'Pattern',
-        terms: unwrap(fps.rule, v.someone, A, fps.Mortal),
+        terms: q(fps.rule, v.someone, A, fps.Mortal),
         order: 'GSPO',
       })
 

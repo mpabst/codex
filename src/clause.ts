@@ -5,8 +5,22 @@ import { VTIndex } from './collections/var-tracking.js'
 import { randomString, variable } from './data-factory.js'
 import { Bindings, Query } from './query.js'
 import { Store } from './store.js'
-import { Expression, Head, traverse, VarMap } from './syntax.js'
-import { BlankNode, NamedNode, Quad, Term, Variable } from './term.js'
+import { Expression, Head, Pattern, traverse, VarMap } from './syntax.js'
+import { BlankNode, NamedNode, Quad, Statement, Term, Triple, Variable } from './term.js'
+
+const stmtMapper = <S extends Statement> (mapper: (t: Term) => Term) => (s: S): S => {
+  const out: any = {
+    subject: mapper(s.subject),
+    predicate: mapper(s.predicate),
+    object: mapper(s.object),
+  }
+  if ('graph' in s) out.graph = mapper(s.graph)
+  return out
+}
+
+function mapStmt<S extends Statement>(s: S, mapper: (t: Term) => Term): S {
+  return stmtMapper<S>(mapper)(s)
+}
 
 export class Clause {
   head = new VTIndex()
@@ -48,7 +62,7 @@ export class Clause {
       return found
     }
     traverse(head, {
-      pattern: expr => this.head.add(expr.terms.map(mapVar)),
+      pattern: (expr: Pattern<Triple>) => this.head.add(mapStmt(expr.terms, mapVar)),
     })
 
     this.varOrder = Array.from(headVars)

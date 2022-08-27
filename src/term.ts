@@ -93,7 +93,7 @@ export type Version = number
 export interface Diff {
   id: NamedNode
   target: NamedNode
-  meta: FlatTriple[]
-  assertions: FlatTriple[]
-  retractions: FlatTriple[]
+  meta: Triple[]
+  assertions: Triple[]
+  retractions: Triple[]
 }

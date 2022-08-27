@@ -108,6 +108,7 @@ function iOldVar(
 }
 
 export const operations: { [k: string]: Operation } = {
+  // have setClause set pending, and follow it with a setIndex
   setClause(query: Query, clause: Argument): void {
     query.pending = [clause as Clause, (clause as Clause).body.newScope(null)]
     query.dbNode = (clause as Clause).head.getOrder('SPO')

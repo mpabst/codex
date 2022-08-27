@@ -16,7 +16,7 @@ export class Store {
         context = new Index()
         this.set(d.graph as Key, context)
       }
-      ;(context as Index).add([d.subject, d.predicate, d.object])
+      ;(context as Index).add(d)
     }
   }
 
@@ -29,11 +29,16 @@ export class Store {
   }
 
   processEvent(event: Diff[]) {
+    const delta = new Index()
+
     for (const diff of event) {
       // todo: heads, and exactly when and how to update which ones
       this.set(diff.id, diff)
       const snap = this.get(diff.target) as Index
-      for (const ret of diff.retractions) snap.remove(ret)
+      for (const ret of diff.retractions) {
+        snap.remove(ret)
+        delta.add(ret)
+      }
       for (const ass of diff.assertions) snap.add(ass)
     }
 

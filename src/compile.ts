@@ -10,11 +10,14 @@ import { Quad, Term, Variable } from './term.js'
 // - 'regular queries', including clause bodies
 //   - searching EDBs and making calls
 //   - searching memos
-//     - jump back up to first statement in call
+//     - jump back up to first statement in call - record in pending struct
 //     - if call statements are all continguous, can remove all but first setClause
 //     - choice points, setting dbNode...? i think we just set dbNode and jump
-// - diff triples searching bodies
-//   - same instructions, except a replacement for setClause
+//     - prior call implementation now unnecessary, though still handy because
+//       with the bindings, we don't have to try head triples which won't work.
+//       so, check prior calls set, if found, jump, else evaluate
+// - diff quads searching bodies
+//   - same instructions, pass body index to setIndex
 //   - what abt variable graph terms? how to restrict? the first thing
 //     to come to mind is to restrict it by what's already been bound -
 //     it's an in-var only, so it has to have had associated values.

@@ -1,6 +1,6 @@
 import { Clause } from './clause.js'
 import { Node } from './collections/index.js'
-import { compile } from './compile.js'
+import { query as compile } from './compile.js'
 import { Context, Store } from './store.js'
 import { Expression, VarMap } from './syntax.js'
 import { Quad, Term, Variable } from './term.js'

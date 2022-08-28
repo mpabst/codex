@@ -58,19 +58,19 @@ function iConst(
   const { done, value: callee } = cp.next()
   if (done) return
 
-  const proxi = query.pending![1].get(callee as Variable)
+  const proximate = query.callee.get(callee as Variable)
 
-  if (!proxi) query.bindCallee(callee, caller as Term)
-  else if (proxi.termType !== 'Variable') {
-    if (proxi !== caller) {
+  if (!proximate) query.bindCallee(callee, caller as Term)
+  else if (proximate.termType !== 'Variable') {
+    if (proximate !== caller) {
       query.fail = true
       return
     }
   } else {
-    const ulti = query.deref(proxi as Variable)
-    if (ulti.termType === 'Variable')
-      query.bindScope(ulti as Variable, caller as Term)
-    else if (ulti !== caller) {
+    const ultimate = query.deref(proximate as Variable)
+    if (ultimate.termType === 'Variable')
+      query.bindScope(ultimate as Variable, caller as Term)
+    else if (ultimate !== caller) {
       query.fail = true
       return
     }
@@ -111,7 +111,7 @@ export const operations: { [k: string]: Operation } = {
   // have setClause set pending, and follow it with a setIndex
   setClause(query: Query, clause: Argument): void {
     query.pending = [clause as Clause, (clause as Clause).body.newScope(null)]
-    query.dbNode = (clause as Clause).head.getOrder('SPO')
+    query.dbNode = (clause as Clause).signature.getOrder('SPO')
     query.programP++
   },
 
@@ -182,6 +182,9 @@ export const operations: { [k: string]: Operation } = {
   },
 
   call(query: Query, _: Argument): void {
+    // if seen advance
+    // else copy args, call, set dbNode, jump to pending[2]
+
     let cp: ChoicePoint<Bindings>
     if (query.stackP > -1) cp = query.stack[query.stackP]
 
@@ -189,10 +192,15 @@ export const operations: { [k: string]: Operation } = {
       const [clause, args] = query.pending!
       const inArgs: Bindings = new Map()
       const outArgs: VarMap = new Map()
+
+      // i don't think i'm handling the case where a caller
+      // binds two callee vars to each other (ie by binding
+      // them both to a common caller var)
+
       for (const [k, v] of args)
         if (v.termType === 'Variable' && v !== k) outArgs.set(k, v as Variable)
         else inArgs.set(k, v)
-      cp = new ChoicePoint(query, clause.call(query, inArgs), outArgs)
+      cp = new ChoicePoint(query, clause.pull(inArgs), outArgs)
       query.pushCP(cp)
     }
 

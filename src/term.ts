@@ -56,18 +56,18 @@ export type Object = NamedNode | Literal | BlankNode | Variable
 export type Graph = NamedNode | BlankNode | Variable | DefaultGraph
 
 export interface Triple {
-  readonly subject: Subject
-  readonly predicate: Predicate
-  readonly object: Object
+  subject: Subject
+  predicate: Predicate
+  object: Object
 }
 
 export type FlatTriple = [Subject, Predicate, Object]
 
 export interface Quad {
-  readonly subject: Subject
-  readonly predicate: Predicate
-  readonly object: Object
-  readonly graph: Graph
+  subject: Subject
+  predicate: Predicate
+  object: Object
+  graph: Graph
 }
 
 export type FlatQuad = [Graph, Subject, Predicate, Object]

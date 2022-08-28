@@ -29,7 +29,7 @@ export class Store {
   }
 
   processEvent(event: Diff[]) {
-    const delta = new Index()
+    let delta = new Index()
 
     for (const diff of event) {
       // todo: heads, and exactly when and how to update which ones
@@ -41,6 +41,14 @@ export class Store {
       }
       for (const ass of diff.assertions) snap.add(ass)
     }
+
+    while (delta.size > 0) {
+
+    }
+
+    delta = new Index()
+    for (const diff of event)
+    for (const ass of diff.assertions) delta.add(ass)
 
     // for each quad in delta
     // - match against bodies of stratum 1
@@ -54,14 +62,6 @@ export class Store {
     // set delta := removals, run to fixpoint
     // repeat for all strata
     // per stratum, removals then additions, then next stratum
-    // rederivation should consider all known changes thus far?
-    // just restrict heads to single bnodes or magic preds
-    // kinda enforces good style anyways
-    // - in that case, more efficient to separate check
-    //   and proven sets by these two head modes, with
-    //   bnodes just the set of the bnodes themselves
-    // implement bnodes before forward-chaining?
-    // well, multiple bnodes in heads would be handy
     // bnode reuse: idea is that if we're just mutating
     // an object, look for the corresponding (id same pred)
     // deletion when we do the addition. what if there are

@@ -28,7 +28,8 @@ export class Index {
     return order.split('').map(o => triple[Index.PLACES[o]]) as FlatTriple
   }
 
-  private readonly data: Data = {}
+  protected readonly data: Data = {}
+  #size: number = 0
 
   constructor(nodeCtor: MapConstructor = Map) {
     for (const o of Index.ORDERS) this.data[o] = new nodeCtor()
@@ -37,6 +38,7 @@ export class Index {
   add(triple: Triple): void {
     for (const order in this.data)
       this.addData(this.data[order], Index.reorder(order, triple))
+    this.#size++
   }
 
   protected addData(index: Branch, data: FlatTriple): void {
@@ -50,9 +52,14 @@ export class Index {
   remove(triple: Triple): void {
     for (const order in this.data)
       this.removeData(this.data[order], Index.reorder(order, triple))
+    this.#size--
   }
 
   protected removeData(index: Branch, data: FlatTriple): void {
     tupleSet.remove(index, data)
+  }
+
+  get size(): number {
+    return this.#size
   }
 }

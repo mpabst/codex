@@ -25,12 +25,18 @@ import { Quad, Term, Variable } from './term.js'
 //     how about - if bind to var graph, set aside. check other diff stmts first.
 //     if it's still unchecked afterwards, see if graph is in already fetched set. if yes, check, if not, discard
 
-export function compile(
+// new calls:
+// emit instructions to bind in-args, then 'repeat' call with more instructions
+// to dig through callee memo. first phase can skip caller vars which must be
+// out-args, rather than in-args or bound to consts in callee head. second phase
+// just uses the EDB instructions
+
+export function query(
   store: Store,
-  query: Expression<Quad> | null,
+  source: Expression<Quad> | null,
 ): [Program, Map<Variable, Variable>] {
   // For bodiless rules
-  if (!query) return [[[operations.emitResult, null]], new Map()]
+  if (!source) return [[[operations.emitResult, null]], new Map()]
 
   const program: Program = []
   const variables = new Map<Variable, Variable>()
@@ -80,7 +86,7 @@ export function compile(
     lastContext = context
   }
 
-  traverse(query, { pattern })
+  traverse(source, { pattern })
 
   if (lastContext! instanceof Clause) program.push([operations.call, null])
   program.push([operations.emitResult, null])

@@ -1,37 +1,53 @@
-import { CallIndex, map } from './collections/call-index.js'
 import { TupleMultiSet } from './collections/tuple-multi-set.js'
 import { TupleSet } from './collections/tuple-set.js'
 import { VTIndex } from './collections/var-tracking.js'
 import { randomString, variable } from './data-factory.js'
+import { Generator } from './generator.js'
 import { Bindings, Query } from './query.js'
 import { Store } from './store.js'
 import { Expression, Head, Pattern, traverse, VarMap } from './syntax.js'
-import { BlankNode, NamedNode, Quad, Statement, Term, Triple, Variable } from './term.js'
+import {
+  BlankNode,
+  NamedNode,
+  Quad,
+  Statement,
+  Term,
+  Triple,
+  Variable,
+} from './term.js'
 
-const stmtMapper = <S extends Statement> (mapper: (t: Term) => Term) => (s: S): S => {
-  const out: any = {
-    subject: mapper(s.subject),
-    predicate: mapper(s.predicate),
-    object: mapper(s.object),
+const stmtMapper =
+  <S extends Statement>(mapper: (t: Term) => Term) =>
+  (s: S): S => {
+    const out: any = {
+      subject: mapper(s.subject),
+      predicate: mapper(s.predicate),
+      object: mapper(s.object),
+    }
+    if ('graph' in s) out.graph = mapper(s.graph)
+    return out
   }
-  if ('graph' in s) out.graph = mapper(s.graph)
-  return out
-}
 
 function mapStmt<S extends Statement>(s: S, mapper: (t: Term) => Term): S {
   return stmtMapper<S>(mapper)(s)
 }
 
+interface Listener {
+  push(q: Quad): void
+}
+
 export class Clause {
-  head = new VTIndex()
+  signature = new VTIndex()
+  generator: Generator
   memo: TupleMultiSet<Term> = new Map()
   body: Query
 
-  // var -> value -> bindings
-  index: TupleSet<Term | Bindings> = new Map()
   varOrder: Variable[] = []
   // vars[] (by varOrder) -> CT
-  calls: CallIndex = new Map()
+  calls: TupleSet<Term> = new Map()
+
+  callerStrata: number[] = []
+  listeners: Listener[] = []
 
   constructor(
     public id: NamedNode | BlankNode,
@@ -40,10 +56,15 @@ export class Clause {
     body: Expression<Quad>,
   ) {
     this.body = new Query(store, body)
+    this.generator = new Generator(this.memo, head)
+    store.set(id, this)
+  }
 
+  protected initSignature(source: Head): void {
     const headMap: VarMap = new Map()
     const { varNames: bodyMap } = this.body
     const headVars = new Set<Variable>()
+
     function mapVar(t: Term): Term {
       if (t.termType !== 'Variable') return t
 
@@ -61,32 +82,23 @@ export class Clause {
       headVars.add(found)
       return found
     }
-    traverse(head, {
-      pattern: (expr: Pattern<Triple>) => this.head.add(mapStmt(expr.terms, mapVar)),
+
+    traverse(source, {
+      pattern: (expr: Pattern<Triple>) =>
+        this.signature.add(mapStmt(expr.terms, mapVar)),
     })
 
     this.varOrder = Array.from(headVars)
-
-    store.set(id, this)
   }
 
-  call(caller: Query | null, args: Bindings): Iterable<Bindings> {
-    if (caller) {
-      const [callers, results] = map(
-        this.calls,
-        this.varOrder.map(v => args.get(v) ?? v),
-      )
-      if (callers.size === 0)
-        this.body.evaluate((b: Bindings) => results.add(new Map(b)), args)
-      callers.add(caller)
-      return results
-    }
-
+  pull(args: Bindings): Iterable<Bindings> {
     const out: Bindings[] = []
-    this.body.evaluate((b: Bindings) => out.push(new Map(b)), args)
+    this.body.evaluate((b: Bindings) => {
+      out.push(new Map(b))
+      this.generator.generate(b)
+    }, args)
     return out
   }
 
-  // bottom-up
-  update() {}
+  push() {}
 }

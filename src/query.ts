@@ -1,6 +1,6 @@
 import { Clause } from './clause.js'
 import { Node } from './collections/index.js'
-import { query as compile } from './compile.js'
+import { pull as compile } from './compile.js'
 import { Context, Store } from './store.js'
 import { Expression, VarMap } from './syntax.js'
 import { Quad, Term, Variable } from './term.js'
@@ -8,7 +8,7 @@ import { Quad, Term, Variable } from './term.js'
 export type Bindings<T extends Term = Term> = Map<Variable, T>
 export type Argument = Term | Context | null
 export type Operation = (m: Query, t: Argument) => void
-type Instruction = [Operation, Argument]
+export type Instruction = [Operation, Argument]
 export type Program = Instruction[]
 
 enum Side {
@@ -58,7 +58,7 @@ export class ChoicePoint<T = Term> {
 }
 
 // rename this class Invocation, separate out varNames and program into
-// a new Query class
+// a new Query class. or just implement calls on our own stack
 export class Query {
   varNames: VarMap // source -> internal names
 

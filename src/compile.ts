@@ -1,29 +1,22 @@
 import { Clause } from './clause.js'
+import { Index } from './collections/index.js'
 import { randomString, variable } from './data-factory.js'
 import { operations } from './operations.js'
-import { Program } from './query.js'
-import { Context, Key, Store } from './store.js'
-import { Expression, Pattern, traverse } from './syntax.js'
+import { Instruction, Operation, Program } from './query.js'
+import { Key, Store } from './store.js'
+import { Expression, Pattern, traverse, VarMap } from './syntax.js'
 import { Quad, Term, Variable } from './term.js'
 
-// there are two and a half sorts of queries:
-// - 'regular queries', including clause bodies
-//   - searching EDBs and making calls
-//   - searching memos
-//     - jump back up to first statement in call - record in pending struct
-//     - if call statements are all continguous, can remove all but first setClause
-//     - choice points, setting dbNode...? i think we just set dbNode and jump
-//     - prior call implementation now unnecessary, though still handy because
-//       with the bindings, we don't have to try head triples which won't work.
-//       so, check prior calls set, if found, jump, else evaluate
-// - diff quads searching bodies
-//   - same instructions, pass body index to setIndex
-//   - what abt variable graph terms? how to restrict? the first thing
-//     to come to mind is to restrict it by what's already been bound -
-//     it's an in-var only, so it has to have had associated values.
-//     what if that set of values changes during push eval?
-//     how about - if bind to var graph, set aside. check other diff stmts first.
-//     if it's still unchecked afterwards, see if graph is in already fetched set. if yes, check, if not, discard
+// diff quads searching bodies
+// - same instructions, pass body index to setIndex
+// - what abt variable graph terms? how to restrict? the first thing
+// to come to mind is to restrict it by what's already been bound
+// - it's an in-var only, so it has to have had associated values. what if that
+// set of values changes during push eval?
+// how about
+// - if bind to var graph, set aside. check other diff stmts first. if it's
+// still unchecked afterwards, see if graph is in already fetched set. if yes,
+// check, if not, discard
 
 // new calls:
 // emit instructions to bind in-args, then 'repeat' call with more instructions
@@ -31,65 +24,131 @@ import { Quad, Term, Variable } from './term.js'
 // out-args, rather than in-args or bound to consts in callee head. second phase
 // just uses the EDB instructions
 
-export function query(
+// matches data against queries
+export function push() {}
+
+type Mode = 'E' | 'I'
+
+abstract class Block {
+  patterns: Quad[] = []
+  abstract mode: Mode
+  abstract setOp: Operation
+
+  constructor(protected context: Clause | Index, protected varMap: VarMap) {}
+
+  add(pattern: Quad): void {
+    this.patterns.push(pattern)
+  }
+
+  abstract generate(): Program
+
+  protected doPattern(pattern: Quad): Program {
+    const program: Program = []
+    const order = this.orderTerms(pattern)
+
+    program.push([this.setOp, this.context])
+    for (const i in order)
+      program.push(this.doTerm(order[i], i === '2' ? 'final' : 'medial'))
+
+    return [[operations.setIndex, this.context], ...program]
+  }
+
+  protected doTerm(
+    term: Term | null,
+    position: 'medial' | 'final',
+  ): Instruction {
+    let op: string
+    if (term!.termType === 'Variable') {
+      if (term!.value === '_') {
+        op = 'AnonVar'
+        term = null
+      } else {
+        let mapped = this.varMap.get(term as Variable)
+        if (mapped) op = 'OldVar'
+        else {
+          op = 'NewVar'
+          mapped = variable(randomString())
+          this.varMap.set(term as Variable, mapped)
+        }
+        term = mapped
+      }
+    } else op = 'Const'
+    return [operations[position + this.mode + op], term]
+  }
+
+  protected orderPatterns(): Quad[] {
+    return this.patterns
+  }
+
+  protected orderTerms(pattern: Quad): Term[] {
+    return [pattern.subject, pattern.predicate, pattern.object]
+  }
+}
+
+class EBlock extends Block {
+  mode: Mode = 'E'
+  setOp = operations.setIndex
+
+  constructor(context: Index, varMap: VarMap) {
+    super(context, varMap)
+  }
+
+  generate(): Program {
+    return this.orderPatterns().flatMap(p => this.doPattern(p))
+  }
+}
+
+class IBlock extends Block {
+  mode: Mode = 'E'
+  setOp = operations.setClause
+  protected post: EBlock
+
+  constructor(context: Clause, varMap: VarMap) {
+    super(context, varMap)
+    this.post = new EBlock(context.memo, varMap)
+  }
+
+  generate(): Program {
+    return [
+      [operations.setClause, this.context],
+      ...this.orderPatterns().flatMap(p => this.doPattern(p)),
+      [operations.call, null],
+      ...this.post.generate(),
+    ]
+  }
+}
+
+function orderBlocks(blocks: Iterable<Block>): Iterable<Block> {
+  return blocks
+}
+
+// solves queries against data
+export function pull(
   store: Store,
   source: Expression<Quad> | null,
-): [Program, Map<Variable, Variable>] {
+): [Program, VarMap] {
   // For bodiless rules
   if (!source) return [[[operations.emitResult, null]], new Map()]
 
-  const program: Program = []
-  const variables = new Map<Variable, Variable>()
-  let lastContext: Context | null = null
-  let mode: 'E' | 'I' = 'E' // EDB vs IDB
+  const blocks = new Map<Clause | Index, Block>()
+  const varMap: VarMap = new Map()
 
-  function pattern({
-    terms: { graph, subject, predicate, object },
-  }: Pattern<Quad>): void {
-    const context = store.get(graph as Key)!
-
-    if (lastContext && context !== lastContext)
-      program.push([operations.call, null])
-
-    if (context instanceof Clause) {
-      mode = 'I'
-      // since all exprs for a call are contiguous, we only need one of these
-      // per call
-      program.push([operations.setClause, context])
-    } else {
-      mode = 'E'
-      program.push([operations.setIndex, context])
+  function pattern({ terms }: Pattern<Quad>): void {
+    const context = store.get(terms.graph as Key) as Clause | Index
+    let block: Block = blocks.get(context)!
+    if (!block) {
+      if (context instanceof Clause) block = new IBlock(context, varMap)
+      else block = new EBlock(context, varMap)
     }
-
-    // assume SPO order
-    ;[subject, predicate, object].forEach((term: Term | null, i) => {
-      let op: string
-      if (term!.termType === 'Variable') {
-        if (term!.value === '_') {
-          op = 'AnonVar'
-          term = null
-        } else {
-          let mapped = variables.get(term as Variable)
-          if (mapped) op = 'OldVar'
-          else {
-            op = 'NewVar'
-            mapped = variable(randomString())
-            variables.set(term as Variable, mapped)
-          }
-          term = mapped
-        }
-      } else op = 'Const'
-      const position = i === 2 ? 'final' : 'medial'
-      program.push([operations[position + mode + op], term])
-    })
-
-    lastContext = context
+    block.add(terms)
   }
 
   traverse(source, { pattern })
 
-  if (lastContext! instanceof Clause) program.push([operations.call, null])
+  const program: Program = []
+  for (const block of orderBlocks(blocks.values()))
+    program.push(...block.generate())
   program.push([operations.emitResult, null])
 
-  return [program, variables]
+  return [program, varMap]
 }

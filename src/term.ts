@@ -85,6 +85,8 @@ export enum QuadPlace {
   Graph,
 }
 
+// Make values in Statement wrapper objects for Terms,
+// so we can add source annotations per-term
 export type Statement = Quad | Triple
 
 export type Version = number

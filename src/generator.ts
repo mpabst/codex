@@ -1,7 +1,7 @@
 import { TupleMultiSet, add } from './collections/tuple-multi-set.js'
 import { Bindings } from './query.js'
 import { Head, Pattern, traverse } from './syntax.js'
-import { FlatTriple, Term, Triple, Variable } from './term.js'
+import { Term, Triple, Variable } from './term.js'
 
 type Operation = (b: Bindings, term: Term) => Term
 type Program = [Operation, Term][]
@@ -14,13 +14,12 @@ export class Generator {
   }
 
   generate(bindings: Bindings): void {
-    for (let pc = 0; pc < this.program.length; pc += 3) {
-      const triple: (Term | null)[] = [null, null, null]
-      triple[0] = this.program[pc][0](bindings, this.program[pc][1])
-      triple[1] = this.program[pc + 1][0](bindings, this.program[pc + 1][1])
-      triple[2] = this.program[pc + 2][0](bindings, this.program[pc + 2][1])
-      add(this.memo, triple as FlatTriple)
-    }
+    for (let pc = 0; pc < this.program.length; pc += 3)
+      add(this.memo, [
+        this.program[pc][0](bindings, this.program[pc][1]),
+        this.program[pc + 1][0](bindings, this.program[pc + 1][1]),
+        this.program[pc + 2][0](bindings, this.program[pc + 2][1]),
+      ])
   }
 }
 
@@ -38,7 +37,7 @@ function compile(source: Head): Program {
   return program
 }
 
-// flatten bindings at start of generate()
+// flatten bindings at start of generate()?
 function deref(b: Bindings, v: Variable): Term {
   let found: Term
   while (true) {
@@ -51,7 +50,7 @@ function deref(b: Bindings, v: Variable): Term {
   return found
 }
 
-export const operations: { [k: string]: Operation } = {
+const operations: { [k: string]: Operation } = {
   const(_: Bindings, t: Term): Term {
     return t
   },

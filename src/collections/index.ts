@@ -11,17 +11,25 @@ interface Data {
   [k: Order]: Branch
 }
 
+// subclass with a MultiIndex, with SPO as TupleMultiSet
+// and always present
+
 export class Index {
+
   static PLACES: { [k: string]: keyof Triple } = {
     S: 'subject',
     P: 'predicate',
     O: 'object',
   }
+
   static ORDERS = [
     // ...permute(3, TRIPLE_PLACES).map(o => o.join('') + 'G'),
     // GSPO index is only for the sake of whole graph operations; see comment in
     // #match()
+    'PSO',
+    'POS',
     'SPO',
+    'OPS'
   ]
 
   static reorder(order: Order, triple: Triple): FlatTriple {

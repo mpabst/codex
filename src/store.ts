@@ -21,6 +21,7 @@ export class Store {
   }
 
   get(term: Key): Context | undefined {
+    // if (not found) init stub, fire network request
     return this.contexts.get(term)
   }
 

@@ -39,6 +39,7 @@ interface Listener {
 export class Clause {
   signature = new VTIndex()
   generator: Generator
+  // make MultiIndex
   memo: TupleMultiSet<Term> = new Map()
   body: Query
 

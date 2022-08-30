@@ -31,7 +31,7 @@ function compile(source: Head): Program {
     pattern({ terms: { subject, predicate, object } }: Pattern<Triple>): void {
       for (const term of [subject, predicate, object])
         program.push([
-          operations[term.termType === 'Variable' ? 'var' : 'const'],
+          operations[term instanceof Variable ? 'var' : 'const'],
           term,
         ])
     },
@@ -46,7 +46,7 @@ function deref(b: Bindings, v: Variable): Term {
     found = b.get(v)!
     // we can assume everything is bound by the time we're
     // generating, so no v !== found check
-    if (found.termType === 'Variable') v = found as Variable
+    if (found instanceof Variable) v = found
     else break
   }
   return found

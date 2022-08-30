@@ -63,15 +63,15 @@ function iConst(
   const proximate = query.callee.get(callee as Variable)
 
   if (!proximate) query.bindCallee(callee, caller as Term)
-  else if (proximate.termType !== 'Variable') {
+  else if (!(proximate instanceof Variable)) {
     if (proximate !== caller) {
       query.fail = true
       return
     }
   } else {
-    const ultimate = query.deref(proximate as Variable)
-    if (ultimate.termType === 'Variable')
-      query.bindScope(ultimate as Variable, caller as Term)
+    const ultimate = query.deref(proximate)
+    if (ultimate instanceof Variable)
+      query.bindScope(ultimate, caller as Term)
     else if (ultimate !== caller) {
       query.fail = true
       return
@@ -85,13 +85,13 @@ function iNewVar(query: Query, caller: Argument, advance: Operation): void {
   const { done, value: callee } = query.nextChoice()
   if (done) return
 
-  if (callee.termType === 'Variable') {
-    let found = query.callee.get(callee as Variable)!
+  if (callee instanceof Variable) {
+    let found = query.callee.get(callee)!
     if (found === callee)
-      query.bindCallee(callee as Variable, caller as Variable)
+      query.bindCallee(callee, caller as Variable)
     else {
-      if (found.termType === 'Variable') found = query.deref(found as Variable)
-      query.bindScope(caller as Variable, found as Variable)
+      if (found instanceof Variable) found = query.deref(found)
+      query.bindScope(caller as Variable, found)
     }
   } else query.bindScope(caller as Variable, callee)
 
@@ -105,7 +105,7 @@ function iOldVar(
   eConst: Operation,
 ): void {
   const found = query.deref(term as Variable)
-  if (found.termType === 'Variable') iNewVar(query, found, advance)
+  if (found instanceof Variable) iNewVar(query, found, advance)
   else iConst(query, found, advance, eConst)
 }
 
@@ -136,7 +136,7 @@ export const operations: { [k: string]: Operation } = {
 
   medialEOldVar(query: Query, term: Argument): void {
     const found = query.deref(term as Variable)
-    if (found.termType === 'Variable') operations.medialENewVar(query, found)
+    if (found instanceof Variable) operations.medialENewVar(query, found)
     else operations.medialEConst(query, found)
   },
 
@@ -167,7 +167,7 @@ export const operations: { [k: string]: Operation } = {
 
   finalEOldVar(query: Query, term: Argument): void {
     const found = query.deref(term as Variable)
-    if (found.termType === 'Variable') operations.finalENewVar(query, found)
+    if (found instanceof Variable) operations.finalENewVar(query, found)
     else operations.finalEConst(query, found)
   },
 
@@ -200,7 +200,7 @@ export const operations: { [k: string]: Operation } = {
       // them both to a common caller var)
 
       for (const [k, v] of args)
-        if (v.termType === 'Variable' && v !== k) outArgs.set(k, v as Variable)
+        if (v instanceof Variable && v !== k) outArgs.set(k, v)
         else inArgs.set(k, v)
       cp = new ChoicePoint(query, clause.pull(inArgs), outArgs)
       query.pushCP(cp)

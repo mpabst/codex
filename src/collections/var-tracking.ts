@@ -6,12 +6,12 @@ export class VTSet extends Set<Term> {
 
   add(t: Term): this {
     super.add(t)
-    if (t.termType === 'Variable') this.varKeys.add(t as Variable)
+    if (t instanceof Variable) this.varKeys.add(t)
     return this
   }
 
   delete(t: Term): boolean {
-    if (t.termType === 'Variable') this.varKeys.delete(t as Variable)
+    if (t instanceof Variable) this.varKeys.delete(t)
     return super.delete(t)
   }
 }
@@ -21,12 +21,12 @@ export class VTMap extends Map<Term, VTMap | VTSet> {
 
   set(key: Term, val: VTMap | VTSet): this {
     super.set(key, val)
-    if (key.termType === 'Variable') this.varKeys.add(key as Variable)
+    if (key instanceof Variable) this.varKeys.add(key)
     return this
   }
 
   delete(key: Term): boolean {
-    if (key.termType === 'Variable') this.varKeys.delete(key as Variable)
+    if (key instanceof Variable) this.varKeys.delete(key)
     return super.delete(key)
   }
 }

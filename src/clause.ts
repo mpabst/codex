@@ -64,19 +64,19 @@ export class Clause {
     const headVars = new Set<Variable>()
 
     function mapVar(t: Term): Term {
-      if (t.termType !== 'Variable') return t
+      if (!(t instanceof Variable)) return t
 
-      let found = bodyMap.get(t as Variable)
+      let found = bodyMap.get(t)
       if (found) {
         headVars.add(found)
         return found
       }
 
-      found = headMap.get(t as Variable)
+      found = headMap.get(t)
       if (found) return found
 
       found = variable(randomString())
-      headMap.set(t as Variable, found)
+      headMap.set(t, found)
       headVars.add(found)
       return found
     }

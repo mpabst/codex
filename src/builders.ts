@@ -5,7 +5,17 @@ import {
   randomBlankNode,
   variable,
 } from './data-factory.js'
-import {Graph, Object, Predicate, Subject, Triple, Quad, Term, Statement} from './term.js'
+import {
+  Graph,
+  Object,
+  Predicate,
+  Subject,
+  Triple,
+  Quad,
+  Term,
+  Statement,
+  Literal,
+} from './term.js'
 
 export const PREFIXES = Object.freeze({
   dc: 'http://purl.org/dc/terms/',
@@ -19,14 +29,13 @@ export const PREFIXES = Object.freeze({
 })
 
 export const Prefixers = Object.entries(PREFIXES).reduce(
-  (o, [name, head]) => ({...o, [name]: prefixer(head)}),
-  {} as {[n: string]: any},
+  (o, [name, head]) => ({ ...o, [name]: prefixer(head) }),
+  {} as { [n: string]: any },
 )
 
-const {rdf, fpc, html} = Prefixers
+const { rdf, fpc, html } = Prefixers
 
 export const A = rdf.type
-
 
 type OrAry<T> = T | T[]
 
@@ -35,14 +44,12 @@ type BuilderArgs = OrAry<Construction | Object> | Predicate
 type Builder = (...args: BuilderArgs[]) => Construction
 
 class Construction {
-  constructor(
-    public refs: Subject[] = [],
-    public data: Statement[] = [],
-  ) {}
+  constructor(public refs: Subject[] = [], public data: Statement[] = []) {}
 
   unwrap(): Statement[] {
     return this.data.map(d => {
-      if ('graph' in d) return quad(d.graph as Graph, d.subject, d.predicate, d.object)
+      if ('graph' in d)
+        return quad(d.graph as Graph, d.subject, d.predicate, d.object)
       else return triple(d.subject, d.predicate, d.object)
     })
   }
@@ -58,11 +65,12 @@ function build(subject: Subject, ...rest: BuilderArgs[]): Construction {
 
   function push(predicate: Predicate, arg: OrAry<Construction | Object>) {
     if (arg instanceof Construction) {
-      for (const object of arg.refs) out.data.push({subject, predicate, object})
+      for (const object of arg.refs)
+        out.data.push({ subject, predicate, object })
       out.data.push(...arg.data)
     } else if (arg instanceof Array)
       for (const object of arg) push(predicate, object)
-    else out.data.push({subject, predicate, object: arg as Object})
+    else out.data.push({ subject, predicate, object: arg as Object })
   }
 
   const out = new Construction([subject])
@@ -73,8 +81,8 @@ function build(subject: Subject, ...rest: BuilderArgs[]): Construction {
 
 function graph(name: Graph, ...rest: Construction[]): Construction {
   const out = new Construction()
-  for (const {data} of rest)
-    for (const {subject, predicate, object, graph} of data as Quad[])
+  for (const { data } of rest)
+    for (const { subject, predicate, object, graph } of data as Quad[])
       out.data.push({
         subject,
         predicate,
@@ -91,10 +99,10 @@ function builderify(s: Subject) {
 function getHandler(
   dataFactory: (s: string) => Subject,
   iri: string,
-  extras: {[k: string]: (b: Builder) => any} = {},
+  extras: { [k: string]: (b: Builder) => any } = {},
 ) {
   return (_: any, prop: string) => {
-    const builder: {(...a: BuilderArgs[]): Construction; [k: string]: any} =
+    const builder: { (...a: BuilderArgs[]): Construction; [k: string]: any } =
       builderify(dataFactory(iri + prop))
     for (const [k, v] of Object.entries(extras)) builder[k] = v(builder)
     return builder
@@ -133,7 +141,7 @@ const reify =
   (...ctions: Construction[]): Construction => {
     const out = new Construction()
     for (const a of ctions)
-      for (const {subject, predicate, object, graph} of a.data as Quad[]) {
+      for (const { subject, predicate, object, graph } of a.data as Quad[]) {
         const args = [
           rdf.subject,
           subject,
@@ -189,7 +197,7 @@ export function triple(s: Subject, p: Predicate, o: Object): Triple {
   }
 }
 
-const factories: {[k: string]: (s: string) => Term} = {
+const factories: { [k: string]: (s: string) => Term } = {
   BlankNode: blankNode,
   Literal: literal,
   NamedNode: namedNode,
@@ -197,7 +205,11 @@ const factories: {[k: string]: (s: string) => Term} = {
 }
 
 export function unwrap<T extends Term>(t: T): T {
-  return factories[t.termType](t.value) as T
+  if (t instanceof Literal)
+    // || and not ??, since 'no specific language' is represented by the empty
+    // string
+    return literal(t.value, t.language || t.datatype) as unknown as T
+  return factories[t.constructor.name](t.value) as T
 }
 
 // variable builder

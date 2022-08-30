@@ -58,17 +58,17 @@ abstract class Block {
     position: 'medial' | 'final',
   ): Instruction {
     let op: string
-    if (term!.termType === 'Variable') {
-      if (term!.value === '_') {
+    if (term instanceof Variable) {
+      if (term.value === '_') {
         op = 'AnonVar'
         term = null
       } else {
-        let mapped = this.varMap.get(term as Variable)
+        let mapped = this.varMap.get(term)
         if (mapped) op = 'OldVar'
         else {
           op = 'NewVar'
           mapped = variable(randomString())
-          this.varMap.set(term as Variable, mapped)
+          this.varMap.set(term, mapped)
         }
         term = mapped
       }

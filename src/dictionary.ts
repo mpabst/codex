@@ -1,4 +1,4 @@
-import { DEFAULT_GRAPH, Term, turtle } from './term.js'
+import { DEFAULT_GRAPH, Term } from './term.js'
 
 abstract class Dictionary<T> {
   protected readonly data = new Map<string, T>()
@@ -29,6 +29,6 @@ export class TermDictionary extends Dictionary<Term> {
   }
 
   key(t: Term): string {
-    return turtle(t)
+    return t.toString()
   }
 }

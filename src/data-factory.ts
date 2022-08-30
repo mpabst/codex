@@ -15,7 +15,7 @@ import {
 const DICTIONARY = new TermDictionary()
 
 export function blankNode(value: string): BlankNode {
-  return lookup({termType: 'BlankNode', value}) as BlankNode
+  return lookup(new BlankNode(value))
 }
 
 export function clearDictionary(): void {
@@ -49,7 +49,7 @@ export function literal(value: any, other?: string | NamedNode): Literal {
     datatype = xsd('string')
   }
 
-  return lookup({termType: 'Literal', value, datatype, language})
+  return lookup(new Literal(value, datatype, language))
 }
 
 export function lookup<T extends Term>(term: T): T {
@@ -57,7 +57,7 @@ export function lookup<T extends Term>(term: T): T {
 }
 
 export function namedNode(value: string): NamedNode {
-  return lookup({termType: 'NamedNode', value})
+  return lookup(new NamedNode(value))
 }
 
 function prefixer(prefix: string) {
@@ -78,7 +78,7 @@ export function randomString(length = 8): string {
 }
 
 export function variable(value: string): Variable {
-  return lookup({termType: 'Variable', value})
+  return lookup(new Variable(value))
 }
 
 export const DataFactory = {

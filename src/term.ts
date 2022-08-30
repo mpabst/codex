@@ -1,54 +1,61 @@
-export interface Term {
-  readonly termType: string
-  readonly value: string
+// FIXME: special char escaping in toString()? ig it doesn't matter for
+// dictionary keys
+
+export abstract class Term {
+  constructor(public readonly value: string) {}
+
+  get termType(): string {
+    return this.constructor.name
+  }
+
+  abstract toString(): string
 }
 
-export interface BlankNode extends Term {
-  readonly termType: 'BlankNode'
-}
-
-export interface DefaultGraph extends Term {
-  readonly termType: 'DefaultGraph'
-}
-
-export interface Literal extends Term {
-  readonly termType: 'Literal'
-  readonly datatype: NamedNode
-  readonly language: string
-}
-
-export interface NamedNode extends Term {
-  readonly termType: 'NamedNode'
-}
-
-export interface Variable extends Term {
-  readonly termType: 'Variable'
-}
-
-// FIXME: special char escaping? ig it doesn't matter for dictionary keys
-export function turtle(term: Term): string {
-  switch (term.termType) {
-    case 'BlankNode':
-      return `_:${term.value}`
-    case 'DefaultGraph':
-      return '__DEFAULT_GRAPH__'
-    case 'NamedNode':
-      return `<${term.value}>`
-    case 'Literal':
-      const lit = term as Literal
-      if (lit.language !== '') return `"${lit.value}"@${lit.language}`
-      else return `"${lit.value}"^^${turtle(lit.datatype)}`
-    case 'Variable':
-      return `?${term.value}`
-    default:
-      throw new TypeError('Unsupported termType: ' + term.termType)
+export class BlankNode extends Term {
+  toString(): string {
+    return `_:${this.value}`
   }
 }
 
-export const DEFAULT_GRAPH: DefaultGraph = {
-  termType: 'DefaultGraph',
-  value: '',
+export class DefaultGraph extends Term {
+  constructor() {
+    super('')
+  }
+
+  toString(): string {
+    return '__DEFAULT_GRAPH__'
+  }
 }
+
+// push datatype and language up into Term for monomorpho?
+export class Literal extends Term {
+  constructor(
+    value: string,
+    public readonly datatype: NamedNode,
+    public readonly language: string,
+  ) {
+    super(value)
+  }
+
+  toString(): string {
+    if (this.language !== '') return `"${this.value}"@${this.language}`
+    else return `"${this.value}"^^${this.datatype}`
+  }
+}
+
+export class NamedNode extends Term {
+  toString(): string {
+    return `<${this.value}>`
+  }
+}
+
+export class Variable extends Term {
+  toString(): string {
+    return `?${this.value}`
+  }
+}
+
+export const DEFAULT_GRAPH = new DefaultGraph()
 
 export type Subject = NamedNode | BlankNode | Variable
 export type Predicate = NamedNode | Variable

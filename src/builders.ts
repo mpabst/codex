@@ -42,7 +42,7 @@ class Construction {
 
   unwrap(): Statement[] {
     return this.data.map(d => {
-      if ('graph' in d) return quad(d.graph, d.subject, d.predicate, d.object)
+      if ('graph' in d) return quad(d.graph as Graph, d.subject, d.predicate, d.object)
       else return triple(d.subject, d.predicate, d.object)
     })
   }

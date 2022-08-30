@@ -1,4 +1,4 @@
-import { Order } from './collections/index.js'
+import { Order } from './collections/data-set.js'
 import { Bindings } from './query.js'
 import { Statement, Quad, Triple, Variable } from './term.js'
 

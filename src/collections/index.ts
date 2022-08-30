@@ -1,73 +1,49 @@
-import { FlatTriple, Term, Triple } from '../term.js'
-import * as tupleSet from './tuple-set.js'
-
-export type Branch = tupleSet.TupleSet<Term>
-export type Twig = Set<Term>
-export type Node = Branch | Twig
-
-export type Order = string
-
-interface Data {
-  [k: Order]: Branch
-}
-
-// subclass with a MultiIndex, with SPO as TupleMultiSet
-// and always present
+import { Term, Triple } from '../term.js'
+import { DataSet, Order, TripleMultiSet, TripleRoot, TripleSet } from './data-set.js'
+import { VTTripleSet } from './var-tracking.js'
 
 export class Index {
+  protected Data = TripleSet
+  protected data = new Map<Order, DataSet<Triple>>()
 
-  static PLACES: { [k: string]: keyof Triple } = {
-    S: 'subject',
-    P: 'predicate',
-    O: 'object',
-  }
-
-  static ORDERS = [
-    // ...permute(3, TRIPLE_PLACES).map(o => o.join('') + 'G'),
-    // GSPO index is only for the sake of whole graph operations; see comment in
-    // #match()
-    'PSO',
-    'POS',
-    'SPO',
-    'OPS'
-  ]
-
-  static reorder(order: Order, triple: Triple): FlatTriple {
-    return order.split('').map(o => triple[Index.PLACES[o]]) as FlatTriple
-  }
-
-  protected readonly data: Data = {}
-  #size: number = 0
-
-  constructor(nodeCtor: MapConstructor = Map) {
-    for (const o of Index.ORDERS) this.data[o] = new nodeCtor()
+  constructor(protected orders: Order[] = ['SPO']) {
+    for (const o of orders) this.data.set(o, new this.Data(o))
   }
 
   add(triple: Triple): void {
-    for (const order in this.data)
-      this.addData(this.data[order], Index.reorder(order, triple))
-    this.#size++
+    for (const ts of this.data.values()) ts.add(triple)
   }
 
-  protected addData(index: Branch, data: FlatTriple): void {
-    tupleSet.add(index, data)
+  delete(triple: Triple): void {
+    for (const ts of this.data.values()) ts.delete(triple)
   }
 
-  getOrder(order: Order): Branch {
-    return this.data[order]
-  }
-
-  remove(triple: Triple): void {
-    for (const order in this.data)
-      this.removeData(this.data[order], Index.reorder(order, triple))
-    this.#size--
-  }
-
-  protected removeData(index: Branch, data: FlatTriple): void {
-    tupleSet.remove(index, data)
+  getRoot(order: Order): TripleRoot<Set<Term>> {
+    return this.data.get(order)!.root
   }
 
   get size(): number {
-    return this.#size
+    return this.data.get(this.orders[0])!.size
   }
+}
+
+export class MultiIndex extends Index {
+  protected multi: TripleMultiSet
+
+  constructor(protected multiOrder: Order = 'SPO', otherOrders: Order[] = []) {
+    super(otherOrders)
+    this.multi = new TripleMultiSet(multiOrder)
+  }
+
+  add(triple: Triple): void {
+    if (this.multi.add(triple)) super.add(triple)
+  }
+
+  delete(triple: Triple): void {
+    if (this.multi.delete(triple)) super.delete(triple)
+  }
+}
+
+export class VTIndex extends Index {
+  protected Data = VTTripleSet
 }

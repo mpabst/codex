@@ -1,5 +1,5 @@
 import { Clause } from './clause.js'
-import { Branch, Index, Twig } from './collections/index.js'
+import { Index } from './collections/index.js'
 import { VTMap } from './collections/var-tracking.js'
 import { Argument, Bindings, ChoicePoint, Operation, Query } from './query.js'
 import { VarMap } from './syntax.js'
@@ -12,13 +12,15 @@ import { Term, Variable } from './term.js'
 // the former, with a bunch of branching to determine
 // the latter
 
+export type Leaf = Set<Term> | Map<Term, number>
+export type Branch = Map<Term, Leaf> | Map<Term, Map<Term, Leaf>>
+
 function advanceMedial(query: Query, term: Argument): void {
   query.dbNode = (query.dbNode as Branch).get(term as Term)!
   query.programP++
 }
 
 function advanceFinal(query: Query, _: Argument): void {
-  // query.dbNode = null
   query.programP++
 }
 
@@ -111,12 +113,12 @@ export const operations: { [k: string]: Operation } = {
   // have setClause set pending, and follow it with a setIndex
   setClause(query: Query, clause: Argument): void {
     query.pending = [clause as Clause, (clause as Clause).body.newScope(null)]
-    query.dbNode = (clause as Clause).signature.getOrder('SPO')
+    query.dbNode = (clause as Clause).signature.getRoot('SPO')
     query.programP++
   },
 
   setIndex(query: Query, index: Argument): void {
-    query.dbNode = (index as Index).getOrder('SPO')
+    query.dbNode = (index as Index).getRoot('SPO')
     query.programP++
   },
 
@@ -155,7 +157,7 @@ export const operations: { [k: string]: Operation } = {
   },
 
   finalEConst(query: Query, term: Argument): void {
-    if ((query.dbNode as Twig).has(term as Term)) query.programP++
+    if ((query.dbNode as Leaf).has(term as Term)) query.programP++
     else query.fail = true
   },
 

@@ -1,6 +1,6 @@
 import { Clause } from './clause.js'
-import { Node } from './collections/index.js'
 import { pull as compile } from './compile.js'
+import { Branch, Leaf } from './operations.js'
 import { Context, Store } from './store.js'
 import { Expression, VarMap } from './syntax.js'
 import { Quad, Term, Variable } from './term.js'
@@ -18,11 +18,12 @@ enum Side {
 
 type Pending = [Clause, Bindings]
 type TrailItem = [Variable, Side]
+type DBNode = Leaf | Branch
 
 export class ChoicePoint<T = Term> {
   public programP: number
   public pending: Pending | null
-  public dbNode: Node | null
+  public dbNode: DBNode | null
   public trailP: number
   protected iterator: Iterator<T>
   public done: boolean = false
@@ -66,7 +67,7 @@ export class Query {
   programP: number = 0
 
   scope: Bindings | null = null
-  dbNode: Node | null = null
+  dbNode: DBNode | null = null
   // instead of failing, just jump to whatever's on top of the stack?
   // maybe negation will get messy, idk. better read the WAM book.
   // maybe: set fail, fetch next instr, if 'not', then continue, else backtrack

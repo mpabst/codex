@@ -55,41 +55,27 @@ export type Predicate = NamedNode | Variable
 export type Object = NamedNode | Literal | BlankNode | Variable
 export type Graph = NamedNode | BlankNode | Variable | DefaultGraph
 
-export interface Triple {
+export interface Tuple {
+  [k: string]: Term
+}
+
+export interface Triple extends Tuple {
   subject: Subject
   predicate: Predicate
   object: Object
+}
+
+export interface Quad extends Triple {
+  graph: Graph
 }
 
 export type FlatTriple = [Subject, Predicate, Object]
 
-export interface Quad {
-  subject: Subject
-  predicate: Predicate
-  object: Object
-  graph: Graph
-}
-
 export type FlatQuad = [Graph, Subject, Predicate, Object]
-
-export enum TriplePlace {
-  Subject,
-  Predicate,
-  Object,
-}
-
-export enum QuadPlace {
-  Subject,
-  Predicate,
-  Object,
-  Graph,
-}
 
 // Make values in Statement wrapper objects for Terms,
 // so we can add source annotations per-term
 export type Statement = Quad | Triple
-
-export type Version = number
 
 // will make something more RDFy later
 export interface Diff {

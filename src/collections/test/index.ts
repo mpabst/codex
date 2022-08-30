@@ -1,2 +1,1 @@
-import './quad-store.js'
-import './tuple-set.js'
+import './data-set.js'

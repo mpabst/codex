@@ -37,7 +37,7 @@ export class Store {
       this.set(diff.id, diff)
       const snap = this.get(diff.target) as Index
       for (const ret of diff.retractions) {
-        snap.remove(ret)
+        snap.delete(ret)
         delta.add(ret)
       }
       for (const ass of diff.assertions) snap.add(ass)

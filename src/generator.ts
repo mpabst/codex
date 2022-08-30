@@ -1,25 +1,27 @@
-import { TupleMultiSet, add } from './collections/tuple-multi-set.js'
+import { MultiIndex } from './collections/index.js'
 import { Bindings } from './query.js'
 import { Head, Pattern, traverse } from './syntax.js'
-import { Term, Triple, Variable } from './term.js'
+import { Object, Predicate, Subject, Term, Triple, Variable } from './term.js'
 
 type Operation = (b: Bindings, term: Term) => Term
-type Program = [Operation, Term][]
+type Instruction = [Operation, Term]
+type Program = Instruction[]
 
 export class Generator {
-  program: [Operation, ...any][]
+  program: Instruction[]
 
-  constructor(protected memo: TupleMultiSet<Term>, source: Head) {
+  constructor(protected memo: MultiIndex, source: Head) {
     this.program = compile(source)
   }
 
   generate(bindings: Bindings): void {
+    const process = ([op, arg]: Instruction): Term => op(bindings, arg)
     for (let pc = 0; pc < this.program.length; pc += 3)
-      add(this.memo, [
-        this.program[pc][0](bindings, this.program[pc][1]),
-        this.program[pc + 1][0](bindings, this.program[pc + 1][1]),
-        this.program[pc + 2][0](bindings, this.program[pc + 2][1]),
-      ])
+      this.memo.add({
+        subject: process(this.program[pc]) as Subject,
+        predicate: process(this.program[pc + 1]) as Predicate,
+        object: process(this.program[pc + 2]) as Object,
+      })
   }
 }
 

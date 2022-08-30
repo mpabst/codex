@@ -1,9 +1,7 @@
-import * as defaulting from './defaulting.js'
-import { FlatTriple, Term, Variable } from '../term.js'
-import { Branch, Index } from './index.js'
-import { fillTwig, prune } from './tree.js'
+import { Term, Variable } from '../term.js'
+import { TripleSet } from './data-set.js'
 
-class VTSet extends Set<Term> {
+export class VTSet extends Set<Term> {
   varKeys = new Set<Variable>()
 
   add(t: Term): this {
@@ -18,12 +16,10 @@ class VTSet extends Set<Term> {
   }
 }
 
-type VTBranch = VTMap | VTSet
-
-export class VTMap extends Map<Term, VTBranch> {
+export class VTMap extends Map<Term, VTMap | VTSet> {
   varKeys = new Set<Variable>()
 
-  set(key: Term, val: VTBranch): this {
+  set(key: Term, val: VTMap | VTSet): this {
     super.set(key, val)
     if (key.termType === 'Variable') this.varKeys.add(key as Variable)
     return this
@@ -35,37 +31,7 @@ export class VTMap extends Map<Term, VTBranch> {
   }
 }
 
-const tupleSet = {
-  // Branch args really should be VTBranches, but then TS complains abt getting
-  // args missing varKeys (what am i passing that yields those errors?)
-
-  add(set: Branch, tuple: Term[]): void {
-    fillTwig(
-      set,
-      tuple.slice(0, -1),
-      (b, k) => defaulting.get(b, k, () => new VTSet()),
-      VTMap,
-    ).add(tuple[tuple.length - 1])
-  },
-
-  remove(set: Branch, tuple: Term[]): void {
-    prune(set, tuple.slice(0, -1), leaf => {
-      leaf.delete(tuple[tuple.length - 1])
-      return leaf.size === 0
-    })
-  },
-}
-
-export class VTIndex extends Index {
-  constructor() {
-    super(VTMap)
-  }
-
-  protected addData(index: Branch, data: FlatTriple): void {
-    tupleSet.add(index, data)
-  }
-
-  protected removeData(index: Branch, data: FlatTriple): void {
-    tupleSet.remove(index, data)
-  }
+export class VTTripleSet extends TripleSet {
+  protected Branch = VTMap
+  protected Leaf = VTSet
 }

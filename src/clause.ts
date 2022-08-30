@@ -1,6 +1,4 @@
-import { TupleMultiSet } from './collections/tuple-multi-set.js'
-import { TupleSet } from './collections/tuple-set.js'
-import { VTIndex } from './collections/var-tracking.js'
+import { MultiIndex, VTIndex } from './collections/index.js'
 import { randomString, variable } from './data-factory.js'
 import { Generator } from './generator.js'
 import { Bindings, Query } from './query.js'
@@ -15,6 +13,7 @@ import {
   Triple,
   Variable,
 } from './term.js'
+import { BindingsSet } from './collections/bindings-set.js'
 
 const stmtMapper =
   <S extends Statement>(mapper: (t: Term) => Term) =>
@@ -39,13 +38,10 @@ interface Listener {
 export class Clause {
   signature = new VTIndex()
   generator: Generator
-  // make MultiIndex
-  memo: TupleMultiSet<Term> = new Map()
+  memo = new MultiIndex()
   body: Query
 
-  varOrder: Variable[] = []
-  // vars[] (by varOrder) -> CT
-  calls: TupleSet<Term> = new Map()
+  calls: BindingsSet
 
   callerStrata: number[] = []
   listeners: Listener[] = []
@@ -58,10 +54,11 @@ export class Clause {
   ) {
     this.body = new Query(store, body)
     this.generator = new Generator(this.memo, head)
+    this.calls = new BindingsSet(this.initSignature(head))
     store.set(id, this)
   }
 
-  protected initSignature(source: Head): void {
+  protected initSignature(source: Head): Set<Variable> {
     const headMap: VarMap = new Map()
     const { varNames: bodyMap } = this.body
     const headVars = new Set<Variable>()
@@ -89,7 +86,7 @@ export class Clause {
         this.signature.add(mapStmt(expr.terms, mapVar)),
     })
 
-    this.varOrder = Array.from(headVars)
+    return headVars
   }
 
   pull(args: Bindings): Iterable<Bindings> {

@@ -20,13 +20,14 @@ describe('TripleSet', () => {
           [
             nn('s1'),
             new Map([
-              [nn('p1'), new Set([1])],
-              [nn('p2'), new Set([2])],
+              [nn('p1'), new Set([l(1)])],
+              [nn('p2'), new Set([l(2)])],
             ]),
           ],
-          [nn('s2'), new Map([[nn('p1'), new Set([3])]])],
+          [nn('s2'), new Map([[nn('p1'), new Set([l(3)])]])],
         ]),
       )
+      x(ts.size).eql(3)
     })
 
     it('reordering', () => {
@@ -39,13 +40,14 @@ describe('TripleSet', () => {
           [
             nn('p1'),
             new Map([
-              [nn('s1'), new Set([1])],
-              [nn('s2'), new Set([3])],
+              [nn('s1'), new Set([l(1)])],
+              [nn('s2'), new Set([l(3)])],
             ]),
           ],
-          [nn('p2'), new Map([[nn('s1'), new Set([2])]])],
+          [nn('p2'), new Map([[nn('s1'), new Set([l(2)])]])],
         ]),
       )
+      x(ts.size).eql(3)
     })
   })
 
@@ -57,9 +59,10 @@ describe('TripleSet', () => {
     ts.delete(tri('s1', 'p2', 2))
     x(ts.root).eql(
       new Map([
-        [nn('s1'), new Map([[nn('p1'), new Set([1])]])],
-        [nn('s2'), new Map([[nn('p1'), new Set([3])]])],
+        [nn('s1'), new Map([[nn('p1'), new Set([l(1)])]])],
+        [nn('s2'), new Map([[nn('p1'), new Set([l(3)])]])],
       ]),
     )
+    x(ts.size).eql(2)
   })
 })

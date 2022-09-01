@@ -1,5 +1,6 @@
+import { BindingsSet } from './collections/bindings-set.js'
 import { MultiIndex, VTIndex } from './collections/index.js'
-import { randomString, variable } from './data-factory.js'
+import { randomVariable } from './data-factory.js'
 import { Generator } from './generator.js'
 import { Bindings, Query } from './query.js'
 import { Store } from './store.js'
@@ -13,7 +14,6 @@ import {
   Triple,
   Variable,
 } from './term.js'
-import { BindingsSet } from './collections/bindings-set.js'
 
 const stmtMapper =
   <S extends Statement>(mapper: (t: Term) => Term) =>
@@ -53,7 +53,7 @@ export class Clause {
     body: Expression<Quad>,
   ) {
     this.body = new Query(store, body)
-    this.generator = new Generator(this.memo, head)
+    this.generator = new Generator(this.memo, head, this.body.varNames)
     this.calls = new BindingsSet(this.initSignature(head))
     store.set(id, this)
   }
@@ -75,7 +75,7 @@ export class Clause {
       found = headMap.get(t)
       if (found) return found
 
-      found = variable(randomString())
+      found = randomVariable(t)
       headMap.set(t, found)
       headVars.add(found)
       return found
@@ -89,13 +89,8 @@ export class Clause {
     return headVars
   }
 
-  pull(args: Bindings): Iterable<Bindings> {
-    const out: Bindings[] = []
-    this.body.evaluate((b: Bindings) => {
-      out.push(new Map(b))
-      this.generator.generate(b)
-    }, args)
-    return out
+  pull(args: Bindings): void {
+    this.body.evaluate((b: Bindings) => this.generator.generate(b), args)
   }
 
   push() {}

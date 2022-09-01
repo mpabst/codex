@@ -184,32 +184,8 @@ export const operations: { [k: string]: Operation } = {
   },
 
   call(query: Query, _: Argument): void {
-    // if seen advance
-    // else copy args, call, set dbNode, jump to pending[2]
-
-    let cp: ChoicePoint<Bindings>
-    if (query.stackP > -1) cp = query.stack[query.stackP]
-
-    if (!cp!?.isCurrent(query)) {
-      const [clause, args] = query.pending!
-      const inArgs: Bindings = new Map()
-      const outArgs: VarMap = new Map()
-
-      // i don't think i'm handling the case where a caller
-      // binds two callee vars to each other (ie by binding
-      // them both to a common caller var)
-
-      for (const [k, v] of args)
-        if (v instanceof Variable && v !== k) outArgs.set(k, v)
-        else inArgs.set(k, v)
-      cp = new ChoicePoint(query, clause.pull(inArgs), outArgs)
-      query.pushCP(cp)
-    }
-
-    const { value, done } = cp.next()
-    if (done) return
-
-    for (const [k, v] of cp.outArgs!) query.bindScope(v, value.get(k))
+    const [clause, args] = query.pending!
+    clause.pull(args)
     query.programP++
   },
 

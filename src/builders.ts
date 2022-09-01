@@ -39,11 +39,11 @@ export const A = rdf.type
 
 type OrAry<T> = T | T[]
 
-type BuilderArgs = OrAry<Construction | Object> | Predicate
+type BuilderArgs = OrAry<Building | Object> | Predicate
 
-type Builder = (...args: BuilderArgs[]) => Construction
+type Builder = (...args: BuilderArgs[]) => Building
 
-class Construction {
+class Building {
   constructor(public refs: Subject[] = [], public data: Statement[] = []) {}
 
   unwrap(): Statement[] {
@@ -55,16 +55,16 @@ class Construction {
   }
 }
 
-function blank(...args: BuilderArgs[]): Construction {
+function blank(...args: BuilderArgs[]): Building {
   return build(randomBlankNode(), ...args)
 }
 
-function build(subject: Subject, ...rest: BuilderArgs[]): Construction {
+function build(subject: Subject, ...rest: BuilderArgs[]): Building {
   if (rest.length % 2 !== 0)
     throw new Error('must have even number of rest args')
 
-  function push(predicate: Predicate, arg: OrAry<Construction | Object>) {
-    if (arg instanceof Construction) {
+  function push(predicate: Predicate, arg: OrAry<Building | Object>) {
+    if (arg instanceof Building) {
       for (const object of arg.refs)
         out.data.push({ subject, predicate, object })
       out.data.push(...arg.data)
@@ -73,14 +73,14 @@ function build(subject: Subject, ...rest: BuilderArgs[]): Construction {
     else out.data.push({ subject, predicate, object: arg as Object })
   }
 
-  const out = new Construction([subject])
+  const out = new Building([subject])
   for (let i = 0; i < rest.length; i += 2)
     push(rest[i] as Predicate, rest[i + 1])
   return out
 }
 
-function graph(name: Graph, ...rest: Construction[]): Construction {
-  const out = new Construction()
+function graph(name: Graph, ...rest: Building[]): Building {
+  const out = new Building()
   for (const { data } of rest)
     for (const { subject, predicate, object, graph } of data as Quad[])
       out.data.push({
@@ -93,16 +93,19 @@ function graph(name: Graph, ...rest: Construction[]): Construction {
 }
 
 function builderify(s: Subject) {
-  return Object.assign((...args: BuilderArgs[]) => build(s, ...args), s)
+  const out: any = Object.assign((...args: BuilderArgs[]) => build(s, ...args), s)
+  out.termType = s.termType
+  return out
 }
 
-function getHandler(
-  dataFactory: (s: string) => Subject,
-  iri: string,
-  extras: { [k: string]: (b: Builder) => any } = {},
-) {
-  return (_: any, prop: string) => {
-    const builder: { (...a: BuilderArgs[]): Construction; [k: string]: any } =
+function handleGet(
+    dataFactory: (s: string) => Subject,
+    iri: string,
+    extras: { [k: string]: (b: Builder) => any } = {},
+  ) {
+  return (target: any, prop: string) => {
+    if (prop === 'termType') return target.termType
+    const builder: { (...a: BuilderArgs[]): Building; [k: string]: any } =
       builderify(dataFactory(iri + prop))
     for (const [k, v] of Object.entries(extras)) builder[k] = v(builder)
     return builder
@@ -111,12 +114,12 @@ function getHandler(
 
 const list =
   (type: Subject) =>
-  (...rest: (Construction | Object)[]): Construction => {
+  (...rest: (Building | Object)[]): Building => {
     const objects: Object[] = []
     const data: (Triple | Quad)[] = []
 
     for (const r of rest)
-      if (r instanceof Construction) {
+      if (r instanceof Building) {
         objects.push(...r.refs)
         data.push(...r.data)
       } else objects.push(r)
@@ -127,19 +130,19 @@ const list =
       data.push(...cell.data)
       head = cell.refs[0]
     }
-    return new Construction([head], data)
+    return new Building([head], data)
   }
 
 export function prefixer(iri: string): any {
   return new Proxy(builderify(namedNode(iri)), {
-    get: getHandler(namedNode, iri),
+    get: handleGet(namedNode, iri),
   })
 }
 
 const reify =
   (sign: boolean | null) =>
-  (...ctions: Construction[]): Construction => {
-    const out = new Construction()
+  (...ctions: Building[]): Building => {
+    const out = new Building()
     for (const a of ctions)
       for (const { subject, predicate, object, graph } of a.data as Quad[]) {
         const args = [
@@ -163,9 +166,9 @@ const reify =
 
 export function clause(
   type: Object,
-  head: Construction,
-  body: Construction,
-): Construction {
+  head: Building,
+  body: Building,
+): Building {
   return blank(
     A,
     type,
@@ -185,7 +188,7 @@ export function quad(g: Graph, s: Subject, p: Predicate, o: Object): Quad {
   }
 }
 
-function rule(sub: Builder, ...clauses: Construction[]): Construction {
+function rule(sub: Builder, ...clauses: Building[]): Building {
   return sub(A, fpc.Rule, fpc.clause, clauses)
 }
 
@@ -209,18 +212,18 @@ export function unwrap<T extends Term>(t: T): T {
     // || and not ??, since 'no specific language' is represented by the empty
     // string
     return literal(t.value, t.language || t.datatype) as unknown as T
-  return factories[t.constructor.name](t.value) as T
+  return factories[t.termType](t.value) as T
 }
 
 // variable builder
 const v = new Proxy(
   {},
   {
-    get: getHandler(variable, '', {
+    get: handleGet(variable, '', {
       // html builder
       h:
         (sub: Builder) =>
-        (type: Subject, ...children: (Object | Construction)[]) =>
+        (type: Subject, ...children: (Object | Building)[]) =>
           sub(A, type, html.children, list(rdf.List)(...children)),
     }),
   },

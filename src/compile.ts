@@ -1,6 +1,6 @@
 import { Clause } from './clause.js'
 import { Index } from './collections/index.js'
-import { randomString, variable } from './data-factory.js'
+import { randomVariable } from './data-factory.js'
 import { operations } from './operations.js'
 import { Instruction, Operation, Program } from './query.js'
 import { Key, Store } from './store.js'
@@ -30,11 +30,14 @@ export function push() {}
 type Mode = 'E' | 'I'
 
 abstract class Block {
-  patterns: Quad[] = []
   abstract mode: Mode
   abstract setOp: Operation
 
-  constructor(protected context: Clause | Index, protected varMap: VarMap) {}
+  constructor(
+    protected context: Clause | Index,
+    protected varMap: VarMap,
+    public patterns: Quad[],
+  ) {}
 
   add(pattern: Quad): void {
     this.patterns.push(pattern)
@@ -50,7 +53,7 @@ abstract class Block {
     for (const i in order)
       program.push(this.doTerm(order[i], i === '2' ? 'final' : 'medial'))
 
-    return [[operations.setIndex, this.context], ...program]
+    return program
   }
 
   protected doTerm(
@@ -67,7 +70,7 @@ abstract class Block {
         if (mapped) op = 'OldVar'
         else {
           op = 'NewVar'
-          mapped = variable(randomString())
+          mapped = randomVariable(term)
           this.varMap.set(term, mapped)
         }
         term = mapped
@@ -89,8 +92,8 @@ class EBlock extends Block {
   mode: Mode = 'E'
   setOp = operations.setIndex
 
-  constructor(context: Index, varMap: VarMap) {
-    super(context, varMap)
+  constructor(context: Index, varMap: VarMap, patterns: Quad[] = []) {
+    super(context, varMap, patterns)
   }
 
   generate(): Program {
@@ -99,18 +102,17 @@ class EBlock extends Block {
 }
 
 class IBlock extends Block {
-  mode: Mode = 'E'
+  mode: Mode = 'I'
   setOp = operations.setClause
   protected post: EBlock
 
   constructor(context: Clause, varMap: VarMap) {
-    super(context, varMap)
-    this.post = new EBlock(context.memo, varMap)
+    super(context, varMap, [])
+    this.post = new EBlock(context.memo, varMap, this.patterns)
   }
 
   generate(): Program {
     return [
-      [operations.setClause, this.context],
       ...this.orderPatterns().flatMap(p => this.doPattern(p)),
       [operations.call, null],
       ...this.post.generate(),
@@ -139,6 +141,7 @@ export function pull(
     if (!block) {
       if (context instanceof Clause) block = new IBlock(context, varMap)
       else block = new EBlock(context, varMap)
+      blocks.set(context, block)
     }
     block.add(terms)
   }

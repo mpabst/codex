@@ -25,7 +25,7 @@ const collectResult = (query: Query, ary: Bindings[]) => (b: Bindings) => {
 
 describe('Query', () => {
   it('unify one quad', () => {
-    const engine = new Store([q(fps.test, fps.socrates, A, fps.man)])
+    const store = new Store([q(fps.test, fps.socrates, A, fps.man)])
 
     const source: Expression<Quad> = {
       type: 'Conjunction',
@@ -37,7 +37,7 @@ describe('Query', () => {
       rest: null,
     }
 
-    const query = new Query(engine, source)
+    const query = new Query(store, source)
 
     let results: Bindings[] = []
     query.evaluate(collectResult(query, results))
@@ -78,10 +78,11 @@ describe('Query', () => {
 
   describe('basic rule invocation', () => {
     it('socrates is mortal', () => {
-      const engine = new Store([q(fps.test, fps.socrates, A, fps.Man)])
+      const store = new Store([q(fps.test, fps.socrates, A, fps.Man)])
+
       new Clause(
         u(fps.rule) as NamedNode,
-        engine,
+        store,
         { type: 'Pattern', terms: t(v.who, A, fps.Mortal), order: 'SPO' },
         {
           type: 'Pattern',
@@ -89,7 +90,8 @@ describe('Query', () => {
           order: 'GSPO',
         },
       )
-      const query = new Query(engine, {
+
+      const query = new Query(store, {
         type: 'Pattern',
         terms: q(fps.rule, v.someone, A, fps.Mortal),
         order: 'GSPO',

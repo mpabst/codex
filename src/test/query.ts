@@ -1,20 +1,14 @@
-import {
-  A,
-  builders,
-  Prefixers,
-  triple as t,
-  quad as q,
-  unwrap as u,
-} from '../builders.js'
 import { Clause } from '../clause.js'
-import { Store } from '../store.js'
+import { Prefixers, variable as v } from '../data-factory.js'
 import { Bindings, Query } from '../query.js'
+import { Store } from '../store.js'
 import { Expression } from '../syntax.js'
-import { NamedNode, Quad, Variable } from '../term.js'
+import { Graph, Object, Predicate, Quad, Subject, Triple } from '../term.js'
 
 const { expect: x } = chai
-const { fps } = Prefixers
-const { v } = builders
+const { test, rdf } = Prefixers
+
+const A = rdf('type')
 
 const collectResult = (query: Query, ary: Bindings[]) => (b: Bindings) => {
   const r: Bindings = new Map()
@@ -23,15 +17,28 @@ const collectResult = (query: Query, ary: Bindings[]) => (b: Bindings) => {
   ary.push(r)
 }
 
+function t(subject: Subject, predicate: Predicate, object: Object): Triple {
+  return { subject, predicate, object }
+}
+
+function q(
+  graph: Graph,
+  subject: Subject,
+  predicate: Predicate,
+  object: Object,
+): Quad {
+  return { graph, subject, predicate, object }
+}
+
 describe('Query', () => {
   it('unify one quad', () => {
-    const store = new Store([q(fps.test, fps.socrates, A, fps.man)])
+    const store = new Store([q(test(''), test('socrates'), A, test('man'))])
 
     const source: Expression<Quad> = {
       type: 'Conjunction',
       first: {
         type: 'Pattern',
-        terms: q(fps.test, v.who, A, fps.man),
+        terms: q(test(''), v('who'), A, test('man')),
       },
       rest: null,
     }
@@ -45,24 +52,26 @@ describe('Query', () => {
 
     const [r] = results
     x(r.size).eql(1)
-    x(r.get(u(v.who) as Variable)).eql(u(fps.socrates))
+    x(r.get(v('who'))).eql(test('socrates'))
   })
 
   describe('basic conjunction performance', () => {
     const data: Quad[] = []
     for (let i = 0; i < 100_000; i++)
-      data.push(q(fps.test, fps[i], fps.foo, fps[i + 1]))
+      data.push(
+        q(test(''), test(i.toString()), test('foo'), test((i + 1).toString())),
+      )
     const engine = new Store(data)
 
     const query: Expression<Quad> = {
       type: 'Conjunction',
       first: {
         type: 'Pattern',
-        terms: q(fps.test, v.left, fps.foo, v.middle),
+        terms: q(test(''), v('left'), test('foo'), v('middle')),
       },
       rest: {
         type: 'Pattern',
-        terms: q(fps.test, v.middle, fps.foo, v.right),
+        terms: q(test(''), v('middle'), test('foo'), v('right')),
       },
     }
 
@@ -75,21 +84,21 @@ describe('Query', () => {
 
   describe('basic rule invocation', () => {
     it('socrates is mortal', () => {
-      const store = new Store([q(fps.test, fps.socrates, A, fps.Man)])
+      const store = new Store([q(test(''), test('socrates'), A, test('Man'))])
 
       new Clause(
-        u(fps.rule) as NamedNode,
+        test('rule'),
         store,
-        { type: 'Pattern', terms: t(v.who, A, fps.Mortal) },
+        { type: 'Pattern', terms: t(v('who'), A, test('Mortal')) },
         {
           type: 'Pattern',
-          terms: q(fps.test, v.who, A, fps.Man),
+          terms: q(test(''), v('who'), A, test('Man')),
         },
       )
 
       const query = new Query(store, {
         type: 'Pattern',
-        terms: q(fps.rule, v.someone, A, fps.Mortal),
+        terms: q(test('rule'), v('someone'), A, test('Mortal')),
       })
 
       const results: Bindings[] = []
@@ -98,7 +107,7 @@ describe('Query', () => {
       x(results.length).eql(1)
       const [r] = results
       x(r.size).eql(1)
-      x(r.get(u(v.someone) as Variable)).eql(u(fps.socrates))
+      x(r.get(v('someone'))).eql(test('socrates'))
     })
   })
 })

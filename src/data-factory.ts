@@ -12,7 +12,7 @@ import {
   Variable,
 } from './term.js'
 
-const PREFIXES = {
+export const PREFIXES = {
   dc: 'http://purl.org/dc/terms/',
   fpc: 'https://fingerpaint.systems/core/',
   html: 'https://fingerpaint.systems/core/html/',
@@ -22,10 +22,14 @@ const PREFIXES = {
   xsd: 'http://www.w3.org/2001/XMLSchema#',
 }
 
+const DICTIONARY = new TermDictionary()
+
 export const Prefixers: { [k: string]: (s: string) => NamedNode } = {}
 for (const [k, v] of Object.entries(PREFIXES)) Prefixers[k] = prefixer(v)
 
-const DICTIONARY = new TermDictionary()
+const { rdf, xsd } = Prefixers
+
+export const A = rdf('type')
 
 export function blankNode(value: string): BlankNode {
   return lookup(new BlankNode(value))
@@ -40,7 +44,7 @@ export function defaultGraph(): DefaultGraph {
 }
 
 export function literal(value: any, other?: string | NamedNode): Literal {
-  const { rdf, xsd } = Prefixers
+  // const { rdf, xsd } = Prefixers
 
   if (typeof value === 'number') other = other || xsd('decimal')
   if (typeof value === 'boolean') other = other || xsd('boolean')
@@ -64,7 +68,7 @@ export function literal(value: any, other?: string | NamedNode): Literal {
   return lookup(new Literal(value, datatype, language))
 }
 
-export function lookup<T extends Term>(term: T): T {
+function lookup<T extends Term>(term: T): T {
   return DICTIONARY.lookup(term) as T
 }
 

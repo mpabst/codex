@@ -1,4 +1,4 @@
-import { PREFIXES } from '../builders.js'
+import { PREFIXES } from '../data-factory.js'
 import { Bindings } from '../query.js'
 import { FlatQuad, Term } from '../term.js'
 

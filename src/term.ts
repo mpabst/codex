@@ -40,6 +40,8 @@ export class Literal extends Term {
     super(value)
   }
 
+  // this is kinda nifty, but maybe move into test dir, since it's
+  // dead weight for most users
   toString(namespace?: Namespace): string {
     if (this.language !== '') return `"${this.value}"@${this.language}`
     const { xsd } = Prefixers

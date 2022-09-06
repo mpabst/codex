@@ -7,6 +7,7 @@ import {
   NamedNode,
   Object,
   Quad,
+  Term,
   Triple,
 } from './term.js'
 
@@ -72,9 +73,40 @@ function unwrap(s: string): string {
   return s.slice(1, -1)
 }
 
-export class Parser {
+class Namespace {
   base: string = ''
   prefixes: { [k: string]: string } = {}
+
+  namedNode(token: string): NamedNode {
+    if (token[0] === '<') {
+      // absolute URL
+      if (/<\w+:/.test(token)) return namedNode(unwrap(token))
+      return namedNode(this.base + unwrap(token))
+    }
+    const [prefix, suffix] = token.split(':')
+    if (!suffix) throw new ParseError(`could not parse named node: ${token}`)
+    return namedNode(this.prefixes[prefix] + suffix)
+  }
+
+  format(term: Term): string {
+    if (!(term instanceof NamedNode)) return term.value
+    for (const [k, v] of Object.entries(this.prefixes))
+      if (term.value.startsWith(v)) return `${k}:${term.value.slice(v.length)}`
+    return `<${term.value}>`
+  }
+
+  prettyPrint(quads: Quad[]): string[][] {
+    const out: string[][] = []
+    for (const q of quads)
+      out.push(
+        [q.graph, q.subject, q.predicate, q.object].map(t => this.format(t)),
+      )
+    return out
+  }
+}
+
+export class Parser {
+  namespace = new Namespace()
 
   lexer: Lexer
   token: string = ''
@@ -126,24 +158,8 @@ export class Parser {
   }
 
   protected namedNode(): NamedNode {
-    if (this.token[0] === '<') {
-      // absolute URL
-      if (/<\w+:/.test(this.token)) return namedNode(this.unwrap())
-      return namedNode(this.base + this.unwrap())
-    }
-    const [prefix, suffix] = this.token.split(':')
-    if (!suffix) throw this.unexpected()
-    return namedNode(this.prefixes[prefix] + suffix)
+    return this.namespace.namedNode(this.token)
   }
-
-  // protected nextTokens(n: number): string[] {
-  //   const out = []
-  //   for (; n > 0; n--) {
-  //     out.push(this.peek)
-  //     this.advance()
-  //   }
-  //   return out
-  // }
 
   parse(): QuadSet {
     try {
@@ -220,13 +236,13 @@ export class Parser {
   protected parseObject(): void {
     switch (this.token) {
       case '[':
-        this.push()
+        this.push('done')
         const bnode = randomBlankNode()
         this.addResult({ object: bnode })
         this.setContext({ subject: bnode }, 'predicate')
         break
       case '(':
-        this.push()
+        this.push('done')
         this.place = 'list'
         break
       case '<<':
@@ -255,14 +271,14 @@ export class Parser {
     switch (this.token) {
       case 'base':
         this.advance()
-        this.base = this.unwrap()
+        this.namespace.base = unwrap(this.token)
         this.place = 'done'
         break
       case 'prefix':
         this.advance()
         const k = this.token.slice(0, -1)
         this.advance()
-        this.prefixes[k] = this.namedNode().value
+        this.namespace.prefixes[k] = this.namedNode().value
         this.place = 'done'
         break
       case '[':
@@ -294,10 +310,6 @@ export class Parser {
     this.context[1] = p
   }
 
-  // protected get peek(): string {
-  //   return this.lexer.token
-  // }
-
   protected pop(): void {
     if (this.stack.length === 0) throw this.unexpected()
     const [quad, place] = this.stack.pop()!
@@ -324,9 +336,5 @@ export class Parser {
 
   protected unexpected(): ParseError {
     return new ParseError(`unexpected: ${this.token} @ ${this.place}`)
-  }
-
-  protected unwrap(): string {
-    return unwrap(this.token)
   }
 }

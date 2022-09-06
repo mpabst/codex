@@ -5,11 +5,12 @@ describe('parser', () => {
     const parser = new Parser(`
       base <https://fingerpaint.systems/apps/todo> .
       prefix : <#> .
+      prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
       prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 
-      :foo a rdfs:Bar .
+      :foo :has ( [ a :Bar ; :baz ( :inner :list ) ] ) .
     `)
     parser.parse()
-    console.log(parser.resultAry)
+    console.log(parser.namespace.prettyPrint(parser.resultAry))
   })
 })

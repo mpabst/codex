@@ -1,6 +1,9 @@
 // FIXME: special char escaping in toString()? ig it doesn't matter for
 // dictionary keys
 
+import { Namespace } from './parser/namespace.js'
+import { Prefixers } from './data-factory.js'
+
 export abstract class Term {
   constructor(public readonly value: string) {}
 
@@ -8,7 +11,7 @@ export abstract class Term {
     return this.constructor.name
   }
 
-  abstract toString(): string
+  abstract toString(namespace?: Namespace): string
 }
 
 export class BlankNode extends Term {
@@ -37,15 +40,27 @@ export class Literal extends Term {
     super(value)
   }
 
-  toString(): string {
+  toString(namespace?: Namespace): string {
     if (this.language !== '') return `"${this.value}"@${this.language}`
-    else return `"${this.value}"^^${this.datatype}`
+    const { xsd } = Prefixers
+    switch (this.datatype) {
+      case xsd('string'):
+        return `"${this.value}"`
+      case xsd('decimal'):
+      // fallthrough
+      case xsd('boolean'):
+        return this.value
+      default:
+        return `"${this.value}"^^${
+          namespace ? namespace.qualify(this.datatype) : this.datatype
+        }`
+    }
   }
 }
 
 export class NamedNode extends Term {
-  toString(): string {
-    return `<${this.value}>`
+  toString(namespace?: Namespace): string {
+    return namespace ? namespace.qualify(this) : `<${this.value}>`
   }
 }
 

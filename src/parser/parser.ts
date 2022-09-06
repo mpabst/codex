@@ -1,119 +1,23 @@
-import { QuadSet } from './collections/data-set.js'
+import { QuadSet } from '../collections/data-set.js'
+import { Prefixers, randomBlankNode, variable } from '../data-factory.js'
 import {
-  literal,
-  namedNode,
-  randomBlankNode,
-  variable,
-} from './data-factory.js'
-import {
-  BlankNode,
   DEFAULT_GRAPH,
   Literal,
   NamedNode,
   Object,
   Quad,
   Subject,
-  Term,
   Triple,
-} from './term.js'
-
-const escaper = '\\'
-
-// const delims = '. ; , | { } [ ] << >>'.split(' ')
-
-const quotes: { [k: string]: string } = {
-  "'": "'",
-  '"': '"',
-  '<': '>',
-}
-
-// todo: quotes vs groupers
-
-class Lexer {
-  token: string = ''
-  escape: boolean = false
-  quoting: string | null = null
-  pos: number = 0
-
-  constructor(public source: string) {}
-
-  advance(): void {
-    this.token = ''
-    for (; this.pos < this.source.length; this.pos++) {
-      const char = this.source[this.pos]
-
-      if (char === escaper) {
-        this.escape = true
-        continue
-      }
-
-      if (/\s/.test(char)) {
-        if (this.token !== '') return
-        else continue
-      }
-
-      this.token += char
-
-      if (this.escape) this.escape = false
-      else if (this.quoting) {
-        if (char === quotes[this.quoting]) this.quoting = null
-      } else if (char in quotes && this.token === '') this.quoting = char
-    }
-    throw new NoMoreTokens()
-  }
-}
-
-class NoMoreTokens {}
-
-class ParseError extends Error {}
+} from '../term.js'
+import { ParseError, unwrap } from './common.js'
+import { Lexer, NoMoreTokens } from './lexer.js'
+import { Namespace } from './namespace.js'
 
 type Place = keyof Triple | 'list' | 'done'
 
 type Context = [Partial<Quad>, Place]
 
-function fpc(suffix: string): NamedNode {
-  return namedNode(`https://fingerpaint.systems/core/${suffix}`)
-}
-
-function rdf(suffix: string): NamedNode {
-  return namedNode(`http://www.w3.org/1999/02/22-rdf-syntax-ns#${suffix}`)
-}
-
-function unwrap(s: string): string {
-  return s.slice(1, -1)
-}
-
-class Namespace {
-  base: string = ''
-  prefixes: { [k: string]: string } = {}
-
-  namedNode(token: string): NamedNode {
-    if (token[0] === '<') {
-      // absolute URL
-      if (/<\w+:/.test(token)) return namedNode(unwrap(token))
-      return namedNode(this.base + unwrap(token))
-    }
-    const [prefix, suffix] = token.split(':')
-    if (!suffix) throw new ParseError(`could not parse named node: ${token}`)
-    return namedNode(this.prefixes[prefix] + suffix)
-  }
-
-  format(term: Term): string {
-    if (!(term instanceof NamedNode)) return term.toString()
-    for (const [k, v] of Object.entries(this.prefixes))
-      if (term.value.startsWith(v)) return `${k}:${term.value.slice(v.length)}`
-    return term.toString()
-  }
-
-  prettyPrint(quads: Quad[]): string[][] {
-    const out: string[][] = []
-    for (const q of quads)
-      out.push(
-        [q.graph, q.subject, q.predicate, q.object].map(t => this.format(t)),
-      )
-    return out
-  }
-}
+const { fpc, rdf } = Prefixers
 
 export class Parser {
   namespace = new Namespace()
@@ -187,7 +91,7 @@ export class Parser {
   }
 
   protected literal(): Literal {
-    return literal(this.token)
+    return this.namespace.literal(this.token)
   }
 
   protected makeObject(): Object {

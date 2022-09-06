@@ -1,7 +1,7 @@
 // TODO: Dictionary really should be associated with a Store, so we can know
 // when to GC dict entries
 
-import {TermDictionary} from './dictionary.js'
+import { TermDictionary } from './dictionary.js'
 import {
   BlankNode,
   DefaultGraph,
@@ -11,6 +11,19 @@ import {
   Term,
   Variable,
 } from './term.js'
+
+const PREFIXES = {
+  dc: 'http://purl.org/dc/terms/',
+  fpc: 'https://fingerpaint.systems/core/',
+  html: 'https://fingerpaint.systems/core/html/',
+  rdf: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
+  rdfs: 'http://www.w3.org/2000/01/rdf-schema#',
+  test: 'https://example.test/',
+  xsd: 'http://www.w3.org/2001/XMLSchema#',
+}
+
+export const Prefixers: { [k: string]: (s: string) => NamedNode } = {}
+for (const [k, v] of Object.entries(PREFIXES)) Prefixers[k] = prefixer(v)
 
 const DICTIONARY = new TermDictionary()
 
@@ -27,8 +40,7 @@ export function defaultGraph(): DefaultGraph {
 }
 
 export function literal(value: any, other?: string | NamedNode): Literal {
-  const rdf = prefixer('http://www.w3.org/1999/02/22-rdf-syntax-ns#')
-  const xsd = prefixer('http://www.w3.org/2001/XMLSchema#')
+  const { rdf, xsd } = Prefixers
 
   if (typeof value === 'number') other = other || xsd('decimal')
   if (typeof value === 'boolean') other = other || xsd('boolean')
@@ -60,7 +72,7 @@ export function namedNode(value: string): NamedNode {
   return lookup(new NamedNode(value))
 }
 
-function prefixer(prefix: string) {
+export function prefixer(prefix: string) {
   return (suffix: string) => namedNode(prefix + suffix)
 }
 

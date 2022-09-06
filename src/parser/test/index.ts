@@ -1,4 +1,4 @@
-import { Parser } from '../parser/parser.js'
+import { Parser } from '../parser.js'
 
 describe('parser', () => {
   it('parses', () => {

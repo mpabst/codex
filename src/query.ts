@@ -46,7 +46,7 @@ export class ChoicePoint<T = Term> {
   }
 
   next(): IteratorResult<T> {
-    const out = this.iterator.advance()
+    const out = this.iterator.next()
     // save an iteration by checking IteratorHasMore instead
     // of waiting for done?
     if (out.done) {

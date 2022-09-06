@@ -11,27 +11,27 @@ const {g, add, l, b, r, v, clause, rule} = builders
 
 describe('builders', () => {
   it('', () => {
-    ;[g, todo, [
-        todo.createTodo,
-        A, fpc.Rule,
-        fpc.clause, [
-          b, A, fpc.Clause,
-          fpc.head, [ass,
-              b, A, todo.Todo,
-                rdfs.label,
-                v.label ],
-          fpc.body, [r,
-            g, fpc.system, [
-              fpc.tick, rdfs.label, v.label ] ]
-        ]
-      ],
-      todo.TodoView,
-        A, fpc.Rule,
-        fpc.clause, [b, 
-          A, fpc.View,
-          fpc.head, [r, ]
-        ]
-    ]
+    // ;[g, todo, [
+    //     todo.createTodo,
+    //     A, fpc.Rule,
+    //     fpc.clause, [
+    //       b, A, fpc.Clause,
+    //       fpc.head, [ass,
+    //           b, A, todo.Todo,
+    //             rdfs.label,
+    //             v.label ],
+    //       fpc.body, [r,
+    //         g, fpc.system, [
+    //           fpc.tick, rdfs.label, v.label ] ]
+    //     ]
+    //   ],
+    //   todo.TodoView,
+    //     A, fpc.Rule,
+    //     fpc.clause, [b, 
+    //       A, fpc.View,
+    //       fpc.head, [r, ]
+    //     ]
+    // ]
 
     ;`
         base <https://fingerpaint.systems/apps/todo> .

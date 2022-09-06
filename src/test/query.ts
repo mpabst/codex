@@ -32,7 +32,6 @@ describe('Query', () => {
       first: {
         type: 'Pattern',
         terms: q(fps.test, v.who, A, fps.man),
-        order: 'GSPO',
       },
       rest: null,
     }
@@ -60,12 +59,10 @@ describe('Query', () => {
       first: {
         type: 'Pattern',
         terms: q(fps.test, v.left, fps.foo, v.middle),
-        order: 'GSPO',
       },
       rest: {
         type: 'Pattern',
         terms: q(fps.test, v.middle, fps.foo, v.right),
-        order: 'GSPO',
       },
     }
 
@@ -83,18 +80,16 @@ describe('Query', () => {
       new Clause(
         u(fps.rule) as NamedNode,
         store,
-        { type: 'Pattern', terms: t(v.who, A, fps.Mortal), order: 'SPO' },
+        { type: 'Pattern', terms: t(v.who, A, fps.Mortal) },
         {
           type: 'Pattern',
           terms: q(fps.test, v.who, A, fps.Man),
-          order: 'GSPO',
         },
       )
 
       const query = new Query(store, {
         type: 'Pattern',
         terms: q(fps.rule, v.someone, A, fps.Mortal),
-        order: 'GSPO',
       })
 
       const results: Bindings[] = []

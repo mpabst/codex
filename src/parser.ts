@@ -1,5 +1,5 @@
-import { QuadSet } from './collections/data-set'
-import { literal, namedNode, randomBlankNode } from './data-factory'
+import { QuadSet } from './collections/data-set.js'
+import { literal, namedNode, randomBlankNode } from './data-factory.js'
 import {
   BlankNode,
   DEFAULT_GRAPH,
@@ -8,7 +8,7 @@ import {
   Object,
   Quad,
   Triple,
-} from './term'
+} from './term.js'
 
 const escaper = '\\'
 
@@ -28,9 +28,7 @@ class Lexer {
   quoting: string | null = null
   pos: number = 0
 
-  constructor(public source: string) {
-    this.advance()
-  }
+  constructor(public source: string) {}
 
   advance(): void {
     this.token = ''
@@ -42,13 +40,17 @@ class Lexer {
         continue
       }
 
+      if (/\s/.test(char)) {
+        if (this.token !== '') return
+        else continue
+      }
+
       this.token += char
 
       if (this.escape) this.escape = false
       else if (this.quoting) {
         if (char === quotes[this.quoting]) this.quoting = null
       } else if (char in quotes && this.token === '') this.quoting = char
-      else if (/\w/.test(char) && this.token !== '') return
     }
     throw new NoMoreTokens()
   }
@@ -70,7 +72,7 @@ function unwrap(s: string): string {
   return s.slice(1, -1)
 }
 
-class Parser {
+export class Parser {
   base: string = ''
   prefixes: { [k: string]: string } = {}
 
@@ -109,8 +111,8 @@ class Parser {
   }
 
   protected advance(): void {
-    this.token = this.peek
     this.lexer.advance()
+    this.token = this.lexer.token
   }
 
   protected isLiteral(): boolean {
@@ -134,14 +136,14 @@ class Parser {
     return namedNode(this.prefixes[prefix] + suffix)
   }
 
-  protected nextTokens(n: number): string[] {
-    const out = [this.peek]
-    for (; n - 1 > 0; n--) {
-      this.lexer.advance()
-      out.push(this.peek)
-    }
-    return out
-  }
+  // protected nextTokens(n: number): string[] {
+  //   const out = []
+  //   for (; n > 0; n--) {
+  //     out.push(this.peek)
+  //     this.advance()
+  //   }
+  //   return out
+  // }
 
   parse(): QuadSet {
     try {
@@ -172,7 +174,6 @@ class Parser {
   }
 
   protected parseDone(): void {
-    this.addResult()
     switch (this.token) {
       case ']':
         this.pop()
@@ -244,6 +245,7 @@ class Parser {
         break
       case 'a':
         this.setContext({ predicate: rdf('type') }, 'object')
+        break
       default:
         this.setContext({ predicate: this.namedNode() }, 'object')
     }
@@ -252,13 +254,15 @@ class Parser {
   protected parseSubject(): void {
     switch (this.token) {
       case 'base':
-        this.lexer.advance()
+        this.advance()
         this.base = this.unwrap()
         this.place = 'done'
         break
       case 'prefix':
-        const [k, v] = this.nextTokens(2)
-        this.prefixes[k] = this.unwrap()
+        this.advance()
+        const k = this.token.slice(0, -1)
+        this.advance()
+        this.prefixes[k] = this.namedNode().value
         this.place = 'done'
         break
       case '[':
@@ -290,9 +294,9 @@ class Parser {
     this.context[1] = p
   }
 
-  protected get peek(): string {
-    return this.lexer.token
-  }
+  // protected get peek(): string {
+  //   return this.lexer.token
+  // }
 
   protected pop(): void {
     if (this.stack.length === 0) throw this.unexpected()

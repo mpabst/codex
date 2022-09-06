@@ -23,7 +23,7 @@ export class DefaultGraph extends Term {
   }
 
   toString(): string {
-    return '__DEFAULT_GRAPH__'
+    return this.value
   }
 }
 

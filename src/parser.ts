@@ -1,5 +1,10 @@
 import { QuadSet } from './collections/data-set.js'
-import { literal, namedNode, randomBlankNode } from './data-factory.js'
+import {
+  literal,
+  namedNode,
+  randomBlankNode,
+  variable,
+} from './data-factory.js'
 import {
   BlankNode,
   DEFAULT_GRAPH,
@@ -7,6 +12,7 @@ import {
   NamedNode,
   Object,
   Quad,
+  Subject,
   Term,
   Triple,
 } from './term.js'
@@ -65,6 +71,10 @@ type Place = keyof Triple | 'list' | 'done'
 
 type Context = [Partial<Quad>, Place]
 
+function fpc(suffix: string): NamedNode {
+  return namedNode(`https://fingerpaint.systems/core/${suffix}`)
+}
+
 function rdf(suffix: string): NamedNode {
   return namedNode(`http://www.w3.org/1999/02/22-rdf-syntax-ns#${suffix}`)
 }
@@ -89,10 +99,10 @@ class Namespace {
   }
 
   format(term: Term): string {
-    if (!(term instanceof NamedNode)) return term.value
+    if (!(term instanceof NamedNode)) return term.toString()
     for (const [k, v] of Object.entries(this.prefixes))
       if (term.value.startsWith(v)) return `${k}:${term.value.slice(v.length)}`
-    return `<${term.value}>`
+    return term.toString()
   }
 
   prettyPrint(quads: Quad[]): string[][] {
@@ -114,8 +124,7 @@ export class Parser {
   context: Context = [{ graph: DEFAULT_GRAPH }, 'subject']
 
   stack: Context[] = []
-
-  listTail: NamedNode | BlankNode | null = null
+  reificationStack: Context[] = []
 
   result = new QuadSet('GSPO')
   resultAry: Quad[] = []
@@ -136,10 +145,34 @@ export class Parser {
     this.setContext({ predicate: rdf('rest') }, 'list')
   }
 
-  protected addResult(q: Partial<Quad> = {}): void {
-    this.setContext(q, 'done')
-    this.result.add(this.quad as Quad)
-    this.resultAry.push({ ...(this.quad as Quad) })
+  protected addResult(quad: Partial<Quad> = {}): void {
+    const mutate = (q: Quad) => {
+      this.result.add(q)
+      this.resultAry.push({ ...q })
+    }
+
+    this.setContext({ ...this.quad, ...quad }, 'done')
+
+    const rContext = this.reificationStack.pop()
+    if (!rContext) {
+      mutate(this.quad as Quad)
+      return
+    }
+
+    // reified case
+    const bnode = randomBlankNode()
+    mutate({ ...rContext[0], object: bnode } as Quad)
+    const pattern = { graph: rContext[0].graph!, subject: bnode }
+    let type
+    if (this.quad.graph === rContext[0].graph) type = rdf('Statement')
+    else {
+      type = fpc('Pattern')
+      mutate({ ...pattern, predicate: fpc('graph'), object: this.quad.graph! })
+    }
+    mutate({ ...pattern, predicate: rdf('type'), object: type })
+    for (const p of ['subject', 'predicate', 'object'])
+      mutate({ ...pattern, predicate: rdf(p), object: this.quad[p]! })
+    this.reificationStack.push(rContext)
   }
 
   protected advance(): void {
@@ -155,6 +188,16 @@ export class Parser {
 
   protected literal(): Literal {
     return literal(this.token)
+  }
+
+  protected makeObject(): Object {
+    return this.isLiteral() ? this.literal() : this.makeSubject()
+  }
+
+  protected makeSubject(): Subject {
+    return this.token[0] === '?'
+      ? variable(this.token.slice(1))
+      : this.namedNode()
   }
 
   protected namedNode(): NamedNode {
@@ -192,16 +235,15 @@ export class Parser {
   protected parseDone(): void {
     switch (this.token) {
       case ']':
-        this.pop()
-        break
       case ')':
-        this.pop()
-        break
       case '}':
         this.pop()
         break
+      case '>>':
+        this.context = this.reificationStack.pop()!
+        break
       case '|':
-
+        throw this.unexpected()
       case ',':
         this.place = 'object'
         break
@@ -228,8 +270,13 @@ export class Parser {
         this.push()
         this.setContext({ subject: first }, 'predicate')
         break
+      case '(':
+      case '{':
+      case '}':
+      case '<<':
+        throw this.unexpected()
       default:
-        this.addListNode(this.isLiteral() ? this.literal() : this.namedNode())
+        this.addListNode(this.makeObject())
     }
   }
 
@@ -246,17 +293,18 @@ export class Parser {
         this.place = 'list'
         break
       case '<<':
-        throw this.unexpected()
+        this.reificationStack.push([{ ...(this.quad as Quad) }, 'done'])
+        this.place = 'subject'
+        break
       default:
-        this.addResult({
-          object: this.isLiteral() ? this.literal() : this.namedNode(),
-        })
+        this.addResult({ object: this.makeObject() })
     }
   }
 
   protected parsePredicate(): void {
     switch (this.token) {
       case '{':
+        this.push('done')
         this.setContext({ graph: this.quad.subject! }, 'subject')
         break
       case 'a':
@@ -296,9 +344,10 @@ export class Parser {
       case '<<':
       case '+':
       case '-':
+        throw this.unexpected()
       default:
         if (this.isLiteral()) throw this.unexpected()
-        this.setContext({ subject: this.namedNode() }, 'predicate')
+        this.setContext({ subject: this.makeSubject() }, 'predicate')
     }
   }
 
@@ -318,6 +367,9 @@ export class Parser {
   }
 
   protected push(place: Place = this.place): void {
+    // this this how i actually call this? :
+    // place = (this.place === 'list' ? 'list' : 'done')
+    // ditto reificationStack
     this.stack.push([{ ...this.quad }, place])
   }
 

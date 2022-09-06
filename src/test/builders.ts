@@ -54,10 +54,19 @@ describe('builders', () => {
 
         :createTodo a fpc:Writer ;
           fpc:clause {
-            + [ a :Todo ; rdfs:label ?label ]
+            + ?graph { [ a :Todo ; rdfs:label ?label ] }
           } :- { 
             fpc:system { fpc:tick rdfs:label ?label } 
           } .
+
+        :markDone a fpc:Writer ;
+          fpc:clause [
+            fpc:arg [ a fpc:InArg ; rdfs:label 'graph' ] ;
+            fpc:arg [ a fpc:InArg ; rdfs:label 'todo' ; fpc:type :Todo ] ;
+            fpc:assert << ?graph { ?todo :done true } >> ;
+            fpc:retract << ?graph { ?todo :done false } >> ;
+            fpc:body << ?graph { ?todo a :Todo } >>
+          ] .
 
         :todoView a fpc:View ;
           fpc:clause @h( li ?label ) :- { ?_ a :Todo ; rdfs:label ?label } .

@@ -1,4 +1,3 @@
-import { Order } from './collections/data-set.js'
 import { Bindings } from './query.js'
 import { Statement, Quad, Triple, Variable } from './term.js'
 
@@ -7,8 +6,6 @@ export type VarMap = Bindings<Variable>
 export interface Pattern<T extends Statement> {
   type: 'Pattern'
   terms: T
-  // calculate order lazily?
-  order: Order
 }
 
 export interface Conjunction<S extends Statement, E = Expression<S>> {

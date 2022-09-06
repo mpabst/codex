@@ -119,7 +119,7 @@ export class TripleMultiSet extends DataSet<Triple> {
   }
 }
 
-class QuadSet extends DataSet<Quad> {
+export class QuadSet extends DataSet<Quad> {
   public root: QuadRoot<Set<Term>> = new Map()
 
   add(data: Quad): void {

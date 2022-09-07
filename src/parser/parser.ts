@@ -7,15 +7,11 @@ import {
   Object,
   Quad,
   Subject,
-  Triple,
 } from '../term.js'
 import { ParseError, unwrap } from './common.js'
+import { Context } from './context.js'
 import { Lexer, NoMoreTokens } from './lexer.js'
 import { Namespace } from './namespace.js'
-
-type Place = keyof Triple | 'list' | 'done'
-
-type Context = [Partial<Quad>, Place]
 
 const { fpc, rdf } = Prefixers
 
@@ -25,10 +21,9 @@ export class Parser {
   lexer: Lexer
   token: string = ''
 
-  #context: Context = [{ graph: DEFAULT_GRAPH }, 'subject']
+  stack = [new Context('', 'subject', { graph: DEFAULT_GRAPH })]
 
-  stack: Context[] = []
-  reificationStack: Context[] = []
+  rContext: Context | null = null
 
   result = new QuadSet('GSPO')
   resultAry: Quad[] = []
@@ -39,44 +34,47 @@ export class Parser {
 
   protected addListNode(first: Object): void {
     const node = randomBlankNode()
-    this.addResult({ object: node })
-    this.addResult({
+    this.addQuad({ object: node })
+    this.addQuad({
       subject: node,
       predicate: rdf('type'),
       object: rdf('List'),
     })
-    this.addResult({ predicate: rdf('first'), object: first })
-    this.context = [{ predicate: rdf('rest') }, 'list']
+    this.addQuad({ predicate: rdf('first'), object: first })
+    this.context.predicate = rdf('rest')
+    this.context.place = 'list'
   }
 
-  protected addResult(quad: Partial<Quad> = {}): void {
-    const mutate = (q: Quad) => {
-      this.result.add(q)
-      this.resultAry.push({ ...q })
+  protected addQuad(quad: Partial<Quad>): void {
+    this.context.quad = { ...this.context.quad, ...quad }
+    if (this.rContext) this.addReifiedQuad(quad)
+    else {
+      this.result.add(this.context.quad as Quad)
+      this.resultAry.push({ ...(this.context.quad as Quad) })
+    }
+  }
+
+  protected addReifiedQuad(q: Partial<Quad>): void {
+    const mutate = (q: Partial<Quad>) => {
+      this.result.add({ ...q } as Quad)
+      this.resultAry.push({ ...q } as Quad)
     }
 
-    this.context = [{ ...this.quad, ...quad }, 'done']
-
-    const rContext = this.reificationStack.pop()
-    if (!rContext) {
-      mutate(this.quad as Quad)
-      return
-    }
-
-    // reified case
     const bnode = randomBlankNode()
-    mutate({ ...rContext[0], object: bnode } as Quad)
-    const pattern = { graph: rContext[0].graph!, subject: bnode }
+    mutate({ ...this.rContext!.quad, object: bnode })
+
+    const add = (q: Partial<Quad>) =>
+      mutate({ graph: this.rContext!.graph!, subject: bnode, ...q })
+
     let type
-    if (this.quad.graph === rContext[0].graph) type = rdf('Statement')
+    if (this.context.graph === this.rContext!.graph) type = rdf('Statement')
     else {
       type = fpc('Pattern')
-      mutate({ ...pattern, predicate: fpc('graph'), object: this.quad.graph! })
+      add({ predicate: fpc('graph'), object: this.context.graph! })
     }
-    mutate({ ...pattern, predicate: rdf('type'), object: type })
+    add({ predicate: rdf('type'), object: type })
     for (const p of ['subject', 'predicate', 'object'])
-      mutate({ ...pattern, predicate: rdf(p), object: this.quad[p]! })
-    this.reificationStack.push(rContext)
+      add({ predicate: rdf(p), object: this.context.quad[p]! })
   }
 
   protected advance(): void {
@@ -85,12 +83,7 @@ export class Parser {
   }
 
   protected get context(): Context {
-    return this.#context
-  }
-
-  protected set context([quad, place]: Context) {
-    for (const k in quad) this.quad[k] = quad[k]
-    this.place = place
+    return this.stack[this.stack.length - 1]
   }
 
   protected isLiteral(): boolean {
@@ -121,7 +114,7 @@ export class Parser {
     try {
       while (true) {
         this.advance()
-        switch (this.place) {
+        switch (this.context.place) {
           case 'subject':
             this.parseSubject()
             break
@@ -150,21 +143,19 @@ export class Parser {
       case ']':
       case ')':
       case '}':
-        this.pop()
-        break
       case '>>':
-        this.context = this.reificationStack.pop()!
+        this.pop()
         break
       case '|':
         throw this.unexpected()
       case ',':
-        this.place = 'object'
+        this.context.place = 'object'
         break
       case ';':
-        this.place = 'predicate'
+        this.context.place = 'predicate'
         break
       case '.':
-        this.place = 'subject'
+        this.context.place = 'subject'
         break
       default:
         throw this.unexpected()
@@ -174,14 +165,14 @@ export class Parser {
   protected parseList(): void {
     switch (this.token) {
       case ')':
-        this.addResult({ object: rdf('nil') })
+        this.addQuad({ object: rdf('nil') })
         this.pop()
         break
       case '[':
         const first = randomBlankNode()
         this.addListNode(first)
         this.push()
-        this.context = [{ subject: first }, 'predicate']
+        this.context.subject = first
         break
       case '(':
       case '{':
@@ -196,35 +187,38 @@ export class Parser {
   protected parseObject(): void {
     switch (this.token) {
       case '[':
-        this.push('done')
+        this.push()
         const bnode = randomBlankNode()
-        this.addResult({ object: bnode })
-        this.context = [{ subject: bnode }, 'predicate']
+        this.addQuad({ object: bnode })
+        this.context.subject = bnode
         break
       case '(':
-        this.push('done')
-        this.place = 'list'
+        this.push()
+        this.context.place = 'list'
         break
       case '<<':
-        this.reificationStack.push([{ ...(this.quad as Quad) }, 'done'])
-        this.place = 'subject'
+        this.push()
+        this.context.place = 'subject'
         break
+      case '{':
+        if (this.context.predicate === fpc('')) break
       default:
-        this.addResult({ object: this.makeObject() })
+        this.addQuad({ object: this.makeObject() })
+        this.context.place = 'done'
     }
   }
 
   protected parsePredicate(): void {
     switch (this.token) {
       case '{':
-        this.push('done')
-        this.context = [{ graph: this.quad.subject! }, 'subject']
+        this.push()
+        this.context.graph = this.context.subject!
         break
       case 'a':
-        this.context = [{ predicate: rdf('type') }, 'object']
+        this.context.predicate = rdf('type')
         break
       default:
-        this.context = [{ predicate: this.namedNode() }, 'object']
+        this.context.predicate = this.namedNode()
     }
   }
 
@@ -233,26 +227,26 @@ export class Parser {
       case 'base':
         this.advance()
         this.namespace.base = unwrap(this.token)
-        this.place = 'done'
+        this.context.place = 'done'
         break
       case 'prefix':
         this.advance()
         const k = this.token.slice(0, -1)
         this.advance()
         this.namespace.prefixes[k] = this.namedNode().value
-        this.place = 'done'
+        this.context.place = 'done'
         break
       case '[':
-        this.push('done')
-        this.context = [{ subject: randomBlankNode() }, 'predicate']
+        this.push()
+        this.context.subject = randomBlankNode()
         break
       case '[]':
-        this.context = [{ subject: randomBlankNode() }, 'predicate']
+        this.context.subject = randomBlankNode()
         break
       case '(':
         throw this.unexpected()
       case '()':
-        this.context = [{ subject: rdf('nil') }, 'predicate']
+        this.context.subject = rdf('nil')
         break
       case '<<':
       case '+':
@@ -260,41 +254,28 @@ export class Parser {
         throw this.unexpected()
       default:
         if (this.isLiteral()) throw this.unexpected()
-        this.context = [{ subject: this.makeSubject() }, 'predicate']
+        this.context.subject = this.makeSubject()
     }
   }
 
-  protected get place(): Place {
-    return this.context[1]
-  }
-
-  protected set place(p: Place) {
-    this.context[1] = p
-  }
-
   protected pop(): void {
-    if (this.stack.length === 0) throw this.unexpected()
-    const [quad, place] = this.stack.pop()!
-    this.quad = quad
-    this.place = place
+    if (this.context.type === '<<')
+      // originally i had this branch set a dirty flag, which would
+      // then update rContext in a custom getter, but that didn't work
+      // for some reason and it doesn't seem worth debugging
+      for (let i = this.stack.length - 2; i > 0; i--)
+        if (this.stack[i].type === '<<') this.rContext = this.stack[i - 1]
+        else if (i === 1) this.rContext = null
+    this.stack.pop()!
+    this.context.place = this.context.place === 'list' ? 'list' : 'done'
   }
 
-  protected push(place: Place = this.place): void {
-    // this this how i actually call this? :
-    // place = (this.place === 'list' ? 'list' : 'done')
-    // ditto reificationStack
-    this.stack.push([{ ...this.quad }, place])
-  }
-
-  protected get quad(): Partial<Quad> {
-    return this.context[0]
-  }
-
-  protected set quad(q: Partial<Quad>) {
-    this.context[0] = q
+  protected push(): void {
+    if (this.token === '<<') this.rContext = this.context
+    this.stack.push(this.context.branch(this.token))
   }
 
   protected unexpected(): ParseError {
-    return new ParseError(`unexpected: ${this.token} @ ${this.place}`)
+    return new ParseError(`unexpected: ${this.token} @ ${this.context.place}`)
   }
 }

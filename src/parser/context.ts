@@ -1,4 +1,4 @@
-import { Graph, Object, Predicate, Quad, Subject, Triple } from '../term.js'
+import { BlankNode, Graph, Object, Predicate, Quad, Subject, Triple } from '../term.js'
 
 type Place = keyof Triple | 'list' | 'done'
 
@@ -44,8 +44,9 @@ export class Context {
     this.quad.object = o
     this.place = 'done'
   }
+}
 
-  branch(token: string): Context {
-    return new Context(token, this.place, { ...this.quad })
-  }
+export class Expression extends Context {
+  head?: BlankNode
+  tail?: BlankNode
 }

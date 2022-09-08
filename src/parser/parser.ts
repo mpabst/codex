@@ -2,7 +2,6 @@ import { QuadSet } from '../collections/data-set.js'
 import { Prefixers, randomBlankNode, variable } from '../data-factory.js'
 import {
   BlankNode,
-  DEFAULT_GRAPH,
   Literal,
   NamedNode,
   Object,
@@ -16,15 +15,22 @@ import { Namespace } from './namespace.js'
 
 const { fpc, rdf } = Prefixers
 
-const expressions = ['assert', 'retract', 'head', 'body'].map(fpc)
-
 export class Parser {
+  // not static or in module scope because tests clear the dictionary
+  // between every test, causing the expressions.includes() in parseObject()
+  // to fail
+  // alternatively, i could store these as strings and pass to fpc()
+  // in parseObject(), or have a standard dictionary of known terms
+  // which are never cleared
+  expressions = ['assert', 'retract', 'head', 'body'].map(fpc)
+
   namespace = new Namespace()
 
   lexer: Lexer
   token: string = ''
 
-  stack = [new Context('', 'subject', { graph: DEFAULT_GRAPH })]
+  stack = [new Context(null)]
+  firstExpr: number | null = null
 
   rContext: Context | null = null
 
@@ -88,7 +94,7 @@ export class Parser {
 
   protected addResult(quad: Partial<Quad>): void {
     this.context.quad = { ...this.context.quad, ...quad }
-    if (this.context instanceof Expression) this.addPattern()
+    if (this.isInExpression()) this.addPattern()
     else if (this.rContext) this.addReification()
     else this.addQuad(this.context.quad as Quad)
   }
@@ -105,10 +111,7 @@ export class Parser {
       } as Quad)
 
     let type = rdf('Statement')
-    if (
-      this.context instanceof Expression ||
-      this.context.graph === this.rContext!.graph
-    ) {
+    if (this.isInExpression() || this.context.graph === this.rContext!.graph) {
       type = fpc('Pattern')
       add({ predicate: fpc('graph'), object: this.context.graph! })
     }
@@ -125,8 +128,12 @@ export class Parser {
     this.token = this.lexer.token
   }
 
-  protected get context(): Context {
+  get context(): Context {
     return this.stack[this.stack.length - 1]
+  }
+
+  protected isInExpression(): boolean {
+    return this.firstExpr !== null
   }
 
   protected isLiteral(): boolean {
@@ -139,8 +146,8 @@ export class Parser {
     return this.namespace.literal(this.token)
   }
 
-  protected makeObject(): Object {
-    return this.isLiteral() ? this.literal() : this.makeSubject()
+  protected namedNode(): NamedNode {
+    return this.namespace.namedNode(this.token)
   }
 
   protected makeSubject(): Subject {
@@ -149,30 +156,30 @@ export class Parser {
       : this.namedNode()
   }
 
-  protected namedNode(): NamedNode {
-    return this.namespace.namedNode(this.token)
+  protected makeObject(): Object {
+    return this.isLiteral() ? this.literal() : this.makeSubject()
+  }
+
+  protected push(ctor: new (p: Parser) => Context = Context): void {
+    const newContext = new ctor(this)
+    if (newContext.isReifying()) this.rContext = this.context
+    if (ctor === Expression && !this.firstExpr)
+      this.firstExpr = this.stack.length
+    this.stack.push(newContext)
   }
 
   protected pop(): void {
-    if (this.context instanceof Expression) {
-    } else if (this.context.type === '<<')
-      // originally i had this branch set a dirty flag, which would
+    if (this.context.isReifying())
+      // originally I had this branch set a dirty flag, which would
       // then update rContext in a custom getter, but that didn't work
       // for some reason and it doesn't seem worth debugging
       for (let i = this.stack.length - 2; i > 0; i--)
         // fixme: expressions inside reifications?
-        if (this.stack[i].type === '<<' || this.stack[i] instanceof Expression)
-          this.rContext = this.stack[i - 1]
+        if (this.stack[i].isReifying()) this.rContext = this.stack[i - 1]
         else if (i === 1) this.rContext = null
     this.stack.pop()!
+    if (this.firstExpr === this.stack.length) this.firstExpr = null
     this.context.place = this.context.place === 'list' ? 'list' : 'done'
-  }
-
-  protected push(ctor: new (...args: any) => Context = Context): void {
-    if (this.token === '<<' || ctor === Expression) this.rContext = this.context
-    this.stack.push(
-      new ctor(this.token, this.context.place, { ...this.context.quad }),
-    )
   }
 
   protected unexpected(): ParseError {
@@ -234,8 +241,10 @@ export class Parser {
         this.context.subject = rdf('nil')
         break
       case '{':
-        if (this.context instanceof Expression) break
-        else throw this.unexpected()
+        if (this.context instanceof Expression) {
+          this.push(Expression)
+          break
+        } else throw this.unexpected()
       case '<<':
       case '+':
       case '-':
@@ -277,7 +286,11 @@ export class Parser {
         this.context.place = 'subject'
         break
       case '{':
-        if (expressions.includes(this.context.predicate!)) break
+        if (this.expressions.includes(this.context.predicate!)) {
+          this.push(Expression)
+          this.context.place = 'subject'
+          break
+        } else throw this.unexpected()
       default:
         this.addResult({ object: this.makeObject() })
         this.context.place = 'done'

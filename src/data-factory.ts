@@ -44,8 +44,6 @@ export function defaultGraph(): DefaultGraph {
 }
 
 export function literal(value: any, other?: string | NamedNode): Literal {
-  // const { rdf, xsd } = Prefixers
-
   if (typeof value === 'number') other = other || xsd('decimal')
   if (typeof value === 'boolean') other = other || xsd('boolean')
   if (value instanceof Date) {

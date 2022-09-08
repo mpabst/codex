@@ -11,9 +11,9 @@ describe('parser', () => {
 
       :markDone a fpc:Writer ;
         fpc:clause [
-          fpc:assert << ?graph { ?todo :done true } >> ;
-          fpc:retract << ?graph { ?todo :done false } >> ;
-          fpc:body << ?graph { ?todo a :Todo } >>
+          fpc:assert { ?graph { ?todo :done true } } ;
+          fpc:retract { ?graph { ?todo :done false } } ;
+          fpc:body { ?graph { ?todo a :Todo } }
         ] .
     `)
     parser.parse()

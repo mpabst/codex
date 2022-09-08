@@ -1,13 +1,34 @@
-import { BlankNode, Graph, Object, Predicate, Quad, Subject, Triple } from '../term.js'
+import {
+  BlankNode,
+  DEFAULT_GRAPH,
+  Graph,
+  Object,
+  Predicate,
+  Quad,
+  Subject,
+  Triple,
+} from '../term.js'
+import { Parser } from './parser.js'
 
 type Place = keyof Triple | 'list' | 'done'
 
 export class Context {
-  constructor(
-    public type: string,
-    public place: Place,
-    public quad: Partial<Quad>,
-  ) {}
+  place: Place
+  quad: Partial<Quad>
+  token: string
+
+  constructor(parser: Parser | null) {
+    if (!parser) {
+      this.place = 'subject'
+      this.quad = { graph: DEFAULT_GRAPH }
+      this.token = ''
+      return
+    } else {
+      this.place = parser.context.place
+      this.quad = { ...parser.context.quad }
+      this.token = parser.token
+    }
+  }
 
   get graph() {
     return this.quad.graph
@@ -44,9 +65,17 @@ export class Context {
     this.quad.object = o
     this.place = 'done'
   }
+
+  isReifying(): boolean {
+    return this.token === '<<'
+  }
 }
 
 export class Expression extends Context {
   head?: BlankNode
   tail?: BlankNode
+
+  isReifying(): boolean {
+    return true
+  }
 }

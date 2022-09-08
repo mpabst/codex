@@ -1,3 +1,7 @@
+// todo:
+// move add, pop/push logic into Context
+// ListContext
+
 import { QuadSet } from '../collections/data-set.js'
 import { Prefixers, randomBlankNode, variable } from '../data-factory.js'
 import {
@@ -55,10 +59,10 @@ export class Parser {
   }
 
   protected addPattern(): void {
-    const context = this.context as Expression
+    const expr = this.nearest(c => c instanceof Expression) as Expression
 
-    if (!context.head) {
-      context.head = this.addReification()
+    if (!expr.head) {
+      expr.head = this.addReification()
       return
     }
 
@@ -67,24 +71,24 @@ export class Parser {
     const add = (q: Partial<Quad>) =>
       this.addQuad({ graph, subject: bnode, ...q } as Quad)
 
-    if (!context.tail) {
+    if (!expr.tail) {
       // head is just a Pattern, let's wrap it in a Conj
       add({ predicate: rdf('type'), object: fpc('Conjunction') })
-      add({ predicate: rdf('first'), object: context.head })
-      context.head = context.tail = bnode
+      add({ predicate: rdf('first'), object: expr.head })
+      expr.head = expr.tail = bnode
       bnode = randomBlankNode()
     }
 
     this.addQuad({
       graph,
-      subject: context.tail,
+      subject: expr.tail,
       predicate: rdf('rest'),
       object: bnode,
     })
     add({ predicate: rdf('type'), object: fpc('Conjunction') })
     add({ predicate: rdf('first'), object: this.addReification() })
 
-    context.tail = bnode
+    expr.tail = bnode
   }
 
   protected addQuad(q: Quad) {
@@ -95,14 +99,15 @@ export class Parser {
   protected addResult(quad: Partial<Quad>): void {
     this.context.quad = { ...this.context.quad, ...quad }
     if (this.isInExpression()) this.addPattern()
-    else if (this.rContext) this.addReification()
+    else if (this.rContext)
+      this.addQuad({
+        ...this.rContext!.quad,
+        object: this.addReification(),
+      } as Quad)
     else this.addQuad(this.context.quad as Quad)
   }
 
-  protected addReification(): BlankNode {
-    const bnode = randomBlankNode()
-    this.addQuad({ ...this.rContext!.quad, object: bnode } as Quad)
-
+  protected addReification(bnode: BlankNode = randomBlankNode()): BlankNode {
     const add = (q: Partial<Quad>) =>
       this.addQuad({
         graph: this.rContext!.graph!,
@@ -160,6 +165,12 @@ export class Parser {
     return this.isLiteral() ? this.literal() : this.makeSubject()
   }
 
+  protected nearest(test: (c: Context) => boolean): Context | null {
+    for (let i = this.stack.length - 1; i > -1; i--)
+      if (test(this.stack[i])) return this.stack[i]
+    return null
+  }
+
   protected push(ctor: new (p: Parser) => Context = Context): void {
     const newContext = new ctor(this)
     if (newContext.isReifying()) this.rContext = this.context
@@ -168,8 +179,35 @@ export class Parser {
     this.stack.push(newContext)
   }
 
+  // probably want to move most of this logic into Context & Expression;
+  // ditto push()
   protected pop(): void {
-    if (this.context.isReifying())
+    if (this.context instanceof Expression) {
+      // button up the subexpr we've just completed
+      // todo: first check this.result to see the type
+      // of this.context.tail
+      // this.addQuad({
+      //   graph: this.rContext!.graph,
+      //   subject: this.context.tail,
+      //   predicate: rdf('rest'),
+      //   object: rdf('nil'),
+      // } as Quad)
+
+      const prev = this.stack[this.stack.length - 2]
+      if (prev instanceof Expression) {
+        if (!prev.head) prev.head = this.context.head
+        else {
+          // prev.tail = new conj/disj with head = this.context.head
+          throw 'todo'
+        }
+      } else
+        this.addQuad({
+          ...this.rContext!.quad,
+          object: this.context.head,
+        } as Quad)
+    }
+
+    if (this.context.isReifying()) {
       // originally I had this branch set a dirty flag, which would
       // then update rContext in a custom getter, but that didn't work
       // for some reason and it doesn't seem worth debugging
@@ -177,6 +215,8 @@ export class Parser {
         // fixme: expressions inside reifications?
         if (this.stack[i].isReifying()) this.rContext = this.stack[i - 1]
         else if (i === 1) this.rContext = null
+    }
+
     this.stack.pop()!
     if (this.firstExpr === this.stack.length) this.firstExpr = null
     this.context.place = this.context.place === 'list' ? 'list' : 'done'

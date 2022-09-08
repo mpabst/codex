@@ -11,11 +11,16 @@ describe('parser', () => {
 
       :markDone a fpc:Writer ;
         fpc:clause [
-          fpc:assert { ?graph { ?todo :done true } } ;
+          fpc:assert { ?graph { ?todo :done true ; :when :now } } ;
           fpc:retract { ?graph { ?todo :done false } } ;
           fpc:body { ?graph { ?todo a :Todo } }
         ] .
     `)
+
+    // not ?graph { foo... }
+    // not { foo... }
+    // disallow outside of expression contexts
+
     parser.parse()
     console.log(parser.namespace.prettyPrint(parser.resultAry))
   })

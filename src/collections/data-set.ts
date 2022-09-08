@@ -21,13 +21,13 @@ export abstract class DataSet<D extends { [k: string]: Term }> {
     this.order = order.split('').map(s => PLACES[s] as keyof D)
   }
 
-  abstract add(data: D): void
-
-  abstract delete(data: D): void
-
   get size(): number {
     return this._size
   }
+
+  abstract add(data: D): void
+
+  abstract delete(data: D): void
 
   protected reorder(data: D): Term[] {
     return this.order.map(o => data[o])

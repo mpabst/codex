@@ -3,8 +3,11 @@ import { Statement, Quad, Triple, Variable } from './term.js'
 
 export type VarMap = Bindings<Variable>
 
+export type Mode = 'E' | 'I'
+
 export interface Pattern<T extends Statement> {
   type: 'Pattern'
+  mode: Mode
   terms: T
 }
 

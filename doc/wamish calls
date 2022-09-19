@@ -1,0 +1,36 @@
+stuff i need:
+module-level signatures, map of head pattern -> expressing clause or EDB
+new memo class: complete inargs in canonical order -> list of outargs, var set can vary to include only unbound at call
+- can rework BindingsSet
+Query -> Machine, Program -> Query (plus varMap?), Store has Map of compiled Queries, calls jump over to them
+combine OR and AND stacks
+new IDB compiler
+
+don't need:
+clause.signature, Generator
+
+caller    callee   IDB              EDB
+new var   const    bind l := r      already bound, just traverse dbNode
+old var   const    check equality   ditto
+const     const    check, no instr  n/a
+new var   new var  bind r := l      choice point
+old var   new var  bind r := l      traverse w/value of old var
+const     new var  r := l           traverse w/left
+new var   old var  bind l := r      choice point
+old var   old var  check equality   traverse
+const     old var  ditto            ditto
+
+call instruction after last line which could
+bind to a signature
+traversing IDB graph terms adds the corresponding EDB line to
+the memo check - just add program indices to an array
+
+new var/old var distinction might be unpredictable, depending
+on how other lines have bound their graph terms. so, new var
+still needs to check in EDB pass. why do i check currently?
+
+choicepoints need to restore section and instruction? not if
+everything is in a single chunk of memory
+
+every line produces a choice point on the graph term at first,
+eliminate it afterwards if there's only one match?

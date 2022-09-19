@@ -10,7 +10,7 @@ const PLACES: { [k: string]: keyof Quad } = {
 export type Order = string
 
 export type TripleRoot<Twig> = Map<Term, Map<Term, Twig>>
-type QuadRoot<Twig> = Map<Term, TripleRoot<Twig>>
+// type QuadRoot<Twig> = Map<Term, TripleRoot<Twig>>
 
 export abstract class DataSet<D extends { [k: string]: Term }> {
   protected readonly order: (keyof D)[]
@@ -119,42 +119,42 @@ export class TripleMultiSet extends DataSet<Triple> {
   }
 }
 
-export class QuadSet extends DataSet<Quad> {
-  public root: QuadRoot<Set<Term>> = new Map()
+// export class QuadSet extends DataSet<Quad> {
+//   public root: QuadRoot<Set<Term>> = new Map()
 
-  add(data: Quad): void {
-    const path = this.reorder(data)
-    let next = this.root.get(path[0]) as any
-    if (!next) {
-      next = new Map()
-      this.root.set(path[0], next)
-    }
-    let node = next
-    next = node.get(path[1])
-    if (!next) {
-      next = new Map()
-      node.set(path[1], next)
-    }
-    node = next
-    next = node.get(path[2])
-    if (!next) {
-      next = new Set()
-      node.set(path[2], next)
-    }
-    next.add(path[3])
-    this._size++
-  }
+//   add(data: Quad): void {
+//     const path = this.reorder(data)
+//     let next = this.root.get(path[0]) as any
+//     if (!next) {
+//       next = new Map()
+//       this.root.set(path[0], next)
+//     }
+//     let node = next
+//     next = node.get(path[1])
+//     if (!next) {
+//       next = new Map()
+//       node.set(path[1], next)
+//     }
+//     node = next
+//     next = node.get(path[2])
+//     if (!next) {
+//       next = new Set()
+//       node.set(path[2], next)
+//     }
+//     next.add(path[3])
+//     this._size++
+//   }
 
-  delete(data: Quad): void {
-    const path = this.reorder(data)
-    const a = this.root.get(path[0])!
-    // don't nilcheck for now...
-    const b = a.get(path[1])!
-    const c = b.get(path[2])!
-    c.delete(path[3])
-    if (c.size === 0) b.delete(path[2])
-    if (b.size === 0) a.delete(path[1])
-    if (a.size === 0) this.root.delete(path[0])
-    this._size--
-  }
-}
+//   delete(data: Quad): void {
+//     const path = this.reorder(data)
+//     const a = this.root.get(path[0])!
+//     // don't nilcheck for now...
+//     const b = a.get(path[1])!
+//     const c = b.get(path[2])!
+//     c.delete(path[3])
+//     if (c.size === 0) b.delete(path[2])
+//     if (b.size === 0) a.delete(path[1])
+//     if (a.size === 0) this.root.delete(path[0])
+//     this._size--
+//   }
+// }

@@ -2,15 +2,24 @@
 // move add, pop/push logic into Context
 // ListContext
 
-import { QuadSet } from '../collections/data-set.js'
-import { Prefixers, randomBlankNode, variable } from '../data-factory.js'
+import { Index } from '../collections/index.js'
+import {
+  namedNode,
+  Prefixers,
+  randomBlankNode,
+  variable,
+} from '../data-factory.js'
+import { Store } from '../store.js'
 import {
   BlankNode,
+  DefaultGraph,
+  DEFAULT_GRAPH,
   Literal,
   NamedNode,
   Object,
   Quad,
   Subject,
+  Triple,
 } from '../term.js'
 import { ParseError, unwrap } from './common.js'
 import { Context, Expression } from './context.js'
@@ -29,6 +38,7 @@ export class Parser {
   expressions = ['assert', 'retract', 'head', 'body'].map(fpc)
 
   namespace = new Namespace()
+  base: NamedNode | DefaultGraph = DEFAULT_GRAPH
 
   lexer: Lexer
   token: string = ''
@@ -38,10 +48,9 @@ export class Parser {
 
   rContext: Context | null = null
 
-  result = new QuadSet('GSPO')
   resultAry: Quad[] = []
 
-  constructor(public source: string) {
+  constructor(protected store: Store, public source: string) {
     this.lexer = new Lexer(source)
   }
 
@@ -92,7 +101,14 @@ export class Parser {
   }
 
   protected addQuad(q: Quad) {
-    this.result.add(q)
+    const graph =
+      q.graph === DEFAULT_GRAPH ? namedNode(this.namespace.base) : q.graph
+    let index = this.store.get(graph) as Index
+    if (!index) {
+      index = new Index()
+      this.store.set(graph, new Index())
+    }
+    index.add(q as Triple)
     this.resultAry.push({ ...q })
   }
 
@@ -226,7 +242,7 @@ export class Parser {
     return new ParseError(`unexpected: ${this.token} @ ${this.context.place}`)
   }
 
-  parse(): QuadSet {
+  parse(): void {
     try {
       while (true) {
         this.advance()
@@ -249,7 +265,7 @@ export class Parser {
         }
       }
     } catch (e) {
-      if (e instanceof NoMoreTokens) return this.result
+      if (e instanceof NoMoreTokens) return
       throw e
     }
   }
@@ -259,6 +275,7 @@ export class Parser {
       case 'base':
         this.advance()
         this.namespace.base = unwrap(this.token)
+        this.base = namedNode(this.namespace.base)
         this.context.place = 'done'
         break
       case 'prefix':

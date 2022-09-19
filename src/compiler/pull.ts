@@ -1,40 +1,17 @@
-import { Clause } from './clause.js'
-import { Index } from './collections/index.js'
-import { randomVariable } from './data-factory.js'
-import { operations } from './operations.js'
-import { Instruction, Operation, Program } from './query.js'
-import { Key, Store } from './store.js'
-import { Expression, Pattern, traverse, VarMap } from './syntax.js'
-import { Quad, Term, Variable } from './term.js'
-
-// diff quads searching bodies
-// - same instructions, pass body index to setIndex
-// - what abt variable graph terms? how to restrict? the first thing
-// to come to mind is to restrict it by what's already been bound
-// - it's an in-var only, so it has to have had associated values. what if that
-// set of values changes during push eval?
-// how about
-// - if bind to var graph, set aside. check other diff stmts first. if it's
-// still unchecked afterwards, see if graph is in already fetched set. if yes,
-// check, if not, discard
-
-// new calls:
-// emit instructions to bind in-args, then 'repeat' call with more instructions
-// to dig through callee memo. first phase can skip caller vars which must be
-// out-args, rather than in-args or bound to consts in callee head. second phase
-// just uses the EDB instructions
-
-// matches data against queries
-export function push() {}
-
-type Mode = 'E' | 'I'
+import { Clause } from '../clause.js'
+import { randomVariable } from '../data-factory.js'
+import { operations } from '../operations.js'
+import { Instruction, Operation, Program } from '../query.js'
+import { Context, Key, Store } from '../store.js'
+import { Expression, Mode, Pattern, traverse, VarMap } from '../syntax.js'
+import { Quad, Term, Variable } from '../term.js'
 
 abstract class Block {
   abstract mode: Mode
   abstract setOp: Operation
 
   constructor(
-    protected context: Clause | Index,
+    protected context: Context,
     protected varMap: VarMap,
     public patterns: Quad[],
   ) {}
@@ -92,7 +69,7 @@ class EBlock extends Block {
   mode: Mode = 'E'
   setOp = operations.setIndex
 
-  constructor(context: Index, varMap: VarMap, patterns: Quad[] = []) {
+  constructor(context: Context, varMap: VarMap, patterns: Quad[] = []) {
     super(context, varMap, patterns)
   }
 
@@ -108,7 +85,7 @@ class IBlock extends Block {
 
   constructor(context: Clause, varMap: VarMap) {
     super(context, varMap, [])
-    this.post = new EBlock(context.memo, varMap, this.patterns)
+    this.post = new EBlock(context, varMap, this.patterns)
   }
 
   generate(): Program {
@@ -132,11 +109,11 @@ export function pull(
   // For bodiless rules
   if (!source) return [[[operations.emitResult, null]], new Map()]
 
-  const blocks = new Map<Clause | Index, Block>()
+  const blocks = new Map<Context, Block>()
   const varMap: VarMap = new Map()
 
   function pattern({ terms }: Pattern<Quad>): void {
-    const context = store.get(terms.graph as Key) as Clause | Index
+    const context = store.get(terms.graph as Key)!
     let block: Block = blocks.get(context)!
     if (!block) {
       if (context instanceof Clause) block = new IBlock(context, varMap)

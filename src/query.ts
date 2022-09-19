@@ -1,5 +1,5 @@
 import { Clause } from './clause.js'
-import { pull as compile } from './compile.js'
+import { pull } from './compiler/pull.js'
 import { Branch, Leaf } from './operations.js'
 import { Context, Store } from './store.js'
 import { Expression, VarMap } from './syntax.js'
@@ -84,7 +84,7 @@ export class Query {
   emit: ((b: Bindings) => void) | null = null
 
   constructor(public engine: Store, source: Expression<Quad> | null) {
-    const [program, variables] = compile(engine, source)
+    const [program, variables] = pull(engine, source)
     this.program = program
     this.varNames = variables
   }

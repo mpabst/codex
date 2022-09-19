@@ -1,8 +1,7 @@
 import { Clause } from './clause.js'
 import { Index } from './collections/index.js'
 import { VTMap } from './collections/var-tracking.js'
-import { Argument, Bindings, ChoicePoint, Operation, Query } from './query.js'
-import { VarMap } from './syntax.js'
+import { Argument, ChoicePoint, Operation, Query } from './query.js'
 import { Term, Variable } from './term.js'
 
 // instead of dynamically branching through the heads,

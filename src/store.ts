@@ -3,7 +3,7 @@ import { Index } from './collections/index.js'
 import { BlankNode, Diff, Quad, NamedNode } from './term.js'
 
 export type Key = NamedNode | BlankNode
-export type Context = Clause | Index | Diff
+export type Context = Clause | Index
 
 export class Store {
   contexts: Map<Key, Context> = new Map()
@@ -34,7 +34,7 @@ export class Store {
 
     for (const diff of event) {
       // todo: heads, and exactly when and how to update which ones
-      this.set(diff.id, diff)
+      // this.set(diff.id, diff)
       const snap = this.get(diff.target) as Index
       for (const ret of diff.retractions) {
         snap.delete(ret)
@@ -43,13 +43,10 @@ export class Store {
       for (const ass of diff.assertions) snap.add(ass)
     }
 
-    while (delta.size > 0) {
-
-    }
+    while (delta.size > 0) {}
 
     delta = new Index()
-    for (const diff of event)
-    for (const ass of diff.assertions) delta.add(ass)
+    for (const diff of event) for (const ass of diff.assertions) delta.add(ass)
 
     // for each quad in delta
     // - match against bodies of stratum 1

@@ -1,66 +1,57 @@
 import { BindingsSet } from './collections/bindings-set.js'
-import { TripleSet } from './collections/data-set.js'
-import { VTMap, VTSet } from './collections/var-tracking.js'
-import { randomVariable } from './data-factory.js'
+import { Index } from './collections/index.js'
+import { Prefixers, randomVariable } from './data-factory.js'
 import { Module } from './module.js'
 import { Query } from './query.js'
 import { Store } from './store.js'
-import { Head, Pattern, traverse, VarMap } from './syntax.js'
+import { traverse, VarMap } from './syntax.js'
 import {
-  BlankNode,
-  NamedNode,
-  Quad,
-  Statement,
+  Node, Statement,
   Term,
-  Triple,
-  Variable,
+  Variable
 } from './term.js'
+
+const { fpc, rdf } = Prefixers
 
 const stmtMapper =
   <S extends Statement>(mapper: (t: Term) => Term) =>
-  (s: S): S => {
+  (context: Index, s: Node): S => {
+    const po = context.getRoot('SPO').get(s)
+    const [subject] = po.get(rdf('subject'))
+    const [predicate] = po.get(rdf('predicate'))
+    const [object] = po.get(rdf('object'))
+    const graphs = po.get(rdf('graph'))
     const out: any = {
-      subject: mapper(s.subject),
-      predicate: mapper(s.predicate),
-      object: mapper(s.object),
+      subject: mapper(subject),
+      predicate: mapper(predicate),
+      object: mapper(object),
     }
-    if ('graph' in s) out.graph = mapper(s.graph)
+    if ('graph' in s) out.graph = mapper(graphs[0])
     return out
   }
 
-function mapStmt<S extends Statement>(s: S, mapper: (t: Term) => Term): S {
-  return stmtMapper<S>(mapper)(s)
-}
-
-interface Listener {
-  push(q: Quad): void
-}
-
-class Signature extends TripleSet {
-  protected Branch = VTMap
-  protected Twig = VTSet
+function mapStmt<S extends Statement>(context: Index, s: Node, mapper: (t: Term) => Term): S {
+  return stmtMapper<S>(mapper)(context, s)
 }
 
 export class Clause {
-  signature = new Signature('SPO')
   body: Query
-
-  calls: BindingsSet
-
-  callerStrata: number[] = []
-  listeners: Listener[] = []
+  memo: BindingsSet
 
   constructor(
     store: Store,
-    module: Module,
-    public id: NamedNode | BlankNode,
+    context: Module,
+    public node: Node
   ) {
-    this.body = new Query(store, body)
-    this.calls = new BindingsSet(this.initSignature(head))
-    store.clauses.set(id, this)
+    const po = context.facts.getRoot('SPO').get(node)!
+    const [head] = po.get(fpc('head'))!
+    const [body] = po.get(fpc('body'))!
+    this.body = new Query(context, body)
+    this.memo = new BindingsSet(this.initSignature(store, context.facts, head))
+    store.clauses.set(node, this)
   }
 
-  protected initSignature(source: Head): Set<Variable> {
+  protected initSignature(store: Store, context: Index, head: Node): Set<Variable> {
     const headMap: VarMap = new Map()
     const { varNames: bodyMap } = this.body
     const headVars = new Set<Variable>()
@@ -83,9 +74,9 @@ export class Clause {
       return found
     }
 
-    traverse(source, {
-      pattern: (expr: Pattern<Triple>) =>
-        this.signature.add(mapStmt(expr.terms, mapVar)),
+    traverse(context, head, {
+      pattern: (node: Node) =>
+        store.signature.add(mapStmt(context, node, mapVar)),
     })
 
     return headVars

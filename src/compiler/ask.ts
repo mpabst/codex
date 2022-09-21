@@ -2,10 +2,10 @@ import { Clause } from '../clause.js'
 import { Index } from '../collections/index.js'
 import { randomVariable } from '../data-factory.js'
 import { operations } from '../operations.js'
-import { Instruction, Operation, Program } from '../query.js'
-import { Context, Key, Store } from '../store.js'
+import { Instruction, Operation, Program } from '../machine.js'
 import { Expression, Mode, Pattern, traverse, VarMap } from '../syntax.js'
 import { Node, Quad, Term, Variable } from '../term.js'
+import { Module } from '../module.js'
 
 abstract class Block {
   abstract mode: Mode
@@ -103,9 +103,9 @@ function orderBlocks(blocks: Iterable<Block>): Iterable<Block> {
 }
 
 // solves queries against data
-export function pull(
-  store: Store,
-  source: Expression<Quad> | null,
+export function ask(
+  context: Module,
+  source: Node | null,
 ): [Program, VarMap] {
   // For bodiless rules
   if (!source) return [[[operations.emitResult, null]], new Map()]

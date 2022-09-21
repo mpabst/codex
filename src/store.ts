@@ -1,11 +1,19 @@
 import { Clause } from './clause.js'
 import { Index } from './collections/index.js'
+import { VTQuadSet } from './collections/var-tracking.js'
 import { Module } from './module.js'
 import { Diff, Quad, NamedNode, DEFAULT_GRAPH, Node } from './term.js'
+
+class Signature extends Index<VTQuadSet> {
+  constructor() {
+    super(['SPOG', 'GSPO'], VTQuadSet)
+  }
+}
 
 export class Store {
   modules = new Map<Node, Module>()
   clauses = new Map<Node, Clause>()
+  signature = new Signature()
 
   // what abt system listeners for things like rule compilation, etc
   constructor(data: Iterable<Quad>) {
@@ -24,23 +32,23 @@ export class Store {
   }
 
   processEvent(event: Diff[]) {
-    let delta = new Index()
+    // let delta = new Index()
 
-    for (const diff of event) {
-      // todo: heads, and exactly when and how to update which ones
-      // this.set(diff.id, diff)
-      const snap = this.get(diff.target) as Index
-      for (const ret of diff.retractions) {
-        snap.delete(ret)
-        delta.add(ret)
-      }
-      for (const ass of diff.assertions) snap.add(ass)
-    }
+    // for (const diff of event) {
+    //   // todo: heads, and exactly when and how to update which ones
+    //   // this.set(diff.id, diff)
+    //   const snap = this.get(diff.target) as Index
+    //   for (const ret of diff.retractions) {
+    //     snap.delete(ret)
+    //     delta.add(ret)
+    //   }
+    //   for (const ass of diff.assertions) snap.add(ass)
+    // }
 
-    while (delta.size > 0) {}
+    // while (delta.size > 0) {}
 
-    delta = new Index()
-    for (const diff of event) for (const ass of diff.assertions) delta.add(ass)
+    // delta = new Index()
+    // for (const diff of event) for (const ass of diff.assertions) delta.add(ass)
 
     // for each quad in delta
     // - match against bodies of stratum 1

@@ -1,6 +1,6 @@
 import { Index } from './collections/index.js'
 import { A, Prefixers } from './data-factory.js'
-import { Bindings } from './query.js'
+import { Bindings } from './machine.js'
 import { Statement, Quad, Triple, Variable, Node } from './term.js'
 
 export type VarMap = Bindings<Variable>
@@ -52,7 +52,7 @@ const { fpc, rdf } = Prefixers
 export function traverse(
   context: Index,
   root: Node,
-  handler: (context: Index, pattern: Node) => void,
+  handlers: { [k: string]: (pattern: Node) => void },
 ) {
   const spo = context.getRoot('SPO')
   const stack: (Node | null)[] = [root]
@@ -62,13 +62,13 @@ export function traverse(
     if (node === null) continue
     if (node === undefined) return
 
-    const po = spo.get(node)!
-    const types = po.get(A)!
+    const po = spo.get(node)
+    const types = po.get(A)
     if (types.has(fpc('Conjunction'))) {
-      const [first] = po.get(rdf('first'))!
-      const [rest] = po.get(rdf('rest'))!
+      const [first] = po.get(rdf('first'))
+      const [rest] = po.get(rdf('rest'))
       stack.push(rest, first)
     }
-    if (types.has(fpc('Pattern'))) handler(context, node)
+    if (types.has(fpc('Pattern'))) handlers.pattern(node)
   }
 }

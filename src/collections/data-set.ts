@@ -9,17 +9,14 @@ const PLACES: { [k: string]: keyof Quad } = {
 
 export type Order = string
 
-export type TripleRoot<Twig> = Map<Term, Map<Term, Twig>>
-type QuadRoot<Twig> = Map<Term, TripleRoot<Twig>>
-
 export abstract class DataSet<D extends { [k: string]: Term }> {
   protected readonly Branch: MapConstructor = Map
-  protected readonly Leaf: SetConstructor = Set
+  protected readonly Twig: SetConstructor = Set
 
   protected readonly order: (keyof D)[]
   protected _size: number = 0
 
-  public abstract root: Map<Term, any>
+  abstract root: Map<Term, any>
 
   constructor(order: Order) {
     this.order = order.split('').map(s => PLACES[s] as keyof D)
@@ -39,7 +36,7 @@ export abstract class DataSet<D extends { [k: string]: Term }> {
 }
 
 export class TripleSet extends DataSet<Triple> {
-  public root: TripleRoot<Set<Term>> = new this.Branch()
+  root = new this.Branch()
 
   add(data: Triple): void {
     const path = this.reorder(data)
@@ -51,7 +48,7 @@ export class TripleSet extends DataSet<Triple> {
     let node = next
     next = node.get(path[1])
     if (!next) {
-      next = new this.Leaf()
+      next = new this.Twig()
       node.set(path[1], next)
     }
     next.add(path[2])
@@ -71,7 +68,7 @@ export class TripleSet extends DataSet<Triple> {
 }
 
 export class QuadSet extends DataSet<Quad> {
-  public root: QuadRoot<Set<Term>> = new this.Branch()
+  root = new this.Branch()
 
   add(data: Quad): void {
     const path = this.reorder(data)

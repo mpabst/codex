@@ -1,4 +1,4 @@
-import { Bindings } from '../query.js'
+import { Bindings } from '../machine.js'
 import { Term, Variable } from '../term.js'
 
 export class BindingsSet {

@@ -1,6 +1,6 @@
 import { Clause } from '../clause.js'
 import { Prefixers, variable as v } from '../data-factory.js'
-import { Bindings, Query } from '../query.js'
+import { Bindings, Machine } from '../machine.js'
 import { Store } from '../store.js'
 import { Expression } from '../syntax.js'
 import { Graph, Object, Predicate, Quad, Subject, Triple } from '../term.js'
@@ -10,7 +10,7 @@ const { test, rdf } = Prefixers
 
 const A = rdf('type')
 
-const collectResult = (query: Query, ary: Bindings[]) => (b: Bindings) => {
+const collectResult = (query: Machine, ary: Bindings[]) => (b: Bindings) => {
   const r: Bindings = new Map()
   for (const [source, internal] of query.varNames)
     r.set(source, b.get(internal)!)
@@ -43,7 +43,7 @@ describe('Query', () => {
       rest: null,
     }
 
-    const query = new Query(store, source)
+    const query = new Machine(store, source)
 
     let results: Bindings[] = []
     query.evaluate(collectResult(query, results))
@@ -77,7 +77,7 @@ describe('Query', () => {
 
     it('is fast', () => {
       let results = 0
-      new Query(engine, query).evaluate(() => results++)
+      new Machine(engine, query).evaluate(() => results++)
       x(results).eql(99_999)
     })
   })
@@ -96,7 +96,7 @@ describe('Query', () => {
         },
       )
 
-      const query = new Query(store, {
+      const query = new Machine(store, {
         type: 'Pattern',
         terms: q(test('rule'), v('someone'), A, test('Mortal')),
       })

@@ -9,28 +9,32 @@ new IDB compiler
 don't need:
 clause.signature, Generator
 
-caller    callee   IDB              EDB
-new var   const    bind l := r      already bound, just traverse dbNode
-old var   const    check equality   ditto
-const     const    check, no instr  n/a
-new var   new var  bind r := l      choice point
-old var   new var  bind r := l      traverse w/value of old var
-const     new var  r := l           traverse w/left
-new var   old var  bind l := r      choice point
-old var   old var  check equality   traverse
-const     old var  ditto            ditto
+caller    callee   IDB
+new var   const    bind l := r
+old var   const    check equality
+const     const    check, no instr
+new var   new var  bind r := l
+old var   new var  bind r := l
+const     new var  r := l
+new var   old var  bind l := r
+old var   old var  check equality
+const     old var  ditto
 
-call instruction after last line which could
-bind to a signature
-traversing IDB graph terms adds the corresponding EDB line to
-the memo check - just add program indices to an array
-
-new var/old var distinction might be unpredictable, depending
-on how other lines have bound their graph terms. so, new var
-still needs to check in EDB pass. why do i check currently?
+initPending before first line querying a clause; call after last such line
 
 choicepoints need to restore section and instruction? not if
 everything is in a single chunk of memory
 
 every line produces a choice point on the graph term at first,
 eliminate it afterwards if there's only one match?
+
+try me else ( next graph option )
+init pending (optional)
+set clause or set index
+IDB instructions from above
+call (optional)
+
+collect options for matching a line
+sort
+label with calls and inits
+produce instructions

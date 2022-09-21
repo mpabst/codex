@@ -1,6 +1,4 @@
 import { Index } from "./collections/index.js"
-import { QuadSet } from "./collections/data-set.js"
-import { VTMap } from "./collections/var-tracking.js"
 import { Parser } from "./parser/parser.js"
 import { NamedNode } from "./term.js"
 import { A, namedNode, Prefixers } from "./data-factory.js"
@@ -16,8 +14,6 @@ export class Module {
     new Module(store, namedNode(parser.namespace.base), parser.output!)
   }
 
-  signature = new Signature()
-
   constructor(store: Store, public name: NamedNode, public facts: Index = new Index()) {
     store.modules.set(name, this)
     const rules = this.facts.getRoot('POS').get(A)?.get(fpc('Rule'))
@@ -27,12 +23,5 @@ export class Module {
       if (!clauses) continue
       for (const c of clauses) new Clause(store, this, c)
     }
-  }
-}
-
-class Signature extends QuadSet {
-  protected Branch = VTMap
-  constructor() {
-    super('SPOG')
   }
 }

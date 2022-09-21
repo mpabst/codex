@@ -1,11 +1,11 @@
-import { Term, Triple } from '../term.js'
-import { Order, TripleRoot, TripleSet } from './data-set.js'
+import { Triple } from '../term.js'
+import { DataSet, Order, TripleSet } from './data-set.js'
 
-export class Index {
-  protected data = new Map<Order, TripleSet>()
+export class Index<D extends DataSet<Triple> = TripleSet> {
+  protected data = new Map<Order, D>()
 
-  constructor(protected orders: Order[] = ['SPO']) {
-    for (const o of orders) this.data.set(o, new TripleSet(o))
+  constructor(protected orders: Order[] = ['SPO'], Data: new (o: string) => D) {
+    for (const o of orders) this.data.set(o, new Data(o))
   }
 
   add(triple: Triple): void {
@@ -16,7 +16,7 @@ export class Index {
     for (const ts of this.data.values()) ts.delete(triple)
   }
 
-  getRoot(order: Order): TripleRoot<Set<Term>> {
+  getRoot(order: Order) {
     return this.data.get(order)!.root
   }
 

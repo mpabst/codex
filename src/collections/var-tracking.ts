@@ -1,5 +1,4 @@
 import { Term, Variable } from '../term.js'
-import { TripleSet } from './data-set.js'
 
 export class VTSet extends Set<Term> {
   varKeys = new Set<Variable>()
@@ -29,9 +28,4 @@ export class VTMap extends Map<Term, VTMap | VTSet> {
     if (key instanceof Variable) this.varKeys.delete(key)
     return super.delete(key)
   }
-}
-
-export class VTTripleSet extends TripleSet {
-  protected Branch = VTMap
-  protected Leaf = VTSet
 }

@@ -83,8 +83,8 @@ export class Query {
 
   emit: ((b: Bindings) => void) | null = null
 
-  constructor(public engine: Store, source: Expression<Quad> | null) {
-    const [program, variables] = pull(engine, source)
+  constructor(store: Store, source: Expression<Quad> | null) {
+    const [program, variables] = pull(store, source)
     this.program = program
     this.varNames = variables
   }

@@ -9,7 +9,6 @@ import {
   randomBlankNode,
   variable,
 } from '../data-factory.js'
-import { Store } from '../store.js'
 import {
   BlankNode,
   DefaultGraph,
@@ -48,9 +47,10 @@ export class Parser {
 
   rContext: Context | null = null
 
+  output: Index | null = null
   resultAry: Quad[] = []
 
-  constructor(protected store: Store, public source: string) {
+  constructor(public source: string) {
     this.lexer = new Lexer(source)
   }
 
@@ -101,14 +101,7 @@ export class Parser {
   }
 
   protected addQuad(q: Quad) {
-    const graph =
-      q.graph === DEFAULT_GRAPH ? namedNode(this.namespace.base) : q.graph
-    let index = this.store.get(graph) as Index
-    if (!index) {
-      index = new Index()
-      this.store.set(graph, new Index())
-    }
-    index.add(q as Triple)
+    this.output!.add(q as Triple)
     this.resultAry.push({ ...q })
   }
 
@@ -242,7 +235,8 @@ export class Parser {
     return new ParseError(`unexpected: ${this.token} @ ${this.context.place}`)
   }
 
-  parse(): void {
+  parse(output = new Index()): Index {
+    this.output = output
     try {
       while (true) {
         this.advance()
@@ -265,7 +259,7 @@ export class Parser {
         }
       }
     } catch (e) {
-      if (e instanceof NoMoreTokens) return
+      if (e instanceof NoMoreTokens) return this.output
       throw e
     }
   }

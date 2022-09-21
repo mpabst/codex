@@ -1,32 +1,26 @@
 import { Clause } from './clause.js'
 import { Index } from './collections/index.js'
-import { BlankNode, Diff, Quad, NamedNode } from './term.js'
-
-export type Key = NamedNode | BlankNode
-export type Context = Clause | Index
+import { Module } from './module.js'
+import { Diff, Quad, NamedNode, DEFAULT_GRAPH, Node } from './term.js'
 
 export class Store {
-  contexts: Map<Key, Context> = new Map()
+  modules = new Map<Node, Module>()
+  clauses = new Map<Node, Clause>()
 
   // what abt system listeners for things like rule compilation, etc
   constructor(data: Iterable<Quad>) {
     for (const d of data) {
-      let context = this.get(d.graph as Key)
-      if (!context) {
-        context = new Index()
-        this.set(d.graph as Key, context)
-      }
-      ;(context as Index).add(d)
+      if (d.graph === DEFAULT_GRAPH) throw new Error('default graph not allowed here')
+      let module = this.modules.get(d.graph)
+      if (!module) module = new Module(this, d.graph)
+      module.facts.add(d)
     }
   }
 
-  get(term: Key): Context | undefined {
-    // if (not found) init stub, fire network request
-    return this.contexts.get(term)
-  }
-
-  set(term: Key, context: Context): void {
-    this.contexts.set(term, context)
+  async load({ value: iri }: NamedNode): Promise<void> {
+    const resp = await fetch(iri)
+    if (!resp.ok) throw new Error(`Error loading module: ${iri}`)
+    Module.parse(this, await resp.text())
   }
 
   processEvent(event: Diff[]) {

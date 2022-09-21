@@ -1,10 +1,11 @@
 import { BindingsSet } from './collections/bindings-set.js'
-import { MultiIndex, VTIndex } from './collections/index.js'
+import { TripleSet } from './collections/data-set.js'
+import { VTMap, VTSet } from './collections/var-tracking.js'
 import { randomVariable } from './data-factory.js'
-import { Generator } from './generator.js'
-import { Bindings, Query } from './query.js'
+import { Module } from './module.js'
+import { Query } from './query.js'
 import { Store } from './store.js'
-import { Expression, Head, Pattern, traverse, VarMap } from './syntax.js'
+import { Head, Pattern, traverse, VarMap } from './syntax.js'
 import {
   BlankNode,
   NamedNode,
@@ -35,10 +36,13 @@ interface Listener {
   push(q: Quad): void
 }
 
+class Signature extends TripleSet {
+  protected Branch = VTMap
+  protected Twig = VTSet
+}
+
 export class Clause {
-  signature = new VTIndex()
-  generator: Generator
-  memo = new MultiIndex()
+  signature = new Signature('SPO')
   body: Query
 
   calls: BindingsSet
@@ -47,15 +51,13 @@ export class Clause {
   listeners: Listener[] = []
 
   constructor(
-    public id: NamedNode | BlankNode,
     store: Store,
-    head: Head,
-    body: Expression<Quad>,
+    module: Module,
+    public id: NamedNode | BlankNode,
   ) {
     this.body = new Query(store, body)
-    this.generator = new Generator(this.memo, head, this.body.varNames)
     this.calls = new BindingsSet(this.initSignature(head))
-    store.set(id, this)
+    store.clauses.set(id, this)
   }
 
   protected initSignature(source: Head): Set<Variable> {
@@ -88,10 +90,4 @@ export class Clause {
 
     return headVars
   }
-
-  pull(args: Bindings): void {
-    this.body.evaluate((b: Bindings) => this.generator.generate(b), args)
-  }
-
-  push() {}
 }

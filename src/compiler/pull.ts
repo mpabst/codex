@@ -1,10 +1,11 @@
 import { Clause } from '../clause.js'
+import { Index } from '../collections/index.js'
 import { randomVariable } from '../data-factory.js'
 import { operations } from '../operations.js'
 import { Instruction, Operation, Program } from '../query.js'
 import { Context, Key, Store } from '../store.js'
 import { Expression, Mode, Pattern, traverse, VarMap } from '../syntax.js'
-import { Quad, Term, Variable } from '../term.js'
+import { Node, Quad, Term, Variable } from '../term.js'
 
 abstract class Block {
   abstract mode: Mode
@@ -112,7 +113,7 @@ export function pull(
   const blocks = new Map<Context, Block>()
   const varMap: VarMap = new Map()
 
-  function pattern({ terms }: Pattern<Quad>): void {
+  function pattern(context: Index, pattern: Node): void {
     const context = store.get(terms.graph as Key)!
     let block: Block = blocks.get(context)!
     if (!block) {

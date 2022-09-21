@@ -1,5 +1,7 @@
+import { Index } from './collections/index.js'
+import { A, Prefixers } from './data-factory.js'
 import { Bindings } from './query.js'
-import { Statement, Quad, Triple, Variable } from './term.js'
+import { Statement, Quad, Triple, Variable, Node } from './term.js'
 
 export type VarMap = Bindings<Variable>
 
@@ -37,26 +39,36 @@ interface IfThenElse {
 
 // this isn't quite right, because now Expression<FlatTriple> includes
 // body-only (ie quad-only) types. does TS have type parameter polymorphism?
-export type Expression<S extends Statement> = Pattern<S> | Conjunction<S> | Disjunction | Negation // | IfThenElse
+export type Expression<S extends Statement> =
+  | Pattern<S>
+  | Conjunction<S>
+  | Disjunction
+  | Negation // | IfThenElse
 
 export type Head = Pattern<Triple> | Conjunction<Triple, Head>
 
-export function traverse<S extends Statement>(
-  expr: Expression<S>,
-  handlers: { [k: string]: (expr: any) => void },
+const { fpc, rdf } = Prefixers
+
+export function traverse(
+  context: Index,
+  root: Node,
+  handler: (context: Index, pattern: Node) => void,
 ) {
-  const stack: (Expression<S> | null)[] = [expr]
+  const spo = context.getRoot('SPO')
+  const stack: (Node | null)[] = [root]
   while (true) {
-    const expr = stack.pop()!
-    if (expr === null) continue
-    if (expr === undefined) return
-    switch (expr.type) {
-      case 'Conjunction':
-        stack.push(expr.rest, expr.first)
-        continue
-      case 'Pattern':
-        handlers.pattern(expr)
-        continue
+    const node = stack.pop()!
+
+    if (node === null) continue
+    if (node === undefined) return
+
+    const po = spo.get(node)!
+    const types = po.get(A)!
+    if (types.has(fpc('Conjunction'))) {
+      const [first] = po.get(rdf('first'))!
+      const [rest] = po.get(rdf('rest'))!
+      stack.push(rest, first)
     }
+    if (types.has(fpc('Pattern'))) handler(context, node)
   }
 }

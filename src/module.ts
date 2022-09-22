@@ -25,6 +25,8 @@ export class Module implements Callable {
     return module
   }
 
+  imports = new Map<Name, Module>()
+  // both of below include imported rules and patterns
   rules = new Map<Name, Rule>()
   signature = new QuadSet('SPOG')
 
@@ -39,16 +41,15 @@ export class Module implements Callable {
   async load(): Promise<void> {
     const imports = this.facts.getRoot('SPO').get(this.name).get(fpc('imports'))
     if (imports) {
-      const modules = new Map<Name, Module>()
       const pending: Name[] = []
       for (const i of imports) {
         const module = this.store.modules.get(i)
-        if (module) modules.set(i, module)
+        if (module) this.imports.set(i, module)
         else pending.push(i)
       }
       for (const m of await Promise.all(pending.map(p => this.store.load(p))))
-        modules.set(m.name, m)
-      for (const m of modules.values()) {
+        this.imports.set(m.name, m)
+      for (const m of this.imports.values()) {
         for (const [name, rule] of m.rules) this.rules.set(name, rule)
         m.signature.forEach((q: Quad) => this.signature.add(q))
       }

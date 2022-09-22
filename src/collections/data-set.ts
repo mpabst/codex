@@ -1,4 +1,5 @@
-import { Quad, Term, Triple } from '../term.js'
+import { Bindings } from '../machine.js'
+import { Quad, Term, Triple, Variable } from '../term.js'
 
 const PLACES: { [k: string]: keyof Quad } = {
   G: 'graph',
@@ -120,6 +121,71 @@ export class QuadSet extends DataSet<Quad> {
           out[this.order[2]] = c
           for (const d of ds) {
             out[this.order[3]] = d
+            cb(out as Quad)
+          }
+        }
+      }
+    }
+  }
+
+  // i wonder what the perf difference is vs just compiling the pattern
+  // as a Query; ditto replacing forEach() with an all-vars match()
+  match(pattern: Partial<Quad>, cb: (q: Quad) => void): void {
+    const scope: Bindings = new Map()
+    for (const p of Object.values(pattern))
+      if (p instanceof Variable) scope.set(p, p)
+
+    const out: Partial<Quad> = {}
+    let bound: Term | undefined
+
+    let place: keyof Quad = this.order[0]
+    let pat: Term = pattern[place]!
+    for (const [a, bs] of this.root) {
+      if (pat instanceof Variable) {
+        if (!pat.isAnon()) {
+          bound = scope.get(pat)
+          if (bound !== pat && a !== bound) continue
+          scope.set(pat, a)
+        }
+      } else if (a !== pat) continue
+      out[place] = a
+
+      place = this.order[1]
+      pat = pattern[place]!
+      for (const [b, cs] of bs) {
+        if (pat instanceof Variable) {
+          if (!pat.isAnon()) {
+            bound = scope.get(pat)
+            if (bound !== pat && b !== bound) continue
+            scope.set(pat, b)
+          }
+        } else if (b !== pat) continue
+        out[place] = b
+
+        place = this.order[2]
+        pat = pattern[place]!
+        for (const [c, ds] of cs) {
+          if (pat instanceof Variable) {
+            if (!pat.isAnon()) {
+              bound = scope.get(pat)
+              if (bound !== pat && c !== bound) continue
+              scope.set(pat, c)
+            }
+          } else if (c !== pat) continue
+          out[place] = c
+
+          place = this.order[3]
+          pat = pattern[place]!
+          for (const d of ds) {
+            if (pat instanceof Variable) {
+              if (!pat.isAnon()) {
+                bound = scope.get(pat)
+                if (bound !== pat && d !== bound) continue
+                scope.set(pat, d)
+              }
+            } else if (d !== pat) continue
+            out[place] = d
+
             cb(out as Quad)
           }
         }

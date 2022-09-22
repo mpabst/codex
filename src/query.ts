@@ -1,8 +1,8 @@
-import { Prefixers } from './data-factory.js'
+import { Prefixers, variable } from './data-factory.js'
 import { Bindings, Program } from './machine.js'
 import { Callable, Module } from './module.js'
 import { traverse, VarMap } from './syntax.js'
-import { DEFAULT_GRAPH, Name } from './term.js'
+import { Name, Quad } from './term.js'
 
 const { rdf } = Prefixers
 
@@ -11,14 +11,27 @@ function compile(module: Module, expression: Name): [Program, VarMap] {
   const varMap: VarMap = new Map()
 
   function pattern(node: Name): void {
+    const matches = new Map<Name, Quad>()
+
     const po = module.facts.getRoot('SPO').get(node)
     const graphs = po.get(rdf('graph'))
-    let callable: Callable
+    let callable: Callable | undefined
     if (!graphs) callable = module
-    else if ()
+    else {
+      const graph = [...graphs][0]
+      // todo: what if a rule and a module are defined at the same name?
+      callable = module.imports.get(graph) ?? module.rules.get(graph)
+      if (!callable) throw new Error(`graph not found: ${node}`)
+    }
 
-    const graph = (graphs ? [...graphs][0] : DEFAULT_GRAPH)
-    
+    const [subject] = po.get(rdf('subject'))
+    const [predicate] = po.get(rdf('predicate'))
+    const [object] = po.get(rdf('object'))
+
+    callable.signature.match(
+      { graph: variable('_'), subject, predicate, object },
+      (q: Quad) => matches.set(q.graph, q),
+    )
   }
 
   traverse(module.facts, expression, { pattern })

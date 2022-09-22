@@ -74,9 +74,8 @@ export class Variable extends Term {
 
 export const DEFAULT_GRAPH = new DefaultGraph()
 
-// technically Literals are Nodes too, but I can't think of a better name
-export type Node = NamedNode | BlankNode
-export type Subject = Node | Variable
+export type Name = NamedNode | BlankNode
+export type Subject = Name | Variable
 export type Predicate = NamedNode | Variable
 export type Object = Subject | Literal
 export type Graph = Subject | DefaultGraph

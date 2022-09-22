@@ -1,34 +1,24 @@
-import { Clause } from './clause.js'
-import { Index } from './collections/index.js'
-import { VTQuadSet } from './collections/var-tracking.js'
 import { Module } from './module.js'
-import { Diff, Quad, NamedNode, DEFAULT_GRAPH, Node } from './term.js'
-
-class Signature extends Index<VTQuadSet> {
-  constructor() {
-    super(['SPOG', 'GSPO'], VTQuadSet)
-  }
-}
+import { Diff, Quad, NamedNode, DEFAULT_GRAPH, Name } from './term.js'
 
 export class Store {
-  modules = new Map<Node, Module>()
-  clauses = new Map<Node, Clause>()
-  signature = new Signature()
+  modules = new Map<Name, Module>()
 
   // what abt system listeners for things like rule compilation, etc
   constructor(data: Iterable<Quad>) {
     for (const d of data) {
       if (d.graph === DEFAULT_GRAPH) throw new Error('default graph not allowed here')
       let module = this.modules.get(d.graph)
+      // fixme: need to delay this ctor till facts are assembled
       if (!module) module = new Module(this, d.graph)
       module.facts.add(d)
     }
   }
 
-  async load({ value: iri }: NamedNode): Promise<void> {
+  async load({ value: iri }: NamedNode): Promise<Module> {
     const resp = await fetch(iri)
     if (!resp.ok) throw new Error(`Error loading module: ${iri}`)
-    Module.parse(this, await resp.text())
+    return Module.parse(this, await resp.text())
   }
 
   processEvent(event: Diff[]) {

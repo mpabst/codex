@@ -100,9 +100,30 @@ export class QuadSet extends DataSet<Quad> {
     const b = a.get(path[1])!
     const c = b.get(path[2])!
     c.delete(path[3])
-    if (c.size === 0) b.delete(path[2])
-    if (b.size === 0) a.delete(path[1])
-    if (a.size === 0) this.root.delete(path[0])
+    if (c.size === 0) {
+      b.delete(path[2])
+      if (b.size === 0) {
+        a.delete(path[1])
+        if (a.size === 0) this.root.delete(path[0])
+      }
+    }
     this._size--
+  }
+
+  forEach(cb: (q: Quad) => void): void {
+    const out: Partial<Quad> = {}
+    for (const [a, bs] of this.root) {
+      out[this.order[0]] = a
+      for (const [b, cs] of bs) {
+        out[this.order[1]] = b
+        for (const [c, ds] of cs) {
+          out[this.order[2]] = c
+          for (const d of ds) {
+            out[this.order[3]] = d
+            cb(out as Quad)
+          }
+        }
+      }
+    }
   }
 }

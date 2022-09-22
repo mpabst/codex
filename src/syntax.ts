@@ -1,7 +1,7 @@
 import { Index } from './collections/index.js'
 import { A, Prefixers } from './data-factory.js'
 import { Bindings } from './machine.js'
-import { Statement, Quad, Triple, Variable, Node } from './term.js'
+import { Statement, Quad, Triple, Variable, Name } from './term.js'
 
 export type VarMap = Bindings<Variable>
 
@@ -51,11 +51,11 @@ const { fpc, rdf } = Prefixers
 
 export function traverse(
   context: Index,
-  root: Node,
-  handlers: { [k: string]: (pattern: Node) => void },
+  root: Name,
+  handlers: { [k: string]: (pattern: Name) => void },
 ) {
   const spo = context.getRoot('SPO')
-  const stack: (Node | null)[] = [root]
+  const stack: (Name | null)[] = [root]
   while (true) {
     const node = stack.pop()!
 

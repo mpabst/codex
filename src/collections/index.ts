@@ -4,7 +4,7 @@ import { DataSet, Order, TripleSet } from './data-set.js'
 export class Index<D extends DataSet<Triple> = TripleSet> {
   protected data = new Map<Order, D>()
 
-  constructor(protected orders: Order[] = ['SPO'], Data: new (o: string) => D) {
+  constructor(Data: new (o: string) => D, protected orders: Order[] = ['SPO']) {
     for (const o of orders) this.data.set(o, new Data(o))
   }
 

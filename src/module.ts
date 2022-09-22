@@ -1,27 +1,64 @@
-import { Index } from "./collections/index.js"
-import { Parser } from "./parser/parser.js"
-import { NamedNode } from "./term.js"
-import { A, namedNode, Prefixers } from "./data-factory.js"
-import { Store } from "./store.js"
-import { Clause } from "./clause.js"
+import { Index } from './collections/index.js'
+import { Parser } from './parser/parser.js'
+import { Name, NamedNode, Quad } from './term.js'
+import { A, namedNode, Prefixers } from './data-factory.js'
+import { Store } from './store.js'
+import { QuadSet, TripleSet } from './collections/data-set.js'
+import { Rule } from './rule.js'
 
 const { fpc } = Prefixers
 
-export class Module {
-  static parse(store: Store, source: string): void {
+export interface Callable {
+  signature: QuadSet
+}
+
+export class Module implements Callable {
+  static async parse(store: Store, source: string): Promise<Module> {
     const parser = new Parser(source)
-    parser.parse(new Index(['SPO', 'POS']))
-    new Module(store, namedNode(parser.namespace.base), parser.output!)
+    parser.parse(new Index(TripleSet, ['SPO', 'POS']))
+    const module = new Module(
+      store,
+      namedNode(parser.namespace.base),
+      parser.output!,
+    )
+    await module.load()
+    return module
   }
 
-  constructor(store: Store, public name: NamedNode, public facts: Index = new Index()) {
+  rules = new Map<Name, Rule>()
+  signature = new QuadSet('SPOG')
+
+  constructor(
+    public store: Store,
+    public name: NamedNode,
+    public facts: Index<TripleSet> = new Index(TripleSet),
+  ) {
     store.modules.set(name, this)
-    const rules = this.facts.getRoot('POS').get(A)?.get(fpc('Rule'))
-    if (!rules) return
-    for (const r of rules) {
-      const clauses = this.facts.getRoot('SPO').get(r)?.get(fpc('clause'))
-      if (!clauses) continue
-      for (const c of clauses) new Clause(store, this, c)
+  }
+
+  async load(): Promise<void> {
+    const imports = this.facts.getRoot('SPO').get(this.name).get(fpc('imports'))
+    if (imports) {
+      const modules = new Map<Name, Module>()
+      const pending: Name[] = []
+      for (const i of imports) {
+        const module = this.store.modules.get(i)
+        if (module) modules.set(i, module)
+        else pending.push(i)
+      }
+      for (const m of await Promise.all(pending.map(p => this.store.load(p))))
+        modules.set(m.name, m)
+      for (const m of modules.values()) {
+        for (const [name, rule] of m.rules) this.rules.set(name, rule)
+        m.signature.forEach((q: Quad) => this.signature.add(q))
+      }
     }
+
+    const rules = this.facts.getRoot('POS').get(A).get(fpc('Rule'))
+    if (rules)
+      for (const r of rules) {
+        const rule = new Rule(this, r)
+        this.rules.set(rule.name, rule)
+      }
   }
 }

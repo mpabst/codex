@@ -3,8 +3,8 @@ import { Index } from '../collections/index.js'
 import { randomVariable } from '../data-factory.js'
 import { operations } from '../operations.js'
 import { Instruction, Operation, Program } from '../machine.js'
-import { Expression, Mode, Pattern, traverse, VarMap } from '../syntax.js'
-import { Node, Quad, Term, Variable } from '../term.js'
+import { Mode, traverse, VarMap } from '../syntax.js'
+import { Name, Quad, Term, Variable } from '../term.js'
 import { Module } from '../module.js'
 
 abstract class Block {
@@ -102,26 +102,18 @@ function orderBlocks(blocks: Iterable<Block>): Iterable<Block> {
   return blocks
 }
 
-// solves queries against data
 export function ask(
   context: Module,
-  source: Node | null,
+  source: Name | null,
 ): [Program, VarMap] {
   // For bodiless rules
   if (!source) return [[[operations.emitResult, null]], new Map()]
 
-  const blocks = new Map<Context, Block>()
   const varMap: VarMap = new Map()
 
-  function pattern(context: Index, pattern: Node): void {
-    const context = store.get(terms.graph as Key)!
-    let block: Block = blocks.get(context)!
-    if (!block) {
-      if (context instanceof Clause) block = new IBlock(context, varMap)
-      else block = new EBlock(context, varMap)
-      blocks.set(context, block)
-    }
-    block.add(terms)
+  function pattern(node: Name): void {
+    // build quad
+    // get options for 
   }
 
   traverse(source, { pattern })

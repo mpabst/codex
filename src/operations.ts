@@ -13,21 +13,23 @@ import { Term, Variable } from './term.js'
 export type Leaf = Set<Term> | Map<Term, number>
 export type Branch = Map<Term, Leaf> | Map<Term, Map<Term, Leaf>>
 
-function advanceMedial(machine: Machine, term: Argument): void {
+type Unary = (m: Machine, t: Term) => void
+
+function advanceMedial(machine: Machine, term: Term): void {
   machine.dbNode = (machine.dbNode as Branch).get(term as Term)!
   machine.programP++
 }
 
-function advanceFinal(machine: Machine, _: Argument): void {
+function advanceFinal(machine: Machine): void {
   machine.programP++
 }
 
-function eAnonVar(machine: Machine, advance: Operation): void {
+function eAnonVar(machine: Machine, advance: Unary): void {
   const { done, value } = machine.nextChoice()
   if (!done) advance(machine, value)
 }
 
-function eNewVar(machine: Machine, term: Argument, advance: Operation): void {
+function eNewVar(machine: Machine, term: Argument, advance: Unary): void {
   const { done, value } = machine.nextChoice()
   if (!done) {
     machine.bindScope(term as Variable, value)
@@ -38,19 +40,19 @@ function eNewVar(machine: Machine, term: Argument, advance: Operation): void {
 function iConst(
   machine: Machine,
   caller: Argument,
-  advance: Operation,
+  advance: Unary,
   eConst: Operation,
 ): void {
   const vars = (machine.dbNode as VTMap).varKeys
 
   if (vars.size === 0) {
-    eConst(machine, caller)
+    eConst(machine, caller, null)
     return
   }
 
   const cp = machine.getOrPushCP(vars) as ChoicePoint<Variable>
   if (!cp.constDone) {
-    eConst(machine, caller)
+    eConst(machine, caller, null)
     cp.constDone = true
     return
   }
@@ -79,14 +81,13 @@ function iConst(
   advance(machine, callee)
 }
 
-function iNewVar(machine: Machine, caller: Argument, advance: Operation): void {
+function iNewVar(machine: Machine, caller: Argument, advance: Unary): void {
   const { done, value: callee } = machine.nextChoice()
   if (done) return
 
   if (callee instanceof Variable) {
     let found = machine.callee.get(callee)!
-    if (found === callee)
-      machine.bindCallee(callee, caller as Variable)
+    if (found === callee) machine.bindCallee(callee, caller as Variable)
     else {
       if (found instanceof Variable) found = machine.deref(found)
       machine.bindScope(caller as Variable, found)
@@ -99,7 +100,7 @@ function iNewVar(machine: Machine, caller: Argument, advance: Operation): void {
 function iOldVar(
   machine: Machine,
   term: Argument,
-  advance: Operation,
+  advance: Unary,
   eConst: Operation,
 ): void {
   const found = machine.deref(term as Variable)
@@ -108,102 +109,21 @@ function iOldVar(
 }
 
 export const operations: { [k: string]: Operation } = {
-  allocate(machine: Machine, term: Argument): void {
+  allocate(machine: Machine, term: Argument, _: Argument): void {},
 
-  },
+  deallocate(machine: Machine, _term: Argument, _: Argument): void {},
 
-  deallocate(machine: Machine, _: Argument): void {
-
-  }, 
-
-  try(machine: Machine, term: Argument): void {
+  try(machine: Machine, term: Argument, _: Argument): void {
     // push CP with its next instr the following retry/trust
     // set pending
   },
 
-  retry(machine: Machine, term: Argument): void {
+  retry(machine: Machine, term: Argument, _: Argument): void {},
 
-  },
+  trust(machine: Machine, term: Argument, _: Argument): void {},
 
-  trust(machine: Machine, term: Argument): void {
-
-  },
-
-  // have setClause set pending, and follow it with a setIndex
-  setClause(machine: Machine, clause: Argument): void {
-    machine.pending = [clause as Clause, (clause as Clause).body.newScope(null)]
-    machine.programP++
-  },
-
-  setIndex(machine: Machine, term: Argument): void {
-    // have optional link phase to eliminate this pointer chasing
-    machine.dbNode = machine.store.modules.get(term as Term)!.facts.getRoot('SPO')
-    machine.programP++
-  },
-
-  medialEConst(machine: Machine, term: Argument): void {
-    const found = (machine.dbNode as Branch).get(term as Term)
-    if (found) {
-      machine.dbNode = found
-      machine.programP++
-    } else machine.fail = true
-  },
-
-  medialENewVar(machine: Machine, term: Argument): void {
-    eNewVar(machine, term, advanceMedial)
-  },
-
-  medialEOldVar(machine: Machine, term: Argument): void {
-    const found = machine.deref(term as Variable)
-    if (found instanceof Variable) operations.medialENewVar(machine, found)
-    else operations.medialEConst(machine, found)
-  },
-
-  medialEAnonVar(machine: Machine, _: Argument): void {
-    eAnonVar(machine, advanceMedial)
-  },
-
-  medialIConst(machine: Machine, term: Argument): void {
-    iConst(machine, term, advanceMedial, operations.medialEConst)
-  },
-
-  medialINewVar(machine: Machine, term: Argument): void {
-    iNewVar(machine, term, advanceMedial)
-  },
-
-  medialIOldVar(machine: Machine, term: Argument): void {
-    iOldVar(machine, term, advanceMedial, operations.medialEConst)
-  },
-
-  finalEConst(machine: Machine, term: Argument): void {
-    if ((machine.dbNode as Leaf).has(term as Term)) machine.programP++
-    else machine.fail = true
-  },
-
-  finalENewVar(machine: Machine, term: Argument): void {
-    eNewVar(machine, term, advanceFinal)
-  },
-
-  finalEOldVar(machine: Machine, term: Argument): void {
-    const found = machine.deref(term as Variable)
-    if (found instanceof Variable) operations.finalENewVar(machine, found)
-    else operations.finalEConst(machine, found)
-  },
-
-  finalIConst(machine: Machine, term: Argument): void {
-    iConst(machine, term, advanceFinal, operations.finalEConst)
-  },
-
-  finalINewVar(machine: Machine, term: Argument): void {
-    iNewVar(machine, term, advanceFinal)
-  },
-
-  finalIOldVar(machine: Machine, term: Argument): void {
-    iOldVar(machine, term, advanceFinal, operations.finalEConst)
-  },
-
-  call(machine: Machine, term: Argument): void {
-    const [query, args] = machine.pending.get(term)
+  call(machine: Machine, term: Argument, _: Argument): void {
+    const [query, args] = machine.pending.get(left)
     machine.query = query
     machine.scope = args
     machine.programP = 0
@@ -212,5 +132,96 @@ export const operations: { [k: string]: Operation } = {
   emitResult(machine: Machine, _: Argument): void {
     machine.emit!(machine.scope!)
     machine.fail = !machine.backtrack()
+  },
+
+  // have setClause set pending, and follow it with a setIndex
+  setClause(machine: Machine, clause: Argument): void {
+    machine.pending = [clause as Clause, (clause as Clause).body.newScope(null)]
+    machine.programP++
+  },
+
+  setIndex(machine: Machine, branch: Argument, _: Argument): void {
+    machine.dbNode = branch as Branch
+    machine.programP++
+  },
+
+  eMedialConst(machine: Machine, term: Argument, _: Argument): void {
+    const found = (machine.dbNode as Branch).get(term as Term)
+    if (found) {
+      machine.dbNode = found
+      machine.programP++
+    } else machine.fail = true
+  },
+
+  eMedialNewVar(machine: Machine, term: Argument, _: Argument): void {
+    eNewVar(machine, term, advanceMedial)
+  },
+
+  eMedialOldVar(machine: Machine, term: Argument, _: Argument): void {
+    const found = machine.deref(term as Variable)
+    if (found instanceof Variable)
+      operations.medialENewVar(machine, found, null)
+    else operations.eMedialConst(machine, found, null)
+  },
+
+  eMedialAnonVar(machine: Machine, _: Argument): void {
+    eAnonVar(machine, advanceMedial)
+  },
+
+  eFinalConst(machine: Machine, term: Argument, _: Argument): void {
+    if ((machine.dbNode as Leaf).has(term as Term)) machine.programP++
+    else machine.fail = true
+  },
+
+  eFinalNewVar(machine: Machine, term: Argument, _: Argument): void {
+    eNewVar(machine, term, advanceFinal)
+  },
+
+  eFinalOldVar(machine: Machine, term: Argument, _: Argument): void {
+    const found = machine.deref(term as Variable)
+    if (found instanceof Variable) operations.eFinalNewVar(machine, found, null)
+    else operations.eFinalConst(machine, found, null)
+  },
+
+  iConstVar(machine: Machine, caller: Argument, callee: Argument): void {
+    const bound = machine.callee.get(callee as Variable)
+    if (bound === callee) {
+      machine.bindCallee(callee as Variable, caller as Term)
+      machine.programP++
+    } else if (bound === caller) machine.programP++
+    else machine.fail = true
+  },
+
+  iNewVarConst(machine: Machine, caller: Argument, callee: Argument): void {
+    machine.bindScope(caller as Variable, callee as Term)
+    machine.programP++
+  },
+
+  iNewVarVar(machine: Machine, caller: Argument, callee: Argument): void {
+    const bound = machine.callee.get(callee as Variable)!
+    if (bound === callee) machine.bindCallee(callee as Variable, caller as Term)
+    else machine.bindScope(caller as Variable, bound)
+    machine.programP++
+  },
+
+  iOldVarConst(machine: Machine, caller: Argument, callee: Argument): void {
+    if (machine.scope!.get(caller as Variable) === callee) machine.programP++
+    else machine.fail = true
+  },
+
+  iOldVarVar(machine: Machine, caller: Argument, callee: Argument): void {
+    const erBound = machine.scope!.get(caller as Variable)!
+    const eeBound = machine.callee.get(callee as Variable)!
+    // callee is unbound
+    if (eeBound === callee)
+      machine.bindCallee(callee as Variable, erBound as Term)
+    // callee is bound, caller is unbound
+    else if (erBound === caller) machine.bindScope(caller as Variable, eeBound)
+    // both are bound
+    else if (erBound !== eeBound) {
+      machine.fail = true
+      return
+    }
+    machine.programP++
   },
 }

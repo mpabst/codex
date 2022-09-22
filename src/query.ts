@@ -1,18 +1,23 @@
+import { Clause } from './clause.js'
 import { Prefixers, variable } from './data-factory.js'
-import { Bindings, Program } from './machine.js'
+import { Bindings, Instruction, Program } from './machine.js'
 import { Callable, Module } from './module.js'
+import { operations } from './operations.js'
 import { traverse, VarMap } from './syntax.js'
-import { Name, Quad } from './term.js'
+import { Name, Quad, Term } from './term.js'
 
 const { rdf } = Prefixers
+
+function makeInstruction(caller: Term, callee: Term): Instruction {
+
+}
 
 function compile(module: Module, expression: Name): [Program, VarMap] {
   const program: Program = []
   const varMap: VarMap = new Map()
+  const lastAppearances = new Map<Clause, number>()
 
   function pattern(node: Name): void {
-    const matches = new Map<Name, Quad>()
-
     const po = module.facts.getRoot('SPO').get(node)
     const graphs = po.get(rdf('graph'))
     let callable: Callable | undefined
@@ -30,7 +35,10 @@ function compile(module: Module, expression: Name): [Program, VarMap] {
 
     callable.signature.match(
       { graph: variable('_'), subject, predicate, object },
-      (q: Quad) => matches.set(q.graph, q),
+      (q: Quad) => {
+        
+
+      },
     )
   }
 

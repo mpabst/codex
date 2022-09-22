@@ -3,12 +3,12 @@ import { Branch, Leaf } from './operations.js'
 import { Query } from './query.js'
 import { Store } from './store.js'
 import { VarMap } from './syntax.js'
-import { Term, Variable } from './term.js'
+import { Term, Triple, Variable } from './term.js'
 
 export type Bindings<T extends Term = Term> = Map<Variable, T>
-export type Argument = Term | null
-export type Operation = (m: Machine, t: Argument) => void
-export type Instruction = [Operation, Argument]
+export type Argument = Term | Branch | Query | null
+export type Operation = (m: Machine, l: Argument, r: Argument) => void
+export type Instruction = [Operation, Argument, Argument]
 export type Program = Instruction[]
 
 enum Side {

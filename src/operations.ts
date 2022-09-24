@@ -9,11 +9,11 @@ type Unary = (m: Machine, t: Term) => void
 
 function advanceMedial(machine: Machine, term: Term): void {
   machine.dbNode = (machine.dbNode as Branch).get(term as Term)!
-  machine.programC++
+  machine.programP++
 }
 
 function advanceFinal(machine: Machine): void {
-  machine.programC++
+  machine.programP++
 }
 
 function eAnonVar(machine: Machine, advance: Unary): void {
@@ -32,7 +32,8 @@ function eNewVar(machine: Machine, term: Argument, advance: Unary): void {
 export const operations: { [k: string]: Operation } = {
   allocate(machine: Machine, term: Argument, _: Argument): void {},
 
-  deallocate(machine: Machine, _term: Argument, _: Argument): void {},
+  deallocate(machine: Machine, _term: Argument, _: Argument): void {
+  },
 
   try(machine: Machine, term: Argument, _: Argument): void {
     // push CP with its next instr the following retry/trust
@@ -47,7 +48,7 @@ export const operations: { [k: string]: Operation } = {
     const [query, args] = machine.pending.get(left)
     machine.query = query
     machine.scope = args
-    machine.programC = 0
+    machine.programP = 0
   },
 
   emitResult(machine: Machine, _: Argument): void {
@@ -58,19 +59,19 @@ export const operations: { [k: string]: Operation } = {
   // have setClause set pending, and follow it with a setIndex
   setClause(machine: Machine, clause: Argument): void {
     machine.pending = [clause as Clause, (clause as Clause).body.newScope(null)]
-    machine.programC++
+    machine.programP++
   },
 
   setIndex(machine: Machine, branch: Argument, _: Argument): void {
     machine.dbNode = branch as Branch
-    machine.programC++
+    machine.programP++
   },
 
   eMedialConst(machine: Machine, term: Argument, _: Argument): void {
     const found = (machine.dbNode as Branch).get(term as Term)
     if (found) {
       machine.dbNode = found
-      machine.programC++
+      machine.programP++
     } else machine.fail = true
   },
 
@@ -90,7 +91,7 @@ export const operations: { [k: string]: Operation } = {
   },
 
   eFinalConst(machine: Machine, term: Argument, _: Argument): void {
-    if ((machine.dbNode as Leaf).has(term as Term)) machine.programC++
+    if ((machine.dbNode as Leaf).has(term as Term)) machine.programP++
     else machine.fail = true
   },
 
@@ -108,21 +109,21 @@ export const operations: { [k: string]: Operation } = {
     const found = machine.derefCallee(callee as Variable)
     if (found === callee) {
       machine.bindCallee(callee as Variable, caller as Term)
-      machine.programC++
-    } else if (found === caller) machine.programC++
+      machine.programP++
+    } else if (found === caller) machine.programP++
     else machine.fail = true
   },
 
   iNewVarConst(machine: Machine, caller: Argument, callee: Argument): void {
     machine.bindScope(caller as Variable, callee as Term)
-    machine.programC++
+    machine.programP++
   },
 
   iNewVarVar(machine: Machine, caller: Argument, callee: Argument): void {
     const found = machine.derefCallee(callee as Variable)
     if (found === callee) machine.bindCallee(callee as Variable, caller as Term)
     else machine.bindScope(caller as Variable, found)
-    machine.programC++
+    machine.programP++
   },
 
   iOldVarConst(machine: Machine, caller: Argument, callee: Argument): void {
@@ -132,17 +133,17 @@ export const operations: { [k: string]: Operation } = {
       machine.fail = true
       return
     }
-    machine.programC++
+    machine.programP++
   },
 
   iOldVarVar(machine: Machine, caller: Argument, callee: Argument): void {
-    const erFound = machine.deref(caller as Variable)
-    const eeFound = machine.derefCallee(callee as Variable)
+    const erFound = machine.deref([null, caller as Variable])
+    const eeFound = machine.deref([machine.callee, callee as Variable])
     // callee is unbound
-    if (eeFound === callee)
+    if (eeFound[1] === callee)
       machine.bindCallee(callee as Variable, erFound as Term)
     // callee is bound, caller is unbound
-    else if (erFound === caller) machine.bindScope(caller as Variable, eeFound)
+    else if (erFound[1] === caller) machine.bindScope(caller as Variable, eeFound)
     // both are bound, callee is still var
     else if (eeFound instanceof Variable) machine.bindCallee(eeFound, caller as Term)
     // both bound, callee is const but caller is var
@@ -152,6 +153,6 @@ export const operations: { [k: string]: Operation } = {
       machine.fail = true
       return
     }
-    machine.programC++
+    machine.programP++
   },
 }

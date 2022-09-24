@@ -1,6 +1,6 @@
 import { Clause } from './clause.js'
 import { Prefixers, variable } from './data-factory.js'
-import { Bindings, Instruction, Program } from './machine.js'
+import { ScopedBindings, Instruction, Program, Bindings } from './machine.js'
 import { Callable, Module } from './module.js'
 import { operations } from './operations.js'
 import { traverse, VarMap } from './syntax.js'
@@ -8,9 +8,7 @@ import { Name, Quad, Term } from './term.js'
 
 const { rdf } = Prefixers
 
-function makeInstruction(caller: Term, callee: Term): Instruction {
-
-}
+function makeInstruction(caller: Term, callee: Term): Instruction {}
 
 function compile(module: Module, expression: Name): [Program, VarMap] {
   const program: Program = []
@@ -35,10 +33,7 @@ function compile(module: Module, expression: Name): [Program, VarMap] {
 
     callable.signature.match(
       { graph: variable('_'), subject, predicate, object },
-      (q: Quad) => {
-        
-
-      },
+      (q: Quad) => {},
     )
   }
 
@@ -57,11 +52,12 @@ export class Query {
     this.program = program
   }
 
-  newScope(args: Bindings | null): Bindings {
-    const out = new Map()
+  newScope(args: Bindings | null): ScopedBindings {
+    const out: ScopedBindings = new Map()
     if (args)
-      for (const v of this.varNames.values()) out.set(v, args.get(v) ?? v)
-    else for (const v of this.varNames.values()) out.set(v, v)
+      for (const v of this.varNames.values())
+        out.set(v, [null, args.get(v) ?? v])
+    else for (const v of this.varNames.values()) out.set(v, [null, v])
     return out
   }
 }

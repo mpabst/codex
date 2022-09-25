@@ -4,6 +4,7 @@ import { Query } from './query.js'
 import { Store } from './store.js'
 import { Term, Variable } from './term.js'
 
+export type ScopedBinding<T extends Term = Term> = [Query, T]
 export type Bindings<T = Term> = Map<Variable, T>
 export type ScopedBindings<T extends Term = Term> = Bindings<ScopedBinding<T>>
 export type Argument = Term | Branch | Query | null
@@ -11,8 +12,7 @@ export type Operation = (m: Machine, l: Argument, r: Argument) => void
 export type Instruction = [Operation, Argument, Argument]
 export type Program = Instruction[]
 
-type ScopedBinding<T extends Term = Term> = [Clause | null, T]
-type Pending = Map<Clause, ScopedBindings>
+type Pending = Map<Query, ScopedBindings>
 type DBNode = Leaf | Branch
 
 class Environment {
@@ -127,10 +127,13 @@ export class Machine {
     return true
   }
 
-  deref([clause, variable]: ScopedBinding<Variable>): ScopedBinding {
-    const found = clause
-      ? this.pending.get(clause)!.get(variable)!
-      : this.scope!.get(variable)!
+  // todo: avoid branching in deref() and bind() by also having special-case
+  // implementations for this.scope and this.calleeArgs
+  deref([query, variable]: ScopedBinding<Variable>): ScopedBinding {
+    const found =
+      query === this.query
+        ? this.scope!.get(variable)!
+        : this.pending.get(query)!.get(variable)!
     if (found[1] instanceof Variable)
       return found[1] === variable
         ? found
@@ -139,7 +142,7 @@ export class Machine {
   }
 
   bind(vari: ScopedBinding<Variable>, value: ScopedBinding): void {
-    if (vari[0]) this.scope!.set(vari[1], value)
+    if (vari[0] === this.query) this.scope!.set(vari[1], value)
     else this.pending.get(vari[0]!)!.set(vari[1], value)!
     this.trailP++
     this.trail[this.trailP] = vari
@@ -147,9 +150,8 @@ export class Machine {
 
   unbind(): void {
     const binding = this.trail[this.trailP]
-    const [clause, variable] = binding
-    if (!clause) this.scope!.set(variable, [null, variable])
-    else this.pending.get(clause)!.set(variable, [clause, variable])
+    if (binding[0] === this.query) this.scope!.set(binding[1], binding)
+    else this.pending.get(binding[0])!.set(binding[1], binding)
     this.trailP--
   }
 

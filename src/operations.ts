@@ -1,5 +1,11 @@
 import { Clause } from './clause.js'
-import { Argument, Operation, Machine } from './machine.js'
+import {
+  Argument,
+  Operation,
+  Machine,
+  ScopedBindings,
+  ScopedBinding,
+} from './machine.js'
 import { Term, Variable } from './term.js'
 
 export type Leaf = Set<Term> | Map<Term, number>
@@ -32,8 +38,7 @@ function eNewVar(machine: Machine, term: Argument, advance: Unary): void {
 export const operations: { [k: string]: Operation } = {
   allocate(machine: Machine, term: Argument, _: Argument): void {},
 
-  deallocate(machine: Machine, _term: Argument, _: Argument): void {
-  },
+  deallocate(machine: Machine, _term: Argument, _: Argument): void {},
 
   try(machine: Machine, term: Argument, _: Argument): void {
     // push CP with its next instr the following retry/trust
@@ -100,36 +105,38 @@ export const operations: { [k: string]: Operation } = {
   },
 
   eFinalOldVar(machine: Machine, term: Argument, _: Argument): void {
-    const found = machine.deref(term as Variable)
+    const found = machine.deref([null, term as Variable])
     if (found instanceof Variable) operations.eFinalNewVar(machine, found, null)
     else operations.eFinalConst(machine, found, null)
   },
 
   iConstVar(machine: Machine, caller: Argument, callee: Argument): void {
-    const found = machine.derefCallee(callee as Variable)
-    if (found === callee) {
-      machine.bindCallee(callee as Variable, caller as Term)
+    const found = machine.deref([machine.callee, callee as Variable])
+    if (found[1] instanceof Variable) {
+      machine.bind(found as ScopedBinding<Variable>, [null, caller as Term])
       machine.programP++
-    } else if (found === caller) machine.programP++
+    } else if (found[1] === caller) machine.programP++
     else machine.fail = true
   },
 
   iNewVarConst(machine: Machine, caller: Argument, callee: Argument): void {
-    machine.bindScope(caller as Variable, callee as Term)
+    machine.bind([null, caller as Variable], [null, callee as Term])
     machine.programP++
   },
 
   iNewVarVar(machine: Machine, caller: Argument, callee: Argument): void {
-    const found = machine.derefCallee(callee as Variable)
-    if (found === callee) machine.bindCallee(callee as Variable, caller as Term)
-    else machine.bindScope(caller as Variable, found)
+    machine.bind(
+      [null, caller as Variable],
+      machine.deref([machine.callee, callee as Variable]),
+    )
     machine.programP++
   },
 
   iOldVarConst(machine: Machine, caller: Argument, callee: Argument): void {
-    const found = machine.deref(caller as Variable)
-    if (found instanceof Variable) machine.bindScope(found, callee as Term)
-    else if (found !== callee) {
+    const found = machine.deref([null, caller as Variable])
+    if (found[1] instanceof Variable)
+      machine.bind(found as ScopedBinding<Variable>, [null, callee as Term])
+    else if (found[1] !== callee) {
       machine.fail = true
       return
     }
@@ -137,19 +144,19 @@ export const operations: { [k: string]: Operation } = {
   },
 
   iOldVarVar(machine: Machine, caller: Argument, callee: Argument): void {
-    const erFound = machine.deref([null, caller as Variable])
+    const erFound = machine.deref([machine.query, caller as Variable])
     const eeFound = machine.deref([machine.callee, callee as Variable])
-    // callee is unbound
+    // caller is bound, callee is unbound
     if (eeFound[1] === callee)
-      machine.bindCallee(callee as Variable, erFound as Term)
-    // callee is bound, caller is unbound
-    else if (erFound[1] === caller) machine.bindScope(caller as Variable, eeFound)
-    // both are bound, callee is still var
-    else if (eeFound instanceof Variable) machine.bindCallee(eeFound, caller as Term)
-    // both bound, callee is const but caller is var
-    else if (erFound instanceof Variable) machine.bindScope(erFound, callee as Term)
+      machine.bind([machine.callee, callee as Variable], erFound)
+    // both are bound, caller's referent is const, callee's is var
+    else if (eeFound[1] instanceof Variable)
+      machine.bind(eeFound as ScopedBinding<Variable>, erFound)
+    // both bound, callee's referent is const but caller's is var
+    else if (erFound[1] instanceof Variable)
+      machine.bind(erFound as ScopedBinding<Variable>, eeFound)
     // both bound to consts
-    else if (erFound !== eeFound) {
+    else if (erFound[1] !== eeFound[1]) {
       machine.fail = true
       return
     }

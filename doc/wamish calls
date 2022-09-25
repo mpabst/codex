@@ -1,3 +1,13 @@
+for now, keep callee vars pointing to caller and
+copy Bindings to scope on allocate(). we can avoid this copy if we reverse that reference direction, and have caller vars point to callee vars, but then we need to disambiguate which callee.
+
+trail qs:
+what happens on call returns?
+- if we're copying out args back to caller's pending/calleeArgs, then maybe just restore trailP without unbinding?
+what happens when we backtrack up the call stack?
+maybe want to work out how arg passing and return works first
+how does it work in the WAM?
+
 stuff i need:
 module-level signatures, map of head pattern -> expressing clause or EDB
 new memo class: complete inargs in canonical order -> list of outargs, var set can vary to include only unbound at call

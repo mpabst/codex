@@ -180,6 +180,7 @@ function compile(module: Module, expression: Name): [Program, Variable[]] {
 export class Query {
   program: Program
   vars: Variable[]
+  // size: number // size of activation record, ie all callee vars
 
   constructor(module: Module, name: Name) {
     const [program, vars] = compile(module, name)

@@ -1,3 +1,5 @@
+import { TripleSet } from '../../collections/data-set.js'
+import { Index } from '../../collections/index.js'
 import { Parser } from '../parser.js'
 
 describe('parser', () => {
@@ -21,7 +23,7 @@ describe('parser', () => {
     // not { foo... }
     // disallow outside of expression contexts
 
-    parser.parse()
+    parser.parse(new Index(TripleSet))
     console.log(parser.namespace.prettyPrint(parser.resultAry))
   })
 })

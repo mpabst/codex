@@ -235,7 +235,7 @@ export class Parser {
     return new ParseError(`unexpected: ${this.token} @ ${this.context.place}`)
   }
 
-  parse(output = new Index()): Index {
+  parse(output: Index): Index {
     this.output = output
     try {
       while (true) {

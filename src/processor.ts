@@ -1,4 +1,4 @@
-import { Branch, Leaf } from './operations.js'
+import { Branch, Leaf, operations } from './operations.js'
 import { Query } from './query.js'
 import { Term, Variable } from './term.js'
 
@@ -10,7 +10,7 @@ export type Program = Instruction[]
 
 type DBNode = Leaf | Branch
 
-class Environment {
+export class Environment {
   query: Query
   programP: number
   // i don't think this changes when we push a CP, but
@@ -19,6 +19,7 @@ class Environment {
   heapP: number
   scopeP: number
   argsP: number
+  // no need for dbNode since we never call mid-pattern
 
   constructor(proc: Processor) {
     this.query = proc.query!
@@ -183,6 +184,8 @@ export class Processor {
     emit: (b: Bindings) => void = console.log,
     args: Bindings = new Map(),
   ): void {
+    // fixme: don't mutate arg
+    query.program.push([operations.emitResult, null, null])
     this.query = query
     this.programP = 0
     this.initArgs(args)

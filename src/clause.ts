@@ -1,6 +1,7 @@
 import { BindingsSet } from './collections/bindings-set.js'
 import { Prefixers } from './data-factory.js'
 import { Module } from './module.js'
+import { operations } from './operations.js'
 import { Query } from './query.js'
 import { Rule } from './rule.js'
 import { traverse } from './syntax.js'
@@ -21,6 +22,7 @@ export class Clause {
     if (bodies) {
       const [body] = bodies
       this.body = new Query(module, body)
+      this.body.program.push([operations.return, null, null])
       this.vars = this.initSignature(module, rule, head)
       this.memo = new BindingsSet(this.vars)
     } else {

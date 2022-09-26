@@ -1,14 +1,11 @@
-import { Argument, Bindings, Operation, Processor } from './processor.js'
+import { Argument, Bindings, Environment, Operation, Processor } from './processor.js'
+import { Query } from './query.js'
 import { Term } from './term.js'
 
 export type Leaf = Set<Term> | Map<Term, number>
 export type Branch = Map<Term, Leaf> | Map<Term, Map<Term, Leaf>>
 
 export const operations: { [k: string]: Operation } = {
-  allocate(proc: Processor, term: Argument, _: Argument): void {},
-
-  deallocate(proc: Processor, _term: Argument, _: Argument): void {},
-
   try(proc: Processor, nextChoice: Argument, _: Argument): void {
     // push CP with its next instr the following retry/trust
     // set pending
@@ -18,14 +15,21 @@ export const operations: { [k: string]: Operation } = {
 
   trust(proc: Processor, term: Argument, _: Argument): void {},
 
-  call(proc: Processor, term: Argument, _: Argument): void {
-    const [query, args] = proc.pending.get(left)
-    proc.query = query
-    proc.scope = args
-    proc.programP = 0
+  call(proc: Processor, scopeP: Argument, query: Argument): void {
+    // todo: check memo
+    proc.andP = proc.stack.length
+    proc.stack.push(new Environment(proc))
+    proc.scopeP = scopeP as number
+    // proc.heapP = proc.heapP + proc.query!.size
+    proc.query = query as Query
+    proc.programP = -1
   },
 
-  emitResult(proc: Processor, _: Argument): void {
+  return(proc: Processor, _: Argument, __: Argument): void {
+    proc.stack[proc.andP].restore(proc)
+  },
+
+  emitResult(proc: Processor, _: Argument, __: Argument): void {
     const binds: Bindings = new Map()
     for (const i in proc.query!.vars)
       binds.set(
@@ -36,7 +40,7 @@ export const operations: { [k: string]: Operation } = {
     proc.fail = !proc.backtrack()
   },
 
-  setClause(proc: Processor, calleeP: Argument): void {
+  setCallee(proc: Processor, calleeP: Argument, _: Argument): void {
     proc.calleeP = calleeP as number
   },
 
@@ -50,7 +54,7 @@ export const operations: { [k: string]: Operation } = {
     else proc.fail = true
   },
 
-  eMedialAnonVar(proc: Processor, _: Argument): void {
+  eMedialAnonVar(proc: Processor, _: Argument, __: Argument): void {
     const { done, value } = proc.nextChoice()
     if (!done) proc.dbNode = (proc.dbNode as Branch).get(value)!
   },

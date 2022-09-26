@@ -7,7 +7,7 @@ import { Term, Variable } from './term.js'
 export type ScopedBinding<T extends Term = Term> = [Query, T]
 export type Bindings<T = Term> = Map<Variable, T>
 export type ScopedBindings<T extends Term = Term> = Bindings<ScopedBinding<T>>
-export type Argument = Term | Branch | Query | null
+export type Argument = Term | Branch | Query | number | null
 export type Operation = (m: Machine, l: Argument, r: Argument) => void
 export type Instruction = [Operation, Argument, Argument]
 export type Program = Instruction[]
@@ -103,12 +103,11 @@ export class Machine {
   query: Query | null = null
   programP: number = -1
 
-  scope: ScopedBindings | null = null
+  scopeP: number = -1
   dbNode: DBNode | null = null
 
-  pending: Pending = new Map()
-  callee: Clause | null = null
-  calleeArgs: ScopedBindings | null = null
+  // address in stack of where current callee's args begin
+  argsP: number = -1
 
   trail: ScopedBinding<Variable>[] = []
   trailP: number = -1

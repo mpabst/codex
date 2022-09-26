@@ -67,15 +67,12 @@ export class NamedNode extends Term {
 }
 
 export class Variable extends Term {
-  isAnon(): boolean {
-    return this.value[0] === '_'
-  }
-
   toString(): string {
     return `?${this.value}`
   }
 }
 
+export const ANON_VAR = new Variable('_')
 export const DEFAULT_GRAPH = new DefaultGraph()
 
 export type Name = NamedNode | BlankNode

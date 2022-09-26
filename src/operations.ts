@@ -40,7 +40,7 @@ export const operations: { [k: string]: Operation } = {
 
   deallocate(machine: Machine, _term: Argument, _: Argument): void {},
 
-  try(machine: Machine, term: Argument, _: Argument): void {
+  try(machine: Machine, nextChoice: Argument, _: Argument): void {
     // push CP with its next instr the following retry/trust
     // set pending
   },

@@ -6,8 +6,8 @@ export class BindingsSet {
   protected order: Variable[]
   #size: number = 0
 
-  constructor(b: Set<Variable>) {
-    this.order = Array.from(b)
+  constructor(b: Iterable<Variable>) {
+    this.order = [...b]
   }
 
   protected reorder(b: Bindings): Term[] {

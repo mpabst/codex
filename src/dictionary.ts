@@ -1,4 +1,4 @@
-import { DEFAULT_GRAPH, Term } from './term.js'
+import { ANON_VAR, DEFAULT_GRAPH, Term } from './term.js'
 
 abstract class Dictionary<T> {
   protected readonly data = new Map<string, T>()
@@ -25,6 +25,7 @@ export class TermDictionary extends Dictionary<Term> {
 
   clear(): void {
     super.clear()
+    this.lookup(ANON_VAR)
     this.lookup(DEFAULT_GRAPH)
   }
 

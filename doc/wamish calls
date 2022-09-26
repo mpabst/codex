@@ -39,10 +39,8 @@ every line produces a choice point on the graph term at first,
 eliminate it afterwards if there's only one match?
 
 try me else ( next graph option )
-init pending (optional)
 set clause or set index
 IDB instructions from above
-call (optional)
 
 collect options for matching a line
 sort

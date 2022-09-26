@@ -1,5 +1,5 @@
 import { Bindings } from '../machine.js'
-import { Quad, Term, Triple, Variable } from '../term.js'
+import { ANON_VAR, Quad, Term, Triple, Variable } from '../term.js'
 
 const PLACES: { [k: string]: keyof Quad } = {
   G: 'graph',
@@ -142,7 +142,7 @@ export class QuadSet extends DataSet<Quad> {
     let pat: Term = pattern[place]!
     for (const [a, bs] of this.root) {
       if (pat instanceof Variable) {
-        if (!pat.isAnon()) {
+        if (pat !== ANON_VAR) {
           bound = scope.get(pat)
           if (bound !== pat && a !== bound) continue
           scope.set(pat, a)
@@ -154,7 +154,7 @@ export class QuadSet extends DataSet<Quad> {
       pat = pattern[place]!
       for (const [b, cs] of bs) {
         if (pat instanceof Variable) {
-          if (!pat.isAnon()) {
+          if (pat !== ANON_VAR) {
             bound = scope.get(pat)
             if (bound !== pat && b !== bound) continue
             scope.set(pat, b)
@@ -166,7 +166,7 @@ export class QuadSet extends DataSet<Quad> {
         pat = pattern[place]!
         for (const [c, ds] of cs) {
           if (pat instanceof Variable) {
-            if (!pat.isAnon()) {
+            if (pat !== ANON_VAR) {
               bound = scope.get(pat)
               if (bound !== pat && c !== bound) continue
               scope.set(pat, c)
@@ -178,7 +178,7 @@ export class QuadSet extends DataSet<Quad> {
           pat = pattern[place]!
           for (const d of ds) {
             if (pat instanceof Variable) {
-              if (!pat.isAnon()) {
+              if (pat !== ANON_VAR) {
                 bound = scope.get(pat)
                 if (bound !== pat && d !== bound) continue
                 scope.set(pat, d)

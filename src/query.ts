@@ -1,6 +1,6 @@
 import { Clause } from './clause.js'
 import { Prefixers, variable } from './data-factory.js'
-import { Argument, Instruction, Program } from './machine.js'
+import { Argument, Instruction, Program } from './processor.js'
 import { Callable, Module } from './module.js'
 import { operations } from './operations.js'
 import { traverse } from './syntax.js'
@@ -24,7 +24,7 @@ class Scope {
         this.edbInstr('Medial', er.subject),
         this.edbInstr('Medial', er.predicate),
         this.edbInstr('Final', er.object),
-      ]
+      ].filter(Boolean) as Program
     } else {
       const [callee, idx] = this.getCallee(this.module.clauses.get(ee.graph)!)
       instrs = [
@@ -46,13 +46,16 @@ class Scope {
     ]
   }
 
-  edbInstr(position: string, term: Term): Instruction {
+  edbInstr(position: string, term: Term): Instruction | null {
     const instr = (type: string, arg: Argument): Instruction => [
       operations['e' + position + type],
       arg,
       null,
     ]
-    if (term === ANON_VAR) return instr('AnonVar', null)
+    if (term === ANON_VAR) {
+      if (position === 'Final') return null
+      else return instr('AnonVar', null)
+    }
     if (term instanceof Variable) {
       let type = 'OldVar'
       let [idx, isNew] = this.vars.map(term)

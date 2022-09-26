@@ -1,4 +1,4 @@
-import { Bindings } from '../machine.js'
+import { Bindings } from '../processor.js'
 import { ANON_VAR, Quad, Term, Triple, Variable } from '../term.js'
 
 const PLACES: { [k: string]: keyof Quad } = {

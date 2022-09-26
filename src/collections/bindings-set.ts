@@ -1,4 +1,4 @@
-import { Bindings } from '../machine.js'
+import { Bindings } from '../processor.js'
 import { Term, Variable } from '../term.js'
 
 export class BindingsSet {

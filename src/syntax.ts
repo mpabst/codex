@@ -1,6 +1,6 @@
 import { Index } from './collections/index.js'
 import { A, Prefixers } from './data-factory.js'
-import { Bindings } from './machine.js'
+import { Bindings } from './processor.js'
 import { Statement, Quad, Triple, Variable, Name } from './term.js'
 
 export type VarMap = Bindings<Variable>

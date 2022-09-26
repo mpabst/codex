@@ -1,5 +1,5 @@
 import { PREFIXES } from '../data-factory.js'
-import { Bindings } from '../machine.js'
+import { Bindings } from '../processor.js'
 import { FlatQuad, Term } from '../term.js'
 
 const prefixes = new Map()

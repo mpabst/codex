@@ -1,4 +1,4 @@
-import { A, ANON_VAR, DEFAULT_GRAPH, Term } from './term.js'
+import { A, ANON, DEFAULT_GRAPH, Term } from './term.js'
 
 abstract class Dictionary<T> {
   protected readonly data = new Map<string, T>()
@@ -26,7 +26,7 @@ abstract class Dictionary<T> {
 
 export class TermDictionary extends Dictionary<Term> {
   protected init(): void {
-    for (const c of [A, ANON_VAR, DEFAULT_GRAPH]) this.lookup(c)
+    for (const c of [A, ANON, DEFAULT_GRAPH]) this.lookup(c)
   }
 
   key(t: Term): string {

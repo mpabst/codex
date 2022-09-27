@@ -74,7 +74,7 @@ export class Variable extends Term {
 
 export const RDF = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#'
 export const A = new NamedNode(RDF + 'type')
-export const ANON_VAR = new Variable('_')
+export const ANON = new Variable('_')
 export const DEFAULT_GRAPH = new DefaultGraph()
 
 export type Name = NamedNode | BlankNode

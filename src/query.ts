@@ -4,12 +4,12 @@ import { Argument, Instruction, Program } from './processor.js'
 import { Callable, Module } from './module.js'
 import { operations } from './operations.js'
 import { traverse } from './syntax.js'
-import { ANON_VAR, Name, Quad, Term, Variable } from './term.js'
+import { ANON, Name, Quad, Term, Variable } from './term.js'
 import { VarMap } from './var-map.js'
 
 const { rdf } = Prefixers
 
-class Scope {
+export class Scope {
   callees: Callee[] = []
   vars = new VarMap()
 
@@ -17,10 +17,10 @@ class Scope {
 
   compile(er: Quad, ee: Quad, offset: number, numChoices: number): Program {
     let instrs: Program
-    const im = this.module.modules.get(ee.graph)
-    if (im) {
+    const edb = this.module.modules.get(ee.graph)
+    if (edb) {
       instrs = [
-        [operations.setIndex, im.facts.getRoot('SPO'), null],
+        [operations.setIndex, edb.facts.getRoot('SPO'), null],
         this.edbInstr('Medial', er.subject),
         this.edbInstr('Medial', er.predicate),
         this.edbInstr('Final', er.object),
@@ -52,7 +52,7 @@ class Scope {
       arg,
       null,
     ]
-    if (term === ANON_VAR) {
+    if (term === ANON) {
       if (position === 'Final') return null
       else return instr('AnonVar', null)
     }
@@ -81,7 +81,7 @@ class Callee {
   }
 
   idbInstr(erArg: Argument, eeArg: Argument): Instruction | null {
-    if (erArg === ANON_VAR || erArg === ANON_VAR) return null
+    if (erArg === ANON || erArg === ANON) return null
 
     let erType = 'Const'
     let eeType = 'Const'
@@ -182,9 +182,14 @@ export class Query {
   vars: Variable[]
   // size: number // size of activation record, ie all callee vars
 
-  constructor(module: Module, name: Name) {
-    const [program, vars] = compile(module, name)
-    this.program = program
-    this.vars = vars
+  constructor(module?: Module, name?: Name) {
+    if (module && name) {
+      const [program, vars] = compile(module, name)
+      this.program = program
+      this.vars = vars
+    } else {
+      this.program = []
+      this.vars = []
+    }
   }
 }

@@ -1,5 +1,9 @@
-import { Bindings } from '../processor.js'
-import { ANON_VAR, Quad, Term, Triple, Variable } from '../term.js'
+import { randomString, variable } from '../data-factory.js'
+import { operations } from '../operations.js'
+import { Argument, Bindings, Processor } from '../processor.js'
+import { Query } from '../query.js'
+import { ANON, Quad, Term, Triple, Variable } from '../term.js'
+import { VarMap } from '../var-map.js'
 
 const PLACES: { [k: string]: keyof Quad } = {
   G: 'graph',
@@ -128,68 +132,33 @@ export class QuadSet extends DataSet<Quad> {
     }
   }
 
-  // i wonder what the perf difference is vs just compiling the pattern
-  // as a Query; ditto replacing forEach() with an all-vars match()
   match(pattern: Partial<Quad>, cb: (q: Quad) => void): void {
-    const scope: Bindings = new Map()
-    for (const p of Object.values(pattern))
-      if (p instanceof Variable) scope.set(p, p)
-
-    const out: Partial<Quad> = {}
-    let bound: Term | undefined
-
-    let place: keyof Quad = this.order[0]
-    let pat: Term = pattern[place]!
-    for (const [a, bs] of this.root) {
-      if (pat instanceof Variable) {
-        if (pat !== ANON_VAR) {
-          bound = scope.get(pat)
-          if (bound !== pat && a !== bound) continue
-          scope.set(pat, a)
-        }
-      } else if (a !== pat) continue
-      out[place] = a
-
-      place = this.order[1]
-      pat = pattern[place]!
-      for (const [b, cs] of bs) {
-        if (pat instanceof Variable) {
-          if (pat !== ANON_VAR) {
-            bound = scope.get(pat)
-            if (bound !== pat && b !== bound) continue
-            scope.set(pat, b)
-          }
-        } else if (b !== pat) continue
-        out[place] = b
-
-        place = this.order[2]
-        pat = pattern[place]!
-        for (const [c, ds] of cs) {
-          if (pat instanceof Variable) {
-            if (pat !== ANON_VAR) {
-              bound = scope.get(pat)
-              if (bound !== pat && c !== bound) continue
-              scope.set(pat, c)
-            }
-          } else if (c !== pat) continue
-          out[place] = c
-
-          place = this.order[3]
-          pat = pattern[place]!
-          for (const d of ds) {
-            if (pat instanceof Variable) {
-              if (pat !== ANON_VAR) {
-                bound = scope.get(pat)
-                if (bound !== pat && d !== bound) continue
-                scope.set(pat, d)
-              }
-            } else if (d !== pat) continue
-            out[place] = d
-
-            cb(out as Quad)
-          }
-        }
+    // todo: just use Scope and its edbInstr()?
+    const scope = new VarMap()
+    const query = new Query()
+    const map = new Map<keyof Quad, (b: Bindings) => Term>()
+    query.program = [[operations.setIndex, this.root, null]]
+    for (let i in this.order) {
+      const pos = parseInt(i) === this.order.length - 1 ? 'eFinal' : 'eMedial'
+      const o = this.order[i] as keyof Quad
+      let term = pattern[o]
+      if (!term || term === ANON) term = variable(randomString())
+      if (term instanceof Variable) {
+        map.set(o, b => b.get(term!)!)
+        const [mapped, isNew] = scope.map(term)
+        query.program.push([operations[pos + (isNew ? 'New' : 'Old') + 'Var'], mapped, null])
+      } else {
+        map.set(o, () => term!)
+        query.program.push([operations[pos + 'Const'], term, null])
       }
     }
+    query.program.push([operations.emitResult, null, null])
+    query.vars = scope.vars
+    const emit = (b: Bindings) => {
+      const out: Partial<Quad> = {}
+      for (const [k, v] of map) out[k] = v(b)
+      cb(out as Quad)
+    }
+    new Processor().evaluate(query, emit)
   }
 }

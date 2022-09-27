@@ -1,5 +1,6 @@
 import { Variable } from './term.js'
 
+// put this in query.ts ?
 export class VarMap {
   constructor(public vars: Variable[] = []) {}
 

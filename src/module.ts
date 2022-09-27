@@ -1,6 +1,6 @@
 import { Index } from './collections/index.js'
 import { Parser } from './parser/parser.js'
-import { A, ANON_VAR, Name, NamedNode, Quad } from './term.js'
+import { A, ANON, Name, NamedNode, Quad } from './term.js'
 import { Prefixers } from './data-factory.js'
 import { Store } from './store.js'
 import { QuadSet, TripleSet } from './collections/data-set.js'
@@ -22,7 +22,7 @@ export class Module implements Callable {
     return module
   }
 
-  // below include imports; modules includes this
+  // all of below include imports, modules includes this
   modules = new Map<Name, Module>()
   rules = new Map<Name, Rule>()
   clauses = new Map<Name, Clause>()
@@ -43,9 +43,9 @@ export class Module implements Callable {
     // represent EDB like this, until we get shapes working
     this.signature.add({
       graph: this.name,
-      subject: ANON_VAR,
-      predicate: ANON_VAR,
-      object: ANON_VAR,
+      subject: ANON,
+      predicate: ANON,
+      object: ANON,
     })
 
     const imports = this.facts.getRoot('SPO').get(this.name)?.get(fpc('imports'))

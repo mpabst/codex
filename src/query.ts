@@ -1,3 +1,9 @@
+// this could eliminate some more signature matches that'll never
+// return anything by tracking variable bindings across source
+// patterns, but i'm not sure it's worth it. how much compilation
+// can be done in the FP language itself? that could give us the
+// backtracking necessary to do that elimination
+
 import { Clause } from './clause.js'
 import { Prefixers, variable } from './data-factory.js'
 import { Argument, Instruction, Program } from './processor.js'

@@ -1,9 +1,4 @@
-import { randomString, variable } from '../data-factory.js'
-import { operations } from '../operations.js'
-import { Argument, Bindings, Processor } from '../processor.js'
-import { Query } from '../query.js'
-import { ANON, Quad, Term, Triple, Variable } from '../term.js'
-import { VarMap } from '../var-map.js'
+import { Quad, Term, Triple } from '../term.js'
 
 const PLACES: { [k: string]: keyof Quad } = {
   G: 'graph',
@@ -130,35 +125,5 @@ export class QuadSet extends DataSet<Quad> {
         }
       }
     }
-  }
-
-  match(pattern: Partial<Quad>, cb: (q: Quad) => void): void {
-    // todo: just use Scope and its edbInstr()?
-    const scope = new VarMap()
-    const query = new Query()
-    const map = new Map<keyof Quad, (b: Bindings) => Term>()
-    query.program = [[operations.setIndex, this.root, null]]
-    for (let i in this.order) {
-      const pos = parseInt(i) === this.order.length - 1 ? 'eFinal' : 'eMedial'
-      const o = this.order[i] as keyof Quad
-      let term = pattern[o]
-      if (!term || term === ANON) term = variable(randomString())
-      if (term instanceof Variable) {
-        map.set(o, b => b.get(term!)!)
-        const [mapped, isNew] = scope.map(term)
-        query.program.push([operations[pos + (isNew ? 'New' : 'Old') + 'Var'], mapped, null])
-      } else {
-        map.set(o, () => term!)
-        query.program.push([operations[pos + 'Const'], term, null])
-      }
-    }
-    query.program.push([operations.emitResult, null, null])
-    query.vars = scope.vars
-    const emit = (b: Bindings) => {
-      const out: Partial<Quad> = {}
-      for (const [k, v] of map) out[k] = v(b)
-      cb(out as Quad)
-    }
-    new Processor().evaluate(query, emit)
   }
 }

@@ -1,4 +1,11 @@
-import { Argument, Bindings, Environment, Operation, Processor } from './processor.js'
+import { VTMap } from './collections/var-tracking.js'
+import {
+  Argument,
+  Bindings,
+  Environment,
+  Operation,
+  Processor,
+} from './processor.js'
 import { Query } from './query.js'
 import { Term } from './term.js'
 
@@ -26,7 +33,7 @@ export const operations: { [k: string]: Operation } = {
   },
 
   return(proc: Processor, _: Argument, __: Argument): void {
-    proc.stack[proc.andP].restore(proc)
+    proc.stack[proc.andP].restore()
   },
 
   emitResult(proc: Processor, _: Argument, __: Argument): void {
@@ -77,7 +84,7 @@ export const operations: { [k: string]: Operation } = {
     if (!(proc.dbNode as Leaf).has(caller as Term)) proc.fail = true
   },
 
-  // no need for eFinalAnonVar, just increment programP
+  // no need for eFinalAnonVar
 
   eFinalNewVar(proc: Processor, caller: Argument, _: Argument): void {
     const { done, value } = proc.nextChoice()
@@ -121,5 +128,6 @@ export const operations: { [k: string]: Operation } = {
     else if (typeof erFound === 'number') proc.bind(erFound, eeFound)
     // both bound to consts
     else if (erFound !== eeFound) proc.fail = true
+    // both consts but they match: just continue
   },
 }

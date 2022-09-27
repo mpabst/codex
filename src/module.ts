@@ -1,20 +1,26 @@
-import { Index } from './collections/index.js'
-import { Parser } from './parser/parser.js'
-import { A, ANON, Name, NamedNode, Quad } from './term.js'
-import { Prefixers } from './data-factory.js'
-import { Store } from './store.js'
-import { QuadSet, TripleSet } from './collections/data-set.js'
-import { Rule } from './rule.js'
 import { Clause } from './clause.js'
+import { TripleSet } from './collections/data-set.js'
+import { Index } from './collections/index.js'
+import { VTQuadSet } from './collections/var-tracking.js'
+import { Prefixers } from './data-factory.js'
+import { Parser } from './parser/parser.js'
+import { Rule } from './rule.js'
+import { Store } from './store.js'
+import { A, ANON, Name, NamedNode, Quad } from './term.js'
 
 const { fpc } = Prefixers
 
 export interface Callable {
-  signature: QuadSet
+  signature: VTQuadSet
+  clauses: Map<Name, Clause>
 }
 
 export class Module implements Callable {
-  static async parse(store: Store, name: Name, source: string): Promise<Module> {
+  static async parse(
+    store: Store,
+    name: Name,
+    source: string,
+  ): Promise<Module> {
     const parser = new Parser(name, source)
     parser.parse(new Index(TripleSet, ['SPO', 'POS']))
     const module = new Module(store, name, parser.output!)
@@ -27,7 +33,7 @@ export class Module implements Callable {
   rules = new Map<Name, Rule>()
   clauses = new Map<Name, Clause>()
 
-  signature = new QuadSet('SPOG')
+  signature = new VTQuadSet('SPOG')
 
   constructor(
     public store: Store,
@@ -48,7 +54,10 @@ export class Module implements Callable {
       object: ANON,
     })
 
-    const imports = this.facts.getRoot('SPO').get(this.name)?.get(fpc('imports'))
+    const imports = this.facts
+      .getRoot('SPO')
+      .get(this.name)
+      ?.get(fpc('imports'))
     if (imports) {
       const pending: Name[] = []
       for (const i of imports) {

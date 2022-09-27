@@ -7,8 +7,7 @@ export type Argument = Term | Branch | Query | number | null
 export type Operation = (m: Processor, l: Argument, r: Argument) => void
 export type Instruction = [Operation, Argument, Argument]
 export type Program = Instruction[]
-
-type DBNode = Leaf | Branch
+export type DBNode = Leaf | Branch
 
 export class Environment {
   query: Query
@@ -21,7 +20,7 @@ export class Environment {
   argsP: number
   // no need for dbNode since we never call mid-pattern
 
-  constructor(proc: Processor) {
+  constructor(protected proc: Processor) {
     this.query = proc.query!
     this.programP = proc.programP
     this.andP = proc.andP
@@ -30,15 +29,13 @@ export class Environment {
     this.argsP = proc.calleeP
   }
 
-  // Passing proc on stack to avoid having to store it
-  // on this
-  restore(proc: Processor): void {
-    proc.query = this.query
-    proc.programP = this.programP
-    proc.andP = this.andP
-    proc.heapP = this.heapP
-    proc.scopeP = this.scopeP
-    proc.calleeP = this.argsP
+  restore(): void {
+    this.proc.query = this.query
+    this.proc.programP = this.programP
+    this.proc.andP = this.andP
+    this.proc.heapP = this.heapP
+    this.proc.scopeP = this.scopeP
+    this.proc.calleeP = this.argsP
   }
 }
 
@@ -52,35 +49,37 @@ abstract class ChoicePoint extends Environment {
     this.trailP = proc.trailP
   }
 
-  isCurrent(proc: Processor): boolean {
-    return proc.query === this.query && proc.programP === this.programP
+  isCurrent(): boolean {
+    return (
+      this.proc.query === this.query && this.proc.programP === this.programP
+    )
   }
 
-  restore(proc: Processor): void {
-    super.restore(proc)
-    proc.orP = this.orP
-    while (proc.trailP > this.trailP) proc.unbind()
-    proc.fail = false
+  restore(): void {
+    super.restore()
+    this.proc.orP = this.orP
+    while (this.proc.trailP > this.trailP) this.proc.unbind()
+    this.proc.fail = false
   }
 }
 
 class IteratingChoicePoint extends ChoicePoint {
+  // fixme: iterate over entries rather than keys, so we
+  // don't have to refetch the value
   protected iterator: Iterator<Term>
 
-  constructor(proc: Processor) {
+  constructor(proc: Processor, iterable: Iterable<Term>) {
     super(proc)
-    // fixme: iterate over entries rather than keys, so we
-    // don't have to refetch the value
-    this.iterator = proc.dbNode!.keys()
+    this.iterator = iterable[Symbol.iterator]()
   }
 
-  next(proc: Processor): IteratorResult<Term> {
+  next(): IteratorResult<Term> {
     const out = this.iterator.next()
     // save an iteration by checking IteratorHasMore instead
     // of waiting for done?
     if (out.done) {
-      proc.orP--
-      proc.fail = true
+      this.proc.orP--
+      this.proc.fail = true
     }
     return out
   }
@@ -129,7 +128,7 @@ export class Processor {
 
   backtrack(): boolean {
     if (this.orP < 0) return false
-    this.stack[this.orP].restore(this)
+    this.stack[this.orP].restore()
     return true
   }
 
@@ -199,14 +198,18 @@ export class Processor {
     }
   }
 
-  nextChoice(): IteratorResult<Term> {
+  nextChoice(
+    // instead of using a thunk, maybe move more of the flow of control
+    // into the operations?
+    iterable: () => Iterable<Term> = () => this.dbNode!.keys(),
+  ): IteratorResult<Term> {
     let cp
     if (this.orP > -1) cp = this.stack[this.orP] as IteratingChoicePoint
-    if (!cp || !cp.isCurrent(this)) {
-      cp = new IteratingChoicePoint(this)
+    if (!cp || !cp.isCurrent()) {
+      cp = new IteratingChoicePoint(this, iterable())
       this.orP = Math.max(this.andP, this.orP) + 1
       this.stack[this.orP] = cp
     }
-    return cp.next(this)
+    return cp.next()
   }
 }

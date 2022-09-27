@@ -6,8 +6,9 @@ import { ESCAPER } from './lexer.js'
 const { xsd } = Prefixers
 
 export class Namespace {
-  base: string = ''
   prefixes: { [k: string]: string } = {}
+
+  constructor(public base: string) {}
 
   error(type: string, token: string): ParseError {
     return new ParseError(`could not parse ${type} from token: ${token}`)

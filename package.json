@@ -11,7 +11,7 @@
   "type": "module",
   "scripts": {
     "build": "npm run clean && tsc -p .",
-    "test": "npm run build && npm start -- -o test.html",
+    "test": "npm run build && npm start -- -o /test/index.html",
     "clean": "rm -rf lib",
     "start": "http-server -U -c-1"
   },

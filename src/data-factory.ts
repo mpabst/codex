@@ -18,7 +18,7 @@ export const PREFIXES = {
   html: 'https://fingerpaint.systems/core/html/',
   rdf: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
   rdfs: 'http://www.w3.org/2000/01/rdf-schema#',
-  test: 'https://example.test/',
+  test: 'http://127.0.0.1:8080/test/',
   xsd: 'http://www.w3.org/2001/XMLSchema#',
 }
 
@@ -28,8 +28,6 @@ export const Prefixers: { [k: string]: (s: string) => NamedNode } = {}
 for (const [k, v] of Object.entries(PREFIXES)) Prefixers[k] = prefixer(v)
 
 const { rdf, xsd } = Prefixers
-
-export const A = rdf('type')
 
 export function blankNode(value: string): BlankNode {
   return lookup(new BlankNode(value))

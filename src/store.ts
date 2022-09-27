@@ -1,24 +1,27 @@
 import { Module } from './module.js'
-import { Diff, Quad, NamedNode, DEFAULT_GRAPH, Name } from './term.js'
+import { Diff, Quad, NamedNode, Name } from './term.js'
 
 export class Store {
   modules = new Map<Name, Module>()
 
   // what abt system listeners for things like rule compilation, etc
-  constructor(data: Iterable<Quad>) {
-    for (const d of data) {
-      if (d.graph === DEFAULT_GRAPH) throw new Error('default graph not allowed here')
-      let module = this.modules.get(d.graph)
-      // fixme: need to delay this ctor till facts are assembled
-      if (!module) module = new Module(this, d.graph)
-      module.facts.add(d)
-    }
+  constructor(data: Iterable<Quad> = []) {
+    // for (const d of data) {
+    //   if (d.graph === DEFAULT_GRAPH) throw new Error('default graph not allowed here')
+    //   let module = this.modules.get(d.graph)
+    //   // fixme: need to delay this ctor till facts are assembled
+    //   if (!module) module = new Module(this, d.graph)
+    //   module.facts.add(d)
+    // }
   }
 
-  async load({ value: iri }: NamedNode): Promise<Module> {
-    const resp = await fetch(iri)
-    if (!resp.ok) throw new Error(`Error loading module: ${iri}`)
-    return Module.parse(this, await resp.text())
+  async load(name: NamedNode): Promise<Module> {
+    // todo: normalize path, query string, etc?
+    // maybe fetch whatever, have server specify canonical, use that?
+    // where would non-normal iris be coming from tho?
+    const resp = await fetch(name.value)
+    if (!resp.ok) throw new Error(`Error loading module: ${name}`)
+    return Module.parse(this, name, await resp.text())
   }
 
   processEvent(event: Diff[]) {

@@ -14,6 +14,7 @@ import {
   DefaultGraph,
   DEFAULT_GRAPH,
   Literal,
+  Name,
   NamedNode,
   Object,
   Quad,
@@ -36,7 +37,7 @@ export class Parser {
   // which are never cleared
   expressions = ['assert', 'retract', 'head', 'body'].map(fpc)
 
-  namespace = new Namespace()
+  namespace: Namespace
   base: NamedNode | DefaultGraph = DEFAULT_GRAPH
 
   lexer: Lexer
@@ -50,8 +51,9 @@ export class Parser {
   output: Index | null = null
   resultAry: Quad[] = []
 
-  constructor(public source: string) {
+  constructor(name: Name, public source: string) {
     this.lexer = new Lexer(source)
+    this.namespace = new Namespace(name.value)
   }
 
   protected addListNode(first: Object): void {

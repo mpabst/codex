@@ -1,7 +1,7 @@
 import { Index } from './collections/index.js'
 import { Parser } from './parser/parser.js'
-import { Name, NamedNode, Quad } from './term.js'
-import { A, namedNode, Prefixers, variable } from './data-factory.js'
+import { A, ANON_VAR, Name, NamedNode, Quad } from './term.js'
+import { Prefixers } from './data-factory.js'
 import { Store } from './store.js'
 import { QuadSet, TripleSet } from './collections/data-set.js'
 import { Rule } from './rule.js'
@@ -14,14 +14,10 @@ export interface Callable {
 }
 
 export class Module implements Callable {
-  static async parse(store: Store, source: string): Promise<Module> {
-    const parser = new Parser(source)
+  static async parse(store: Store, name: Name, source: string): Promise<Module> {
+    const parser = new Parser(name, source)
     parser.parse(new Index(TripleSet, ['SPO', 'POS']))
-    const module = new Module(
-      store,
-      namedNode(parser.namespace.base),
-      parser.output!,
-    )
+    const module = new Module(store, name, parser.output!)
     await module.load()
     return module
   }
@@ -39,19 +35,20 @@ export class Module implements Callable {
     public facts: Index<TripleSet> = new Index(TripleSet),
   ) {
     store.modules.set(name, this)
+    this.modules.set(name, this)
   }
 
+  // todo: all these load() methods should be listeners
   async load(): Promise<void> {
     // represent EDB like this, until we get shapes working
-    const anon = variable('_')
     this.signature.add({
       graph: this.name,
-      subject: anon,
-      predicate: anon,
-      object: anon,
+      subject: ANON_VAR,
+      predicate: ANON_VAR,
+      object: ANON_VAR,
     })
 
-    const imports = this.facts.getRoot('SPO').get(this.name).get(fpc('imports'))
+    const imports = this.facts.getRoot('SPO').get(this.name)?.get(fpc('imports'))
     if (imports) {
       const pending: Name[] = []
       for (const i of imports) {
@@ -67,11 +64,13 @@ export class Module implements Callable {
       }
     }
 
-    const rules = this.facts.getRoot('POS').get(A).get(fpc('Rule'))
-    if (rules)
-      for (const r of rules) {
-        const rule = new Rule(this, r)
-        this.rules.set(rule.name, rule)
-      }
+    for (const klass of ['Rule', 'Writer', 'View']) {
+      const rules = this.facts.getRoot('POS').get(A)?.get(fpc(klass))
+      if (rules)
+        for (const r of rules) {
+          const rule = new Rule(this, r)
+          this.rules.set(rule.name, rule)
+        }
+    }
   }
 }

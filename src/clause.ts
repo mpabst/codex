@@ -16,6 +16,8 @@ export class Clause {
   memo: BindingsSet | null
 
   constructor(module: Module, rule: Rule, public name: Name) {
+    module.clauses.set(name, this)
+    rule.clauses.set(name, this)
     const po = module.facts.getRoot('SPO').get(name)!
     const [head] = po.get(fpc('head'))!
     const bodies = po.get(fpc('body'))!
@@ -34,7 +36,6 @@ export class Clause {
 
   protected initSignature(module: Module, rule: Rule, head: Name): Variable[] {
     const vars = new VarMap([...(this.body?.vars ?? [])])
-
     traverse(module.facts, head, {
       pattern: (node: Name) => {
         const po = module.facts.getRoot('SPO').get(node)
@@ -53,7 +54,6 @@ export class Clause {
         rule.signature.add(quad)
       },
     })
-
     return vars.vars
   }
 }

@@ -8,6 +8,7 @@ import {
   DEFAULT_GRAPH,
   Literal,
   NamedNode,
+  RDF,
   Term,
   Variable,
 } from './term.js'
@@ -16,7 +17,7 @@ export const PREFIXES = {
   dc: 'http://purl.org/dc/terms/',
   fpc: 'https://fingerpaint.systems/core/',
   html: 'https://fingerpaint.systems/core/html/',
-  rdf: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
+  rdf: RDF,
   rdfs: 'http://www.w3.org/2000/01/rdf-schema#',
   test: 'http://127.0.0.1:8080/test/',
   xsd: 'http://www.w3.org/2001/XMLSchema#',

@@ -52,7 +52,7 @@ const { fpc, rdf } = Prefixers
 export function traverse(
   context: Index,
   root: Name,
-  handlers: { [k: string]: (pattern: Name) => void },
+  handlers: { [k: string]: (node: Name) => void },
 ) {
   const spo = context.getRoot('SPO')
   const stack: (Name | null)[] = [root]
@@ -69,6 +69,6 @@ export function traverse(
       const [rest] = po.get(rdf('rest'))
       stack.push(rest, first)
     }
-    if (types.has(fpc('Pattern'))) handlers.pattern(node)
+    if (types.has(fpc('Pattern'))) handlers.doPattern(node)
   }
 }

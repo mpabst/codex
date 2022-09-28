@@ -5,15 +5,19 @@
 // backtracking necessary to do that elimination
 
 import { Clause } from './clause.js'
-import { Prefixers, variable } from './data-factory.js'
-import { Argument, Instruction, Program } from './processor.js'
-import { Callable, Module } from './module.js'
+import { compile as compileMatcher } from './collections/matching.js'
+import { Module } from './module.js'
 import { operations } from './operations.js'
+import {
+  Argument,
+  Bindings,
+  Instruction,
+  Processor,
+  Program,
+} from './processor.js'
 import { traverse } from './syntax.js'
-import { ANON, Name, Quad, Term, Variable } from './term.js'
-import { VarMap } from './var-map.js'
-
-const { rdf } = Prefixers
+import { ANON, Name, Quad, Term, Triple, Variable } from './term.js'
+import { getReifiedTriple, VarMap } from './util.js'
 
 export class Scope {
   callees: Callee[] = []
@@ -21,7 +25,7 @@ export class Scope {
 
   constructor(public module: Module) {}
 
-  compile(er: Quad, ee: Quad, offset: number, numChoices: number): Program {
+  compile(er: Triple, ee: Quad, offset: number, numChoices: number): Program {
     let instrs: Program
     const edb = this.module.modules.get(ee.graph)
     if (edb) {
@@ -79,8 +83,7 @@ export class Scope {
 }
 
 class Callee {
-  // rewritten in second pass
-  offset: number = -1
+  offset: number = -1 // rewritten in second pass
 
   constructor(public caller: Scope, public target: Clause) {
     this.caller.callees.push(this)
@@ -112,39 +115,27 @@ class Callee {
   }
 }
 
-function compile(module: Module, expression: Name): [Program, Variable[]] {
-  const program: Program = []
+function bindingsToQuad(b: Bindings): Quad {
+  const out: Partial<Quad> = {}
+  for (const [k, v] of b) out[k.value as keyof Quad] = v
+  return out as Quad
+}
+
+function compile(module: Module, query: Name): [Program, Variable[], number] {
+  const out: Program = []
+  const proc = new Processor()
   const scope = new Scope(module)
 
-  function pattern(node: Name): void {
-    const po = module.facts.getRoot('SPO').get(node)
-    const graphs = po.get(rdf('graph'))
-    let callable: Callable | undefined
-    if (!graphs) callable = module
-    else {
-      // todo: allow multiple graphs on a Pattern?
-      const graph = [...graphs][0]
-      if (graph instanceof Variable)
-        throw new Error('todo: variable graph terms')
-      // todo: what if a rule and a module are defined at the same name?
-      callable = module.modules.get(graph) ?? module.rules.get(graph)
-      if (!callable) throw new Error(`graph not found: ${node}`)
-    }
-
-    const [subject] = po.get(rdf('subject'))
-    const [predicate] = po.get(rdf('predicate'))
-    const [object] = po.get(rdf('object'))
-
+  function doPattern(node: Name): void {
     let current: Program = []
     let numChoices = 0
 
-    const caller = { graph: variable('_'), subject, predicate, object }
-    callable.signature.match(caller, (callee: Quad) => {
+    proc.evaluate(compileMatcher(module, node), (b: Bindings) => {
       current.push(
         ...scope.compile(
-          caller,
-          callee,
-          program.length + current.length,
+          getReifiedTriple(module, node),
+          bindingsToQuad(b),
+          out.length + current.length,
           numChoices,
         ),
       )
@@ -153,8 +144,8 @@ function compile(module: Module, expression: Name): [Program, Variable[]] {
 
     // chop off initial try if we only have one choice
     if (numChoices === 1) current = current.slice(1)
+    // rewrite final retry to trust
     else
-      // rewrite final retry to trust
       for (let i = current.length - 1; i > -1; i--) {
         const instr = current[i]
         if (instr[0] === operations.retry) {
@@ -163,10 +154,10 @@ function compile(module: Module, expression: Name): [Program, Variable[]] {
         }
       }
 
-    program.push(...current)
+    out.push(...current)
   }
 
-  traverse(module.facts, expression, { pattern })
+  traverse(module.facts, query, { doPattern })
 
   let offset = 0
   for (const c of scope.callees) {
@@ -174,28 +165,27 @@ function compile(module: Module, expression: Name): [Program, Variable[]] {
     offset += c.target.vars.length
   }
   return [
-    program.map(([op, left, right]) =>
+    out.map(([op, left, right]) =>
       op === operations.setCallee
-        ? [operations.setCallee, scope.callees[left as number].offset, null]
+        ? [op, scope.callees[left as number].offset, null]
         : [op, left, right],
     ),
     scope.vars.vars,
+    offset
   ]
 }
 
 export class Query {
-  program: Program
-  vars: Variable[]
-  // size: number // size of activation record, ie all callee vars
+  program: Program = []
+  vars: Variable[] = []
+  size = 0 // size of activation record, ie all callee vars
 
   constructor(module?: Module, name?: Name) {
     if (module && name) {
-      const [program, vars] = compile(module, name)
+      const [program, vars, size] = compile(module, name)
       this.program = program
       this.vars = vars
-    } else {
-      this.program = []
-      this.vars = []
+      this.size = size
     }
   }
 }

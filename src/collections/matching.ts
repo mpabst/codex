@@ -1,18 +1,59 @@
-import { VTMap, VTSet } from '../collections/var-tracking.js'
-import { variable } from '../data-factory.js'
+import { VTMap, VTQuadSet } from '../collections/var-tracking.js'
+import { Prefixers, variable } from '../data-factory.js'
+import { Callable, Module } from '../module.js'
 import { Branch } from '../operations.js'
 import {
   Argument,
   Bindings,
   DBNode,
-  Operation,
+  InstructionSet,
   Processor,
 } from '../processor.js'
-import { Quad, Term, Variable } from '../term.js'
+import { Query } from '../query.js'
+import { Name, Term, Variable } from '../term.js'
+import { getReifiedTriple, VarMap } from '../util.js'
 
-function deref(proc: Processor, arg: Argument): Term | number {
-  if (typeof arg === 'number') return proc.derefScope(arg)
-  return arg as Term
+const { rdf } = Prefixers
+
+export function compile(module: Module, name: Name): Query {
+  const { root, order } = getSignature(module, name)
+  if (order[0] !== 'graph')
+    throw new Error('signature order must start with graph')
+  const pattern = getReifiedTriple(module, name)
+  const ops = operations()
+  const vars = new VarMap()
+  const out = new Query()
+  out.program = [[ops.sChooseGraph, root, null]]
+  for (const place of order.slice(1)) {
+    const pos = place === order[order.length - 1] ? 'sMedial' : 'sFinal'
+    const term = pattern[place]
+    const push = (type: string, caller: Argument) =>
+      out.program.push([ops[pos + type], caller, variable(place as string)])
+    if (term instanceof Variable) {
+      const [offset, isNew] = vars.map(term)
+      push((isNew ? 'New' : 'Old') + 'Var', offset)
+    } else push('Const', term)
+  }
+  out.program.push([ops.emitResult, null, null])
+  out.vars = vars.vars
+  return out
+}
+
+function getSignature(module: Module, pattern: Name): VTQuadSet {
+  const po = module.facts.getRoot('SPO').get(pattern)
+  const graphs = po.get(rdf('graph'))
+  let callable: Callable | undefined
+  if (!graphs) callable = module
+  else {
+    // todo: allow multiple graphs on a Pattern?
+    const graph = [...graphs][0]
+    if (graph instanceof Variable)
+      throw new Error('todo: variable graph terms')
+    // todo: what if a rule and a module are defined at the same name?
+    callable = module.modules.get(graph) ?? module.rules.get(graph)
+    if (!callable) throw new Error(`module ${module.name} can't find graph: ${graph}`)
+  }
+  return callable.signature
 }
 
 function match(dbNode: DBNode | null, term: Argument): Iterable<Term> {
@@ -21,75 +62,117 @@ function match(dbNode: DBNode | null, term: Argument): Iterable<Term> {
   // via backtracking)? if varKeys is small then two passes
   // may be faster
   // todo: separate this into separate var and const methods
-  // for when we can statically determine the class of t
+  // for when we can statically determine the class of term
   const out = [...(dbNode as VTMap).varKeys]
   if ((dbNode as VTMap).has(term as Term)) out.push(term as Term)
   return out
 }
 
-export function operations(order: (keyof Quad)[]): { [k: string]: Operation } {
-  const bindings = new Map<Variable, Term | number>()
-  const result: Term[] = []
+export function operations(): InstructionSet {
+  let calleeVars = new VarMap()
+  const result: Bindings = new Map()
 
-  function bind(value: Argument): void {
-
+  function mapVar(proc: Processor, v: Variable): number {
+    const [offset, isNew] = calleeVars.map(v)
+    if (isNew) {
+      const addr = proc.calleeP + offset
+      proc.heap[addr] = addr
+    }
+    return offset
   }
 
-  function emitResult(proc: Processor, _: Argument, __: Argument): void {
-    const out: Bindings = new Map()
-    for (const i in order) out.set(variable(order[i] as string), result[i])
-    proc.emit!(out)
+  function konst(
+    proc: Processor,
+    caller: Term,
+    place: Variable,
+  ): IteratorResult<Term> {
+    const next = proc.nextChoice(() => match(proc.dbNode, caller))
+    if (next.done) return next
+    const { value } = next
+    if (value instanceof Variable) {
+      const found = proc.derefCallee(mapVar(proc, value))
+      if (typeof found === 'number') proc.bind(found, caller)
+      else if (caller !== found) {
+        proc.fail = true
+        return { value: null, done: true }
+      }
+    }
+    result.set(place, value)
+    return next
   }
 
-  return {
-    // this is identical to eMedialNewVar() minus the argument to nextChoice()
-    sMedialNewVar(proc: Processor, query: Argument, _: Argument): void {
-      const { value, done } = proc.nextChoice(() =>
-        match(proc.dbNode, proc.query?.vars[query as number]!),
-      )
-      if (!done) {
-        // set up binding; case with value inst Var and const
-        result.push(value)
-        proc.dbNode = (proc.dbNode as Branch).get(value) as DBNode
-      }
-    },
-
-    sMedialOldVar(proc: Processor, query: Argument, _: Argument): void {
-      const found = proc.derefScope(query as number)
-      if (typeof found === 'number') this.sMedialNewVar(proc, found, null)
-      else this.sMedialConst(proc, found, null)
-    },
-
-    sMedialConst(proc: Processor, query: Argument, _: Argument): void {
-      const { value, done } = proc.nextChoice(() => match(proc.dbNode, query))
-      if (!done) {
-        // if (value instanceof Variable)...
-        result.push(value)
-        proc.dbNode = (proc.dbNode as Branch).get(value) as any
-      }
-    },
-
-    sFinalNewVar(proc: Processor, query: Argument, _: Argument): void {
-      const { value, done } = proc.nextChoice(() =>
-        match(proc.dbNode as VTSet, proc.query?.vars[query as number] as Term),
-      )
-      if (!done) {
-        // will never be a variable (for signature matching)
-        proc.bindScope(query as number, value)
-        result.push(value)
-      }
-    },
-
-    // sFinalOldVar(proc: Processor, query: Argument, _: Argument): void {},
-
-    // sFinalConst(proc: Processor, query: Argument, _: Argument): void {
-    //   if ((proc.dbNode as VTSet).varKeys.size > 0) {
-    //     const { value, done } = proc.nextChoice(() =>
-    //       match(proc.dbNode as VTSet, query as Term),
-    //     )
-    //     if (!done) bind(value)
-    //   } else if ((proc.dbNode as VTSet).has(query as Term)) bind(place, query)
-    //   else proc.fail = true
-    // },
+  function newVar(
+    proc: Processor,
+    caller: number,
+    place: Variable,
+  ): IteratorResult<Term> {
+    const next = proc.nextChoice(() =>
+      match(proc.dbNode, proc.query?.vars[caller]!),
+    )
+    if (next.done) return next
+    const { value } = next
+    if (value instanceof Variable) {
+      const found = proc.derefCallee(mapVar(proc, value))
+      if (typeof found === 'number') proc.bind(found, caller)
+      else proc.bindScope(caller, found)
+    } else proc.bindScope(caller, value) // value is Const
+    result.set(place, value)
+    return next
   }
+
+  function oldVar(
+    proc: Processor,
+    caller: number,
+    place: Variable,
+    position: 'Medial' | 'Final',
+  ): void {
+    const found = proc.derefScope(caller)
+    const type = typeof found === 'number' ? 'NewVar' : 'Const'
+    // found must be in caller's heap, and proc.scopeP === 0, so we can just
+    // pass found as-is
+    ops['s' + position + type](proc, found, place)
+  }
+
+  const ops: InstructionSet = {
+    sChooseGraph(proc: Processor, root: Argument, _: Argument): void {
+      proc.dbNode = root as Branch
+      const { value, done } = proc.nextChoice()
+      if (done) return
+      result.set(variable('graph'), value)
+      calleeVars.clear()
+    },
+
+    sMedialConst(proc: Processor, caller: Argument, place: Argument): void {
+      const { done, value } = konst(proc, caller as Term, place as Variable)
+      if (!done) proc.dbNode = (proc.dbNode as Branch).get(value) as DBNode
+    },
+
+    sMedialNewVar(proc: Processor, caller: Argument, place: Argument): void {
+      const { value, done } = newVar(proc, caller as number, place as Variable)
+      if (!done) proc.dbNode = (proc.dbNode as Branch).get(value) as DBNode
+    },
+
+    sMedialOldVar(proc: Processor, caller: Argument, place: Argument): void {
+      oldVar(proc, caller as number, place as Variable, 'Medial')
+    },
+
+    sFinalConst(proc: Processor, caller: Argument, place: Argument): void {
+      konst(proc, caller as Term, place as Variable)
+    },
+
+    sFinalNewVar(proc: Processor, query: Argument, place: Argument): void {
+      newVar(proc, query as number, place as Variable)
+    },
+
+    sFinalOldVar(proc: Processor, caller: Argument, place: Argument): void {
+      oldVar(proc, caller as number, place as Variable, 'Final')
+    },
+
+    emitResult(proc: Processor, _: Argument, __: Argument): void {
+      proc.emit!(result)
+      proc.fail = true
+    },
+  }
+
+  return ops
 }

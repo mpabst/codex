@@ -6,16 +6,16 @@ import { Query } from './query.js'
 import { Rule } from './rule.js'
 import { traverse } from './syntax.js'
 import { Name, Quad, Variable } from './term.js'
-import { VarMap } from './var-map.js'
+import { getReifiedTriple, VarMap } from './util.js'
 
-const { fpc, rdf } = Prefixers
+const { fpc } = Prefixers
 
 export class Clause {
   vars: Variable[]
   body: Query | null
   memo: BindingsSet | null
 
-  constructor(module: Module, rule: Rule, public name: Name) {
+  constructor(public module: Module, public rule: Rule, public name: Name) {
     module.clauses.set(name, this)
     rule.clauses.set(name, this)
     const po = module.facts.getRoot('SPO').get(name)!
@@ -25,33 +25,27 @@ export class Clause {
       const [body] = bodies
       this.body = new Query(module, body)
       this.body.program.push([operations.return, null, null])
-      this.vars = this.initSignature(module, rule, head)
+      this.vars = this.initSignature(head)
       this.memo = new BindingsSet(this.vars)
     } else {
       this.body = null
       this.memo = null
-      this.vars = this.initSignature(module, rule, head)
+      this.vars = this.initSignature(head)
     }
   }
 
-  protected initSignature(module: Module, rule: Rule, head: Name): Variable[] {
-    const vars = new VarMap([...(this.body?.vars ?? [])])
-    traverse(module.facts, head, {
-      pattern: (node: Name) => {
-        const po = module.facts.getRoot('SPO').get(node)
-        const [subject] = po.get(rdf('subject'))
-        const [predicate] = po.get(rdf('predicate'))
-        const [object] = po.get(rdf('object'))
+  protected initSignature(head: Name): Variable[] {
+    const vars = new VarMap(this.body?.vars)
+    traverse(this.module.facts, head, {
+      doPattern: (pat: Name) => {
         const quad: Quad = {
-          subject,
-          predicate,
-          object,
+          ...getReifiedTriple(this.module, pat),
           graph: this.name,
         }
         for (const place of ['subject', 'predicate', 'object'])
           if (quad[place] instanceof Variable) vars.map(quad[place])
-        module.signature.add(quad)
-        rule.signature.add(quad)
+        this.module.signature.add(quad)
+        this.rule.signature.add(quad)
       },
     })
     return vars.vars

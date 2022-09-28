@@ -3,8 +3,11 @@ import { Query } from './query.js'
 import { Term, Variable } from './term.js'
 
 export type Bindings<T = Term> = Map<Variable, T>
+// TODO: Does an Argument union break monomorphism? How much do I care if I'm
+// gonna port all this anyways
 export type Argument = Term | Branch | Query | number | null
 export type Operation = (m: Processor, l: Argument, r: Argument) => void
+export type InstructionSet = { [k: string]: Operation }
 export type Instruction = [Operation, Argument, Argument]
 export type Program = Instruction[]
 export type DBNode = Leaf | Branch
@@ -156,6 +159,10 @@ export class Processor {
 
   bindScope(offset: number, val: Term | number): void {
     return this.bind(this.scopeP + offset, val)
+  }
+
+  bindCallee(offset: number, val: Term | number): void {
+    return this.bind(this.calleeP + offset, val)
   }
 
   unbind(): void {

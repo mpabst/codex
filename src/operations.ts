@@ -1,4 +1,3 @@
-import { VTMap } from './collections/var-tracking.js'
 import {
   Argument,
   Bindings,
@@ -29,6 +28,7 @@ export const operations: { [k: string]: Operation } = {
     proc.scopeP = scopeP as number
     // proc.heapP = proc.heapP + proc.query!.size
     proc.query = query as Query
+    // then zero out heap cells between heapP and heapP + proc.query.size
     proc.programP = -1
   },
 
@@ -111,6 +111,7 @@ export const operations: { [k: string]: Operation } = {
     const eeFound = proc.derefCallee(callee as number)
     if (typeof eeFound === 'number')
       proc.bind(eeFound, proc.scopeP + (caller as number))
+    else proc.bindScope(caller as number, eeFound)
   },
 
   iOldVarConst(proc: Processor, caller: Argument, callee: Argument): void {

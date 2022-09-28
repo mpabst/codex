@@ -13,7 +13,7 @@ export abstract class DataSet<D extends { [k: string]: Term }> {
   protected readonly Branch: MapConstructor = Map
   protected readonly Twig: SetConstructor = Set
 
-  protected readonly order: (keyof D)[]
+  readonly order: (keyof D)[]
   protected _size: number = 0
 
   abstract root: Map<Term, any>

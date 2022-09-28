@@ -1,4 +1,4 @@
-import { VTMap, VTQuadSet } from '../collections/var-tracking.js'
+import { VTMap, VTQuadSet, VTSet } from '../collections/var-tracking.js'
 import { Prefixers, variable } from '../data-factory.js'
 import { Callable, Module } from '../module.js'
 import { Branch } from '../operations.js'
@@ -10,30 +10,41 @@ import {
   Processor,
 } from '../processor.js'
 import { Query } from '../query.js'
-import { Name, Term, Variable } from '../term.js'
+import { ANON, DEFAULT_GRAPH, Name, Quad, Term, Variable } from '../term.js'
 import { getReifiedTriple, VarMap } from '../util.js'
 
 const { rdf } = Prefixers
 
+export const bindingsToQuad = (cb: (q: Quad) => void) => (b: Bindings) => {
+  const out: Partial<Quad> = {}
+  for (const [k, v] of b) out[k.value as keyof Quad] = v
+  cb(out as Quad)
+}
+
 export function compile(module: Module, name: Name): Query {
   const { root, order } = getSignature(module, name)
+
   if (order[0] !== 'graph')
     throw new Error('signature order must start with graph')
+
   const pattern = getReifiedTriple(module, name)
   const ops = operations()
   const vars = new VarMap()
   const out = new Query()
   out.program = [[ops.sChooseGraph, root, null]]
+
   for (const place of order.slice(1)) {
     const pos = place === order[order.length - 1] ? 'sMedial' : 'sFinal'
     const term = pattern[place]
     const push = (type: string, caller: Argument) =>
       out.program.push([ops[pos + type], caller, variable(place as string)])
-    if (term instanceof Variable) {
+    if (term === ANON) push('AnonVar', null)
+    else if (term instanceof Variable) {
       const [offset, isNew] = vars.map(term)
       push((isNew ? 'New' : 'Old') + 'Var', offset)
     } else push('Const', term)
   }
+
   out.program.push([ops.emitResult, null, null])
   out.vars = vars.vars
   return out
@@ -43,32 +54,35 @@ function getSignature(module: Module, pattern: Name): VTQuadSet {
   const po = module.facts.getRoot('SPO').get(pattern)
   const graphs = po.get(rdf('graph'))
   let callable: Callable | undefined
-  if (!graphs) callable = module
-  else {
-    // todo: allow multiple graphs on a Pattern?
-    const graph = [...graphs][0]
-    if (graph instanceof Variable)
+  if (graphs) {
+    // todo: allow multiple graphs on an fpc:Pattern?
+    const [graph] = graphs
+
+    if (graph === DEFAULT_GRAPH) callable = module
+    else if (graph instanceof Variable)
       throw new Error('todo: variable graph terms')
     // todo: what if a rule and a module are defined at the same name?
-    callable = module.modules.get(graph) ?? module.rules.get(graph)
-    if (!callable) throw new Error(`module ${module.name} can't find graph: ${graph}`)
-  }
+    else callable = module.modules.get(graph) ?? module.rules.get(graph)
+
+    if (!callable)
+      throw new Error(`module ${module.name} can't find graph: ${graph}`)
+  } else callable = module
   return callable.signature
 }
 
-function match(dbNode: DBNode | null, term: Argument): Iterable<Term> {
-  if (typeof term === 'number') return (dbNode as VTMap).keys()
+function match(dbNode: VTSet, term: Term): Iterable<Term> {
+  if (typeof term === 'number') return dbNode.keys()
   // todo: avoid traversing this in two passes (second one
   // via backtracking)? if varKeys is small then two passes
   // may be faster
   // todo: separate this into separate var and const methods
   // for when we can statically determine the class of term
-  const out = [...(dbNode as VTMap).varKeys]
-  if ((dbNode as VTMap).has(term as Term)) out.push(term as Term)
+  const out = [...dbNode.varKeys]
+  if (dbNode.has(term)) out.push(term)
   return out
 }
 
-export function operations(): InstructionSet {
+function operations(): InstructionSet {
   let calleeVars = new VarMap()
   const result: Bindings = new Map()
 
@@ -81,12 +95,26 @@ export function operations(): InstructionSet {
     return offset
   }
 
+  function advance(
+    proc: Processor,
+    { done, value }: IteratorResult<Term>,
+  ): void {
+    if (!done) proc.dbNode = (proc.dbNode as Branch).get(value)!
+  }
+
+  function anonVar(proc: Processor, place: Variable): IteratorResult<Term> {
+    const next = proc.nextChoice()
+    if (next.done) return next
+    result.set(place, next.value)
+    return next
+  }
+
   function konst(
     proc: Processor,
     caller: Term,
     place: Variable,
   ): IteratorResult<Term> {
-    const next = proc.nextChoice(() => match(proc.dbNode, caller))
+    const next = proc.nextChoice(() => match(proc.dbNode as VTSet, caller))
     if (next.done) return next
     const { value } = next
     if (value instanceof Variable) {
@@ -107,7 +135,7 @@ export function operations(): InstructionSet {
     place: Variable,
   ): IteratorResult<Term> {
     const next = proc.nextChoice(() =>
-      match(proc.dbNode, proc.query?.vars[caller]!),
+      match(proc.dbNode as VTSet, proc.query?.vars[caller]!),
     )
     if (next.done) return next
     const { value } = next
@@ -142,14 +170,16 @@ export function operations(): InstructionSet {
       calleeVars.clear()
     },
 
+    sMedialAnonVar(proc: Processor, _: Argument, place: Argument): void {
+      advance(proc, anonVar(proc, place as Variable))
+    },
+
     sMedialConst(proc: Processor, caller: Argument, place: Argument): void {
-      const { done, value } = konst(proc, caller as Term, place as Variable)
-      if (!done) proc.dbNode = (proc.dbNode as Branch).get(value) as DBNode
+      advance(proc, konst(proc, caller as Term, place as Variable))
     },
 
     sMedialNewVar(proc: Processor, caller: Argument, place: Argument): void {
-      const { value, done } = newVar(proc, caller as number, place as Variable)
-      if (!done) proc.dbNode = (proc.dbNode as Branch).get(value) as DBNode
+      advance(proc, newVar(proc, caller as number, place as Variable))
     },
 
     sMedialOldVar(proc: Processor, caller: Argument, place: Argument): void {

@@ -18,24 +18,23 @@ export class Clause {
   constructor(public module: Module, public rule: Rule, public name: Name) {
     module.clauses.set(name, this)
     rule.clauses.set(name, this)
+
     const po = module.facts.getRoot('SPO').get(name)!
-    const [head] = po.get(fpc('head'))!
     const bodies = po.get(fpc('body'))!
     if (bodies) {
       const [body] = bodies
       this.body = new Query(module, body)
       this.body.program.push([operations.return, null, null])
-      this.vars = this.initSignature(head)
-      this.memo = new BindingsSet(this.vars)
-    } else {
-      this.body = null
-      this.memo = null
-      this.vars = this.initSignature(head)
-    }
+    } else this.body = null
+
+    const [head] = po.get(fpc('head'))!
+    this.vars = this.initSignature(head)
+    this.memo = new BindingsSet(this.vars)
   }
 
   protected initSignature(head: Name): Variable[] {
     const vars = new VarMap(this.body?.vars)
+
     traverse(this.module.facts, head, {
       doPattern: (pat: Name) => {
         const quad: Quad = {
@@ -48,6 +47,7 @@ export class Clause {
         this.rule.signature.add(quad)
       },
     })
+
     return vars.vars
   }
 }

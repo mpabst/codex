@@ -8,9 +8,10 @@ const { fpc } = Prefixers
 
 export class Rule implements Callable {
   clauses = new Map<Name, Clause>()
-  signature = new VTQuadSet('SPOG')
+  signature = new VTQuadSet()
 
   constructor(module: Module, public name: Name) {
+    module.rules.set(name, this)
     const clauses = module.facts.getRoot('SPO').get(name).get(fpc('clause'))
     for (const c of clauses) new Clause(module, this, c)
   }

@@ -35,7 +35,7 @@ export class VTQuadSet extends QuadSet {
   protected readonly Branch = VTMap
   protected readonly Twig = VTSet
 
-  constructor(order: string) {
+  constructor(order: string = 'GSPO') {
     super(order)
     this.root = new VTMap()
   }

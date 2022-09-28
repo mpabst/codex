@@ -33,7 +33,7 @@ export class Module implements Callable {
   rules = new Map<Name, Rule>()
   clauses = new Map<Name, Clause>()
 
-  signature = new VTQuadSet('SPOG')
+  signature = new VTQuadSet()
 
   constructor(
     public store: Store,
@@ -46,7 +46,7 @@ export class Module implements Callable {
 
   // todo: all these load() methods should be listeners
   async load(): Promise<void> {
-    // represent EDB like this, until we get shapes working
+    // fixme: represent EDB like this, until we get shapes working
     this.signature.add({
       graph: this.name,
       subject: ANON,
@@ -65,6 +65,8 @@ export class Module implements Callable {
         if (module) this.modules.set(i, module)
         else pending.push(i)
       }
+      // todo: circular imports? if we want to run all imports to a fixpoint,
+      // maybe make signatures just more RDF?
       for (const m of await Promise.all(pending.map(p => this.store.load(p))))
         this.modules.set(m.name, m)
       for (const m of this.modules.values()) {
@@ -73,13 +75,10 @@ export class Module implements Callable {
       }
     }
 
+    // todo: needs some OWL
     for (const klass of ['Rule', 'Writer', 'View']) {
       const rules = this.facts.getRoot('POS').get(A)?.get(fpc(klass))
-      if (rules)
-        for (const r of rules) {
-          const rule = new Rule(this, r)
-          this.rules.set(rule.name, rule)
-        }
+      if (rules) for (const r of rules) new Rule(this, r)
     }
   }
 }

@@ -8,9 +8,9 @@ export class Query {
   vars: Variable[]
   size: number // size of activation record, ie all callee vars
 
-  constructor(module?: Module, name?: Name) {
+  constructor(module?: Module, name?: Name, initVars?: Variable[]) {
     if (module && name) {
-      const [program, vars, size] = compile(module, name)
+      const [program, vars, size] = compile(module, name, initVars)
       this.program = program
       this.vars = vars
       this.size = size

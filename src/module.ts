@@ -46,7 +46,10 @@ export class Module implements Callable {
 
   // todo: all these load() methods should be listeners
   async load(): Promise<void> {
-    // fixme: represent EDB like this, until we get shapes working
+    // fixme: represent EDB like this, until we get shapes working.
+    // ig i can just declare patterns that go directly into the signature?
+    // i can typecheck writes by ensuring every newly asserted triple
+    // matches at least one. no cardinality or anything but it's a start
     this.signature.add({
       graph: this.name,
       subject: ANON,

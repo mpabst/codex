@@ -18,7 +18,7 @@ export class Environment {
   // i don't think this changes when we push a CP, but
   // it doesn't seem worth a separate subclass atm
   andP: number
-  heapP: number
+  envP: number
   scopeP: number
   argsP: number
   // no need for dbNode since we never call mid-pattern
@@ -27,7 +27,7 @@ export class Environment {
     this.query = proc.query!
     this.programP = proc.programP
     this.andP = proc.andP
-    this.heapP = proc.heapP
+    this.envP = proc.envP
     this.scopeP = proc.scopeP
     this.argsP = proc.calleeP
   }
@@ -36,19 +36,19 @@ export class Environment {
     this.proc.query = this.query
     this.proc.programP = this.programP
     this.proc.andP = this.andP
-    this.proc.heapP = this.heapP
+    this.proc.envP = this.envP
     this.proc.scopeP = this.scopeP
     this.proc.calleeP = this.argsP
   }
 }
 
 abstract class ChoicePoint extends Environment {
-  orP: number
+  prevOrP: number
   trailP: number
 
   constructor(proc: Processor) {
     super(proc)
-    this.orP = proc.orP
+    this.prevOrP = proc.orP
     this.trailP = proc.trailP
   }
 
@@ -60,19 +60,20 @@ abstract class ChoicePoint extends Environment {
 
   restore(): void {
     super.restore()
-    this.proc.orP = this.orP
     while (this.proc.trailP > this.trailP) this.proc.unbind()
     this.proc.fail = false
   }
 }
 
 class IteratingChoicePoint extends ChoicePoint {
+  dbNode: DBNode | null
   // fixme: iterate over entries rather than keys, so we
   // don't have to refetch the value
   protected iterator: Iterator<Term>
 
   constructor(proc: Processor, iterable: Iterable<Term>) {
     super(proc)
+    this.dbNode = proc.dbNode
     this.iterator = iterable[Symbol.iterator]()
   }
 
@@ -81,10 +82,15 @@ class IteratingChoicePoint extends ChoicePoint {
     // save an iteration by checking IteratorHasMore instead
     // of waiting for done?
     if (out.done) {
-      this.proc.orP--
+      this.proc.orP = this.prevOrP
       this.proc.fail = true
     }
     return out
+  }
+
+  restore(): void {
+    super.restore()
+    this.proc.dbNode = this.dbNode
   }
 }
 
@@ -99,14 +105,14 @@ export class Processor {
   // programC. maybe work out negation first. or just have backtrack()
   // check for negation?
 
-  /// Global stuff
+  //-- Global stuff
   stack: Environment[] = []
   andP: number = -1
   orP: number = -1
 
   emit: ((b: Bindings) => void) | null = null
 
-  /// Environment stuff
+  //-- Environment stuff
   query: Query | null = null
   programP: number = -1
 
@@ -116,24 +122,18 @@ export class Processor {
   // like the WAM's heap
   // todo: ensure environment protection applies to heap, too
   heap: (Term | number)[] = []
-  heapP: number = -1 // start of environment
+  envP: number = -1 // start of environment
   scopeP: number = 0 // start of our args, in prev env
   calleeP: number = -1 // start of current callee's args
 
   trail: number[] = []
   trailP: number = -1
 
-  /// Instruction-local stuff
+  //-- Instruction-local stuff
   // instead of failing, just jump to whatever's on top of the stack?
   // maybe negation will get messy, idk. better read the WAM book.
   // maybe: set fail, fetch next instr, if 'not', then continue, else backtrack
   fail: boolean = false
-
-  backtrack(): boolean {
-    if (this.orP < 0) return false
-    this.stack[this.orP].restore()
-    return true
-  }
 
   protected deref(addr: number): Term | number {
     while (true) {
@@ -179,10 +179,9 @@ export class Processor {
         if (!(next instanceof Variable)) break
         prev = next
       }
-      if (!next) this.heap.push(this.query!.vars.indexOf(prev))
-      else this.heap.push(next)
+      this.heap.push(next ?? this.query!.vars.indexOf(prev))
     }
-    this.heapP = this.heap.length
+    this.envP = this.heap.length
   }
 
   evaluate(
@@ -190,7 +189,8 @@ export class Processor {
     emit: (b: Bindings) => void = console.log,
     args: Bindings = new Map(),
   ): void {
-    // fixme: don't mutate arg
+    // fixme: don't mutate arg. this isn't applicable to sig matching, too
+    // probably just some query builder fcn for top-level invocations
     query.program.push([operations.emitResult, null, null])
     this.query = query
     this.programP = 0
@@ -200,19 +200,21 @@ export class Processor {
     while (true) {
       const [op, left, right] = query.program[this.programP]
       op(this, left, right)
-      if (this.fail && !this.backtrack()) break
-      else this.programP++
+      if (this.fail) {
+        if (this.orP < 0) break
+        this.stack[this.orP].restore()
+      } else this.programP++
     }
   }
 
   nextChoice(
     // instead of using a thunk, maybe move more of the flow of control
-    // into the operations?
+    // of this method into the operations?
     iterable: () => Iterable<Term> = () => this.dbNode!.keys(),
   ): IteratorResult<Term> {
-    let cp
-    if (this.orP > -1) cp = this.stack[this.orP] as IteratingChoicePoint
+    let cp = this.stack[this.orP] as IteratingChoicePoint
     if (!cp || !cp.isCurrent()) {
+      this.orP = this.orP
       cp = new IteratingChoicePoint(this, iterable())
       this.orP = Math.max(this.andP, this.orP) + 1
       this.stack[this.orP] = cp

@@ -20,20 +20,20 @@ export class Clause {
     rule.clauses.set(name, this)
 
     const po = module.facts.getRoot('SPO').get(name)!
-    const bodies = po.get(fpc('body'))!
-    if (bodies) {
-      const [body] = bodies
-      this.body = new Query(module, body)
-      this.body.program.push([operations.return, null, null])
-    } else this.body = null
-
     const [head] = po.get(fpc('head'))!
     this.vars = this.initSignature(head)
     this.memo = new BindingsSet(this.vars)
+
+    const bodies = po.get(fpc('body'))!
+    if (bodies) {
+      const [body] = bodies
+      this.body = new Query(module, body, this.vars)
+      this.body.program.push([operations.return, null, null])
+    } else this.body = null
   }
 
   protected initSignature(head: Name): Variable[] {
-    const vars = new VarMap(this.body?.vars)
+    const vars = new VarMap()
 
     traverse(this.module.facts, head, {
       doPattern: (pat: Name) => {

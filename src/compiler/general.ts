@@ -15,9 +15,11 @@ import { bindingsToQuad, compile as compileMatcher } from './matching.js'
 
 class Scope {
   callees: Callee[] = []
-  vars = new VarMap()
+  vars: VarMap
 
-  constructor(public module: Module) {}
+  constructor(public module: Module, vars: Variable[] = []) {
+    this.vars = new VarMap(vars)
+  }
 
   compile(er: Triple, ee: Quad, offset: number, numChoices: number): Program {
     let instrs: Program
@@ -112,10 +114,11 @@ class Callee {
 export function compile(
   module: Module,
   query: Name,
+  vars: Variable[] = []
 ): [Program, Variable[], number] {
   const prog: Program = []
   const proc = new Processor()
-  const scope = new Scope(module)
+  const scope = new Scope(module, vars)
 
   function doPattern(pattern: Name): void {
     let current: Program = []

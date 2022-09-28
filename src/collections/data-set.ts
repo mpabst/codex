@@ -9,6 +9,9 @@ const PLACES: { [k: string]: keyof Quad } = {
 
 export type Order = string
 
+const TRIPLE_LENGTH = 3
+const QUAD_LENGTH = 4
+
 export abstract class DataSet<D extends { [k: string]: Term }> {
   protected readonly Branch: MapConstructor = Map
   protected readonly Twig: SetConstructor = Set
@@ -26,9 +29,37 @@ export abstract class DataSet<D extends { [k: string]: Term }> {
     return this._size
   }
 
-  abstract add(data: D): void
+  add(data: D): this {
+    this._size++
+    const path = this.reorder(data)
+    let prev = this.root
+    let next
+    for (let i = 0; i < this.pathLength - 1; i++) {
+      next = prev.get(path[i])
+      if (next) prev = next
+      else {
+        prev.set(path[i], this.buildTail(path, i + 1)) 
+        return this
+      }
+    }
+    next.add(path[this.pathLength - 1])
+    return this
+  }
+
+  buildTail(path: Term[], start: number) {
+    let prev: any = new this.Twig()
+    prev.add(path[this.pathLength - 1])
+    for (let i = this.pathLength - 2; i >= start; i--) {
+      let next = new this.Branch()
+      next.set(path[i], prev)
+      prev = next
+    }
+    return prev
+  }
 
   abstract delete(data: D): void
+
+  abstract get pathLength(): number
 
   protected reorder(data: D): Term[] {
     return this.order.map(o => data[o])
@@ -37,23 +68,6 @@ export abstract class DataSet<D extends { [k: string]: Term }> {
 
 export class TripleSet extends DataSet<Triple> {
   root = new this.Branch()
-
-  add(data: Triple): void {
-    const path = this.reorder(data)
-    let next = this.root.get(path[0]) as any
-    if (!next) {
-      next = new this.Branch()
-      this.root.set(path[0], next)
-    }
-    let node = next
-    next = node.get(path[1])
-    if (!next) {
-      next = new this.Twig()
-      node.set(path[1], next)
-    }
-    next.add(path[2])
-    this._size++
-  }
 
   delete(data: Triple): void {
     const path = this.reorder(data)
@@ -65,33 +79,14 @@ export class TripleSet extends DataSet<Triple> {
     if (a.size === 0) this.root.delete(path[0])
     this._size--
   }
+
+  get pathLength(): number {
+    return TRIPLE_LENGTH
+  }
 }
 
 export class QuadSet extends DataSet<Quad> {
   root = new this.Branch()
-
-  add(data: Quad): void {
-    const path = this.reorder(data)
-    let next = this.root.get(path[0]) as any
-    if (!next) {
-      next = new Map()
-      this.root.set(path[0], next)
-    }
-    let node = next
-    next = node.get(path[1])
-    if (!next) {
-      next = new Map()
-      node.set(path[1], next)
-    }
-    node = next
-    next = node.get(path[2])
-    if (!next) {
-      next = new Set()
-      node.set(path[2], next)
-    }
-    next.add(path[3])
-    this._size++
-  }
 
   delete(data: Quad): void {
     const path = this.reorder(data)
@@ -125,5 +120,9 @@ export class QuadSet extends DataSet<Quad> {
         }
       }
     }
+  }
+
+  get pathLength(): number {
+    return QUAD_LENGTH
   }
 }

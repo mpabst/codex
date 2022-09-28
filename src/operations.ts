@@ -44,7 +44,7 @@ export const operations: { [k: string]: Operation } = {
         proc.heap[proc.scopeP + parseInt(i)] as Term,
       )
     proc.emit!(binds)
-    proc.fail = !proc.backtrack()
+    proc.fail = true
   },
 
   setCallee(proc: Processor, calleeP: Argument, _: Argument): void {
@@ -76,7 +76,13 @@ export const operations: { [k: string]: Operation } = {
 
   eMedialOldVar(proc: Processor, caller: Argument, _: Argument): void {
     const found = proc.derefScope(caller as number)
-    if (typeof found === 'number') operations.eMedialNewVar(proc, found, null)
+    if (typeof found === 'number') {
+      const { done, value } = proc.nextChoice()
+      if (!done) {
+        proc.bind(found, value)
+        proc.dbNode = (proc.dbNode as Branch).get(value)!
+      }
+    }
     else operations.eMedialConst(proc, found, null)
   },
 
@@ -93,7 +99,10 @@ export const operations: { [k: string]: Operation } = {
 
   eFinalOldVar(proc: Processor, caller: Argument, _: Argument): void {
     const found = proc.derefScope(caller as number)
-    if (typeof found === 'number') operations.eFinalNewVar(proc, found, null)
+    if (typeof found === 'number') {
+      const { done, value } = proc.nextChoice()
+      if (!done) proc.bind(found, value)
+    }
     else operations.eFinalConst(proc, found, null)
   },
 
@@ -124,6 +133,7 @@ export const operations: { [k: string]: Operation } = {
     const erFound = proc.derefScope(caller as number)
     const eeFound = proc.derefCallee(callee as number)
     // callee is unbound or bound to var, caller status doesn't matter
+    // (because all vars point upwards in the stack)
     if (typeof eeFound === 'number') proc.bind(eeFound, erFound)
     // callee's referent is const but caller's is var
     else if (typeof erFound === 'number') proc.bind(erFound, eeFound)

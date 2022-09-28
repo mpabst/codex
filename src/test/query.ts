@@ -4,7 +4,7 @@ import { Store } from '../store.js'
 const { test } = Prefixers
 
 describe('Query', () => {
-  it('smoke test', async () => {
+  it.only('smoke test', async () => {
     const store = new Store()
     const name = test('mortality.fp')
     await store.load(name)

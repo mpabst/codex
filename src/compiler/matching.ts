@@ -1,14 +1,8 @@
-import { VTMap, VTQuadSet, VTSet } from '../collections/var-tracking.js'
+import { VTQuadSet, VTSet } from '../collections/var-tracking.js'
 import { Prefixers, variable } from '../data-factory.js'
 import { Callable, Module } from '../module.js'
 import { Branch } from '../operations.js'
-import {
-  Argument,
-  Bindings,
-  DBNode,
-  InstructionSet,
-  Processor,
-} from '../processor.js'
+import { Argument, Bindings, InstructionSet, Processor } from '../processor.js'
 import { Query } from '../query.js'
 import { ANON, DEFAULT_GRAPH, Name, Quad, Term, Variable } from '../term.js'
 import { getReifiedTriple, VarMap } from '../util.js'
@@ -34,14 +28,16 @@ export function compile(module: Module, name: Name): Query {
   out.program = [[ops.sChooseGraph, root, null]]
 
   for (const place of order.slice(1)) {
-    const pos = place === order[order.length - 1] ? 'sMedial' : 'sFinal'
+    const pos = place === order[order.length - 1] ? 'sFinal' : 'sMedial'
     const term = pattern[place]
     const push = (type: string, caller: Argument) =>
       out.program.push([ops[pos + type], caller, variable(place as string)])
-    if (term === ANON) push('AnonVar', null)
-    else if (term instanceof Variable) {
-      const [offset, isNew] = vars.map(term)
-      push((isNew ? 'New' : 'Old') + 'Var', offset)
+    if (term instanceof Variable) {
+      if (term === ANON) push('AnonVar', null)
+      else {
+        const [offset, isNew] = vars.map(term)
+        push((isNew ? 'New' : 'Old') + 'Var', offset)
+      }
     } else push('Const', term)
   }
 
@@ -78,7 +74,7 @@ function match(dbNode: VTSet, term: Term): Iterable<Term> {
   // todo: separate this into separate var and const methods
   // for when we can statically determine the class of term
   const out = [...dbNode.varKeys]
-  if (dbNode.has(term)) out.push(term)
+  if (dbNode.has(term) && !dbNode.varKeys.has(term)) out.push(term)
   return out
 }
 
@@ -117,14 +113,15 @@ function operations(): InstructionSet {
     const next = proc.nextChoice(() => match(proc.dbNode as VTSet, caller))
     if (next.done) return next
     const { value } = next
-    if (value instanceof Variable) {
-      const found = proc.derefCallee(mapVar(proc, value))
-      if (typeof found === 'number') proc.bind(found, caller)
-      else if (caller !== found) {
-        proc.fail = true
-        return { value: null, done: true }
+    if (value instanceof Variable)
+      if (value !== ANON) {
+        const found = proc.derefCallee(mapVar(proc, value))
+        if (typeof found === 'number') proc.bind(found, caller)
+        else if (caller !== found) {
+          proc.fail = true
+          return { value: null, done: true }
+        }
       }
-    }
     result.set(place, value)
     return next
   }
@@ -140,9 +137,11 @@ function operations(): InstructionSet {
     if (next.done) return next
     const { value } = next
     if (value instanceof Variable) {
-      const found = proc.derefCallee(mapVar(proc, value))
-      if (typeof found === 'number') proc.bind(found, caller)
-      else proc.bindScope(caller, found)
+      if (value !== ANON) {
+        const found = proc.derefCallee(mapVar(proc, value))
+        if (typeof found === 'number') proc.bind(found, caller)
+        else proc.bindScope(caller, found)
+      }
     } else proc.bindScope(caller, value) // value is Const
     result.set(place, value)
     return next
@@ -166,8 +165,12 @@ function operations(): InstructionSet {
       proc.dbNode = root as Branch
       const { value, done } = proc.nextChoice()
       if (done) return
+      proc.dbNode = proc.dbNode.get(value) as Branch
       result.set(variable('graph'), value)
       calleeVars.clear()
+      // this last line only needs to be run once per matching query:
+      // call it sAllocate ?
+      proc.calleeP = proc.envP
     },
 
     sMedialAnonVar(proc: Processor, _: Argument, place: Argument): void {

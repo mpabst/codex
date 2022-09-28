@@ -37,6 +37,7 @@ export class VTQuadSet extends QuadSet {
 
   constructor(order: string = 'GSPO') {
     super(order)
+    // have to overwrite this after we set this.Branch
     this.root = new VTMap()
   }
 }

@@ -34,7 +34,7 @@ class Scope {
     } else {
       const [callee, idx] = this.getCallee(this.module.clauses.get(ee.graph)!)
       instrs = [
-        [operations.setCallee, idx, null],
+        [operations.setCalleeP, idx, null],
         callee.idbInstr(er.subject, ee.subject),
         callee.idbInstr(er.predicate, ee.predicate),
         callee.idbInstr(er.object, ee.object),
@@ -44,11 +44,13 @@ class Scope {
     }
     return [
       [
-        numChoices === 0 ? operations.try : operations.retry,
-        offset + instrs!.length + 1,
+        numChoices === 0 ? operations.tryMeElse : operations.retryMeElse,
+        // +2 for the two instrs we're adding in this return statement
+        offset + instrs!.length + 2,
         null,
       ],
       ...instrs!,
+      [operations.skip, null, null],
     ]
   }
 
@@ -114,7 +116,7 @@ class Callee {
 export function compile(
   module: Module,
   query: Name,
-  vars: Variable[] = []
+  vars: Variable[] = [],
 ): [Program, Variable[], number] {
   const prog: Program = []
   const proc = new Processor()
@@ -140,34 +142,54 @@ export function compile(
     )
 
     // chop off initial try if we only have one choice
-    if (numChoices === 1) current = current.slice(1)
-    // rewrite final retry to trust
-    else
-      for (let i = current.length - 1; i > -1; i--) {
-        const instr = current[i]
-        if (instr[0] === operations.retry) {
-          instr[0] = operations.trust
-          break
-        }
+    if (numChoices === 1) {
+      current = current.slice(1)
+      return
+    }
+
+    // rewrite all skip args
+    for (const instr of current)
+      if (instr[0] === operations.skip)
+        // -1 because the final skip instr will get removed,
+        // and another -1 because the processor increments
+        // programP after we set its value
+        instr[1] = current.length - 2
+
+    // change final retryMeElse to trustMe
+    for (let i = current.length - 1; i > -1; i--) {
+      const instr = current[i]
+      if (instr[0] === operations.retryMeElse) {
+        instr[0] = operations.trustMe
+        instr[1] = null
+        break
       }
+    }
 
     prog.push(...current)
   }
 
   traverse(module.facts, query, { doPattern })
 
+  // compute callee offsets
   let offset = 0
   for (const c of scope.callees) {
     c.offset = offset
     offset += c.target.vars.length
   }
-  return [
-    prog.map(([op, left, right]) =>
-      op === operations.setCallee
+
+  const outProg: Program = []
+  // length - 1 to remove final skip instr
+  for (let i = 0; i < prog.length - 1; i++) {
+    const [op, left, right] = prog[i]
+    outProg.push(
+      // adjust setCalleeP args to correct value
+      op === operations.setCalleeP
         ? [op, scope.callees[left as number].offset, null]
         : [op, left, right],
-    ),
-    scope.vars.vars,
-    offset,
-  ]
+    )
+  }
+
+  // final tuple value is total number of all callee vars, ie
+  // the environment frame size
+  return [outProg, scope.vars.vars, offset]
 }

@@ -73,6 +73,7 @@ export class Module implements Callable {
       for (const m of await Promise.all(pending.map(p => this.store.load(p))))
         this.modules.set(m.name, m)
       for (const m of this.modules.values()) {
+        for (const [name, clause] of m.clauses) this.clauses.set(name, clause)
         for (const [name, rule] of m.rules) this.rules.set(name, rule)
         m.signature.forEach((q: Quad) => this.signature.add(q))
       }

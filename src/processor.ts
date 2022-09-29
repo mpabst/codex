@@ -43,12 +43,12 @@ export class Environment {
 }
 
 abstract class ChoicePoint extends Environment {
-  prevOrP: number
+  orP: number
   trailP: number
 
   constructor(proc: Processor) {
     super(proc)
-    this.prevOrP = proc.orP
+    this.orP = proc.orP
     this.trailP = proc.trailP
   }
 
@@ -60,7 +60,7 @@ abstract class ChoicePoint extends Environment {
 
   restore(): void {
     super.restore()
-    while (this.proc.trailP > this.trailP) this.proc.unbind()
+    this.proc.unbind(this.trailP)
     this.proc.fail = false
   }
 }
@@ -82,7 +82,7 @@ class IteratingChoicePoint extends ChoicePoint {
     // save an iteration by checking IteratorHasMore instead
     // of waiting for done?
     if (out.done) {
-      this.proc.orP = this.prevOrP
+      this.proc.orP = this.orP
       this.proc.fail = true
     }
     return out
@@ -94,9 +94,14 @@ class IteratingChoicePoint extends ChoicePoint {
   }
 }
 
-class MutableChoicePoint extends ChoicePoint {
-  constructor(proc: Processor, public nextChoice: number) {
+export class MutableChoicePoint extends ChoicePoint {
+  constructor(proc: Processor, public nextProgramP: number) {
     super(proc)
+  }
+
+  restore(): void {
+    super.restore()
+    this.proc.programP = this.nextProgramP
   }
 }
 
@@ -135,6 +140,20 @@ export class Processor {
   // maybe: set fail, fetch next instr, if 'not', then continue, else backtrack
   fail: boolean = false
 
+  bind(addr: number, value: Term | number): void {
+    this.heap[addr] = value
+    this.trailP++
+    this.trail[this.trailP] = addr
+  }
+
+  bindCallee(offset: number, val: Term | number): void {
+    return this.bind(this.calleeP + offset, val)
+  }
+
+  bindScope(offset: number, val: Term | number): void {
+    return this.bind(this.scopeP + offset, val)
+  }
+
   protected deref(addr: number): Term | number {
     while (true) {
       const found = this.heap[addr]
@@ -143,45 +162,12 @@ export class Processor {
     }
   }
 
-  derefScope(offset: number): Term | number {
-    return this.deref(this.scopeP + offset)
-  }
-
   derefCallee(offset: number): Term | number {
     return this.deref(this.calleeP + offset)
   }
 
-  bind(addr: number, value: Term | number): void {
-    this.heap[addr] = value
-    this.trailP++
-    this.trail[this.trailP] = addr
-  }
-
-  bindScope(offset: number, val: Term | number): void {
-    return this.bind(this.scopeP + offset, val)
-  }
-
-  bindCallee(offset: number, val: Term | number): void {
-    return this.bind(this.calleeP + offset, val)
-  }
-
-  unbind(): void {
-    const binding = this.trail[this.trailP]
-    this.heap[binding] = binding
-    this.trailP--
-  }
-
-  initArgs(args: Bindings): void {
-    for (let prev of this.query!.vars) {
-      let next: Term | undefined
-      while (true) {
-        next = args.get(prev)
-        if (!(next instanceof Variable)) break
-        prev = next
-      }
-      this.heap.push(next ?? this.query!.vars.indexOf(prev))
-    }
-    this.envP = this.heap.length
+  derefScope(offset: number): Term | number {
+    return this.deref(this.scopeP + offset)
   }
 
   evaluate(
@@ -207,6 +193,19 @@ export class Processor {
     }
   }
 
+  initArgs(args: Bindings): void {
+    for (let prev of this.query!.vars) {
+      let next: Term | undefined
+      while (true) {
+        next = args.get(prev)
+        if (!(next instanceof Variable)) break
+        prev = next
+      }
+      this.heap.push(next ?? this.query!.vars.indexOf(prev))
+    }
+    this.envP = this.heap.length
+  }
+
   nextChoice(
     // instead of using a thunk, maybe move more of the flow of control
     // of this method into the operations?
@@ -214,11 +213,18 @@ export class Processor {
   ): IteratorResult<Term> {
     let cp = this.stack[this.orP] as IteratingChoicePoint
     if (!cp || !cp.isCurrent()) {
-      this.orP = this.orP
       cp = new IteratingChoicePoint(this, iterable())
       this.orP = Math.max(this.andP, this.orP) + 1
       this.stack[this.orP] = cp
     }
     return cp.next()
+  }
+
+  unbind(prevTrailP: number): void {
+    while (this.trailP > prevTrailP) {
+      const binding = this.trail[this.trailP]
+      this.heap[binding] = binding
+      this.trailP--
+    }
   }
 }

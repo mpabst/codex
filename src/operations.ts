@@ -2,6 +2,7 @@ import {
   Argument,
   Bindings,
   Environment,
+  MutableChoicePoint,
   Operation,
   Processor,
 } from './processor.js'
@@ -12,14 +13,24 @@ export type Leaf = Set<Term> | Map<Term, number>
 export type Branch = Map<Term, Leaf> | Map<Term, Map<Term, Leaf>>
 
 export const operations: { [k: string]: Operation } = {
-  try(proc: Processor, nextChoice: Argument, _: Argument): void {
-    // push CP with its next instr the following retry/trust
-    // set pending
+  tryMeElse(proc: Processor, nextProgramP: Argument, _: Argument): void {
+    const cp = new MutableChoicePoint(proc, nextProgramP as number)
+    proc.orP = Math.max(proc.andP, proc.orP) + 1
+    proc.stack[proc.orP] = cp
   },
 
-  retry(proc: Processor, term: Argument, _: Argument): void {},
+  retryMeElse(proc: Processor, nextProgramP: Argument, _: Argument): void {
+    ;(proc.stack[proc.orP] as MutableChoicePoint).nextProgramP =
+      nextProgramP as number
+  },
 
-  trust(proc: Processor, term: Argument, _: Argument): void {},
+  trustMe(proc: Processor, _: Argument, __: Argument): void {
+    proc.orP = (proc.stack[proc.orP] as MutableChoicePoint).orP
+  },
+
+  skip(proc: Processor, to: Argument, _: Argument): void {
+    proc.programP = to as number
+  },
 
   call(proc: Processor, scopeP: Argument, query: Argument): void {
     // todo: check memo
@@ -41,14 +52,16 @@ export const operations: { [k: string]: Operation } = {
     for (const i in proc.query!.vars)
       binds.set(
         proc.query!.vars[i],
+        // scopeP isn't necessary iff we're at top-level - it'll
+        // always be 0 then - but this might still be handy
         proc.heap[proc.scopeP + parseInt(i)] as Term,
       )
     proc.emit!(binds)
     proc.fail = true
   },
 
-  setCallee(proc: Processor, calleeP: Argument, _: Argument): void {
-    proc.calleeP = calleeP as number
+  setCalleeP(proc: Processor, calleeP: Argument, _: Argument): void {
+    proc.calleeP = proc.envP + (calleeP as number)
   },
 
   setIndex(proc: Processor, branch: Argument, _: Argument): void {
@@ -82,8 +95,7 @@ export const operations: { [k: string]: Operation } = {
         proc.bind(found, value)
         proc.dbNode = (proc.dbNode as Branch).get(value)!
       }
-    }
-    else operations.eMedialConst(proc, found, null)
+    } else operations.eMedialConst(proc, found, null)
   },
 
   eFinalConst(proc: Processor, caller: Argument, _: Argument): void {
@@ -102,8 +114,7 @@ export const operations: { [k: string]: Operation } = {
     if (typeof found === 'number') {
       const { done, value } = proc.nextChoice()
       if (!done) proc.bind(found, value)
-    }
-    else operations.eFinalConst(proc, found, null)
+    } else operations.eFinalConst(proc, found, null)
   },
 
   iConstVar(proc: Processor, caller: Argument, callee: Argument): void {

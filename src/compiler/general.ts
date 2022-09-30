@@ -189,6 +189,10 @@ export function compile(
     )
   }
 
+  for (const callee of scope.callees)
+    // callee's offset becomes new proc.scopeP
+    outProg.push([operations.call, callee.offset, callee.target.body])
+
   // final tuple value is total number of all callee vars, ie
   // the environment frame size
   return [outProg, scope.vars.vars, offset]

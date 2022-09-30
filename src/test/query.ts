@@ -7,6 +7,7 @@ const { fpc, test } = Prefixers
 
 describe('Query', () => {
   it.only('smoke test', async () => {
+    debugger
     const store = new Store()
     const name = test('query.fp')
     await store.load(name)
@@ -17,7 +18,6 @@ describe('Query', () => {
       .get(test('query.fp#whoIsMortal'))!
       .get(fpc('body'))
     const query = new Query(module, body)
-    debugger
     new Processor().evaluate(query, (b: Bindings) => console.log(b.get(variable('who'))))
   })
 })

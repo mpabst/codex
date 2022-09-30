@@ -1,7 +1,7 @@
 import {
   Argument,
   Bindings,
-  Environment,
+  Invocation,
   MutableChoicePoint,
   Operation,
   Processor,
@@ -28,23 +28,25 @@ export const operations: { [k: string]: Operation } = {
     proc.orP = (proc.stack[proc.orP] as MutableChoicePoint).orP
   },
 
-  skip(proc: Processor, to: Argument, _: Argument): void {
-    proc.programP = to as number
+  skip(proc: Processor, programP: Argument, _: Argument): void {
+    proc.programP = programP as number
   },
 
   call(proc: Processor, scopeP: Argument, query: Argument): void {
     // todo: check memo
-    proc.andP = proc.stack.length
-    proc.stack.push(new Environment(proc))
-    proc.scopeP = scopeP as number
-    // proc.heapP = proc.heapP + proc.query!.size
+    proc.andP = Math.max(proc.andP, proc.orP) + 1
+    proc.stack[proc.andP] = new Invocation(proc)
+    proc.scopeP = proc.envP + (scopeP as number)
+    proc.envP = proc.envP + proc.query!.size
     proc.query = query as Query
-    // then zero out heap cells between heapP and heapP + proc.query.size
-    proc.programP = -1
+    for (let i = proc.envP; i < proc.envP + proc.query!.size; i++)
+      proc.heap[i] = i
+    proc.programP = 0
   },
 
   return(proc: Processor, _: Argument, __: Argument): void {
-    proc.stack[proc.andP].restore()
+    if (proc.andP < 0) proc.fail = true
+    else proc.stack[proc.andP].restore()
   },
 
   emitResult(proc: Processor, _: Argument, __: Argument): void {

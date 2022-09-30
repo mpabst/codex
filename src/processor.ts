@@ -12,7 +12,7 @@ export type Instruction = [Operation, Argument, Argument]
 export type Program = Instruction[]
 export type DBNode = Leaf | Branch
 
-export class Environment {
+abstract class Environment {
   query: Query
   programP: number
   // i don't think this changes when we push a CP, but
@@ -20,7 +20,7 @@ export class Environment {
   andP: number
   envP: number
   scopeP: number
-  argsP: number
+  calleeP: number
   // no need for dbNode since we never call mid-pattern
 
   constructor(protected proc: Processor) {
@@ -29,16 +29,23 @@ export class Environment {
     this.andP = proc.andP
     this.envP = proc.envP
     this.scopeP = proc.scopeP
-    this.argsP = proc.calleeP
+    this.calleeP = proc.calleeP
   }
 
   restore(): void {
     this.proc.query = this.query
-    this.proc.programP = this.programP
     this.proc.andP = this.andP
     this.proc.envP = this.envP
     this.proc.scopeP = this.scopeP
-    this.proc.calleeP = this.argsP
+    this.proc.calleeP = this.calleeP
+  }
+}
+
+export class Invocation extends Environment {
+  restore(): void {
+    super.restore()
+    // +1 to skip past the call instr which created this
+    this.proc.programP = this.programP + 1
   }
 }
 
@@ -90,6 +97,7 @@ class IteratingChoicePoint extends ChoicePoint {
 
   restore(): void {
     super.restore()
+    this.proc.programP = this.programP
     this.proc.dbNode = this.dbNode
   }
 }
@@ -119,7 +127,7 @@ export class Processor {
 
   //-- Environment stuff
   query: Query | null = null
-  programP: number = -1
+  programP: number = 0
 
   dbNode: DBNode | null = null
 
@@ -179,7 +187,6 @@ export class Processor {
     // probably just some query builder fcn for top-level invocations
     query.program.push([operations.emitResult, null, null])
     this.query = query
-    this.programP = 0
     this.initArgs(args)
     this.fail = false
     this.emit = emit

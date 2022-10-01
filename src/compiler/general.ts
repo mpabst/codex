@@ -21,7 +21,7 @@ class Scope {
     this.vars = new VarMap(vars)
   }
 
-  compile(er: Triple, ee: Quad, offset: number, numChoices: number): Program {
+  compile(er: Triple, ee: Quad): Program {
     let instrs: Program
     const edb = this.module.modules.get(ee.graph)
     if (edb) {
@@ -42,16 +42,7 @@ class Scope {
       // all anons or const-consts
       if (instrs.length === 1) return []
     }
-    return [
-      [
-        numChoices === 0 ? operations.tryMeElse : operations.retryMeElse,
-        // +2 for the two instrs we're adding in this return statement
-        offset + instrs!.length + 2,
-        null,
-      ],
-      ...instrs!,
-      [operations.skip, null, null],
-    ]
+    return instrs
   }
 
   edbInstr(position: string, term: Term): Instruction | null {
@@ -122,77 +113,66 @@ export function compile(
   const proc = new Processor()
   const scope = new Scope(module, vars)
 
-  function doPattern(pattern: Name): void {
-    let current: Program = []
-    let numChoices = 0
+  function adjustCallees(): number {
+    if (scope.callees.length === 0) return 0
 
+    // compute callee offsets
+    let offset = 0
+    for (const c of scope.callees) {
+      c.offset = offset
+      offset += c.target.vars.length
+    }
+    // adjust setCallee offset args to their correct values
+    for (let i = 0; i < prog.length; i++) {
+      const [op, left, right] = prog[i]
+      if (op === operations.setCallee)
+        prog[i] = [op, scope.callees[left as number].offset, right]
+    }
+    prog.push([operations.doCalls, null, null])
+
+    return offset
+  }
+
+  function doPattern(pattern: Name): void {
+    const choices: Program[] = []
     proc.evaluate(
       compileMatcher(module, pattern),
-      bindingsToQuad((callee: Quad) => {
-        current.push(
-          ...scope.compile(
-            getReifiedTriple(module, pattern),
-            callee,
-            prog.length + current.length,
-            numChoices,
-          ),
-        )
-        numChoices++
-      }),
+      bindingsToQuad((callee: Quad) =>
+        choices.push(scope.compile(getReifiedTriple(module, pattern), callee)),
+      ),
     )
+    pushDisjunction(choices)
+  }
 
-    if (numChoices === 1) {
-      // tweak bounds to chop off tryMeElse and skip
-      for (let i = 1; i < current.length - 1; i++) prog.push(current[i])
+  function pushDisjunction(choices: Program[]): void {
+    if (choices.length === 1) {
+      prog.push(...choices[0])
       return
     }
-
+    const start = prog.length
+    const next = (choice: Program) => prog.length + choice.length + 2
+    prog.push([operations.tryMeElse, next(choices[0]), null], ...choices[0], [
+      operations.skip,
+      null,
+      null,
+    ])
+    for (let i = 1; i < choices.length - 1; i++)
+      prog.push(
+        [operations.retryMeElse, next(choices[i]), null],
+        ...choices[i],
+        [operations.skip, null, null],
+      )
+    prog.push([operations.trustMe, null, null], ...choices[choices.length - 1])
     // rewrite all skip args
-    for (const instr of current)
-      if (instr[0] === operations.skip)
-        // -1 because the final skip instr will get removed,
-        // and another -1 because the processor increments
-        // programP after we set its value
-        instr[1] = current.length - 2
-
-    // change final retryMeElse to trustMe
-    for (let i = current.length - 1; i > -1; i--) {
-      const instr = current[i]
-      if (instr[0] === operations.retryMeElse) {
-        instr[0] = operations.trustMe
-        instr[1] = null
-        break
-      }
+    for (let i = start; i < prog.length; i++) {
+      const instr = prog[i]
+      // -1 because the processor increments programP after we set its value
+      if (instr[0] === operations.skip) instr[1] = prog.length - 1
     }
-
-    prog.push(...current)
   }
 
   traverse(module.facts, query, { doPattern })
 
-  // compute callee offsets
-  let offset = 0
-  for (const c of scope.callees) {
-    c.offset = offset
-    offset += c.target.vars.length
-  }
-
-  let outProg: Program = []
-  if (scope.callees.length > 0) {
-    // length - 1 to remove final skip instr
-    for (let i = 0; i < prog.length - 1; i++) {
-      const [op, left, right] = prog[i]
-      outProg.push(
-        // adjust setCallee offset arg to correct value
-        op === operations.setCallee
-          ? [op, scope.callees[left as number].offset, right]
-          : [op, left, right],
-      )
-    }
-    outProg.push([operations.doCalls, null, null])
-  } else outProg = prog.slice(0, -1)
-
-  // return[2] is total number of all callee vars, ie
-  // the environment frame size
-  return [outProg, scope.vars.vars, offset]
+  const envSize = adjustCallees()
+  return [prog, scope.vars.vars, envSize]
 }

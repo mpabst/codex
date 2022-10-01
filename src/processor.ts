@@ -1,3 +1,4 @@
+import { Callee } from './compiler/general.js'
 import { Branch, Leaf, operations } from './operations.js'
 import { Query } from './query.js'
 import { Term, Variable } from './term.js'
@@ -5,14 +6,14 @@ import { Term, Variable } from './term.js'
 export type Bindings<T = Term> = Map<Variable, T>
 // TODO: Does an Argument union break monomorphism? How much do I care if I'm
 // gonna port all this anyways
-export type Argument = Term | Branch | Query | number | null
+export type Argument = Term | Branch | Callee | number | null
 export type Operation = (m: Processor, l: Argument, r: Argument) => void
 export type InstructionSet = { [k: string]: Operation }
 export type Instruction = [Operation, Argument, Argument]
 export type Program = Instruction[]
 export type DBNode = Leaf | Branch
 
-abstract class Environment {
+export class Environment {
   query: Query
   programP: number
   // i don't think this changes when we push a CP, but
@@ -22,6 +23,11 @@ abstract class Environment {
   scopeP: number
   calleeP: number
   // no need for dbNode since we never call mid-pattern
+  prevLastSched: number
+  lastMade: number
+  // i wanted to restore this based on proc.prevLastSched - 1
+  // but that breaks down when restoring the very first stack frame
+  lastSched: number
 
   constructor(protected proc: Processor) {
     this.query = proc.query!
@@ -30,22 +36,21 @@ abstract class Environment {
     this.envP = proc.envP
     this.scopeP = proc.scopeP
     this.calleeP = proc.calleeP
+    this.prevLastSched = proc.prevLastSched
+    this.lastMade = proc.lastMade
+    this.lastSched = proc.lastSched
   }
 
   restore(): void {
     this.proc.query = this.query
+    this.proc.programP = this.programP
     this.proc.andP = this.andP
     this.proc.envP = this.envP
     this.proc.scopeP = this.scopeP
     this.proc.calleeP = this.calleeP
-  }
-}
-
-export class Invocation extends Environment {
-  restore(): void {
-    super.restore()
-    // +1 to skip past the call instr which created this
-    this.proc.programP = this.programP + 1
+    this.proc.lastSched = this.lastSched
+    this.proc.prevLastSched = this.prevLastSched
+    this.proc.lastMade = this.lastMade
   }
 }
 
@@ -97,7 +102,6 @@ class IteratingChoicePoint extends ChoicePoint {
 
   restore(): void {
     super.restore()
-    this.proc.programP = this.programP
     this.proc.dbNode = this.dbNode
   }
 }
@@ -138,6 +142,11 @@ export class Processor {
   envP: number = -1 // start of environment
   scopeP: number = 0 // start of our args, in prev env
   calleeP: number = -1 // start of current callee's args
+
+  callees: Callee[] = []
+  prevLastSched: number = -1 // last pending callee of our own caller
+  lastMade: number = -1 // last call we've made
+  lastSched: number = -1 // our last callee
 
   trail: number[] = []
   trailP: number = -1
@@ -191,7 +200,7 @@ export class Processor {
     this.fail = false
     this.emit = emit
     while (true) {
-      const [op, left, right] = query.program[this.programP]
+      const [op, left, right] = this.query.program[this.programP]
       op(this, left, right)
       if (this.fail) {
         if (this.orP < 0) break
@@ -201,16 +210,18 @@ export class Processor {
   }
 
   initArgs(args: Bindings): void {
-    for (let prev of this.query!.vars) {
+    for (let prev of this.query!.scope) {
       let next: Term | undefined
       while (true) {
         next = args.get(prev)
         if (!(next instanceof Variable)) break
         prev = next
       }
-      this.heap.push(next ?? this.query!.vars.indexOf(prev))
+      this.heap.push(next ?? this.query!.scope.indexOf(prev))
     }
     this.envP = this.heap.length
+    for (let i = this.envP; i < this.envP + this.query!.envSize; i++)
+      this.heap[i] = i
   }
 
   nextChoice(

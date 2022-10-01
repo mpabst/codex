@@ -34,7 +34,7 @@ class Scope {
     } else {
       const [callee, idx] = this.getCallee(this.module.clauses.get(ee.graph)!)
       instrs = [
-        [operations.setCalleeP, idx, null],
+        [operations.setCallee, idx, callee.target.body ? callee : null],
         callee.idbInstr(er.subject, ee.subject),
         callee.idbInstr(er.predicate, ee.predicate),
         callee.idbInstr(er.object, ee.object),
@@ -80,7 +80,7 @@ class Scope {
   }
 }
 
-class Callee {
+export class Callee {
   offset: number = -1 // rewritten in second pass
 
   constructor(public caller: Scope, public target: Clause) {
@@ -141,9 +141,9 @@ export function compile(
       }),
     )
 
-    // chop off initial try if we only have one choice
     if (numChoices === 1) {
-      current = current.slice(1)
+      // tweak bounds to chop off tryMeElse and skip
+      for (let i = 1; i < current.length - 1; i++) prog.push(current[i])
       return
     }
 
@@ -177,23 +177,22 @@ export function compile(
     offset += c.target.vars.length
   }
 
-  const outProg: Program = []
-  // length - 1 to remove final skip instr
-  for (let i = 0; i < prog.length - 1; i++) {
-    const [op, left, right] = prog[i]
-    outProg.push(
-      // adjust setCalleeP args to correct value
-      op === operations.setCalleeP
-        ? [op, scope.callees[left as number].offset, null]
-        : [op, left, right],
-    )
-  }
+  let outProg: Program = []
+  if (scope.callees.length > 0) {
+    // length - 1 to remove final skip instr
+    for (let i = 0; i < prog.length - 1; i++) {
+      const [op, left, right] = prog[i]
+      outProg.push(
+        // adjust setCallee offset arg to correct value
+        op === operations.setCallee
+          ? [op, scope.callees[left as number].offset, right]
+          : [op, left, right],
+      )
+    }
+    outProg.push([operations.doCalls, null, null])
+  } else outProg = prog.slice(0, -1)
 
-  for (const callee of scope.callees)
-    // callee's offset becomes new proc.scopeP
-    outProg.push([operations.call, callee.offset, callee.target.body])
-
-  // final tuple value is total number of all callee vars, ie
+  // return[2] is total number of all callee vars, ie
   // the environment frame size
   return [outProg, scope.vars.vars, offset]
 }

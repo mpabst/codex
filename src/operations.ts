@@ -1,12 +1,12 @@
+import { Callee } from './compiler/general.js'
 import {
   Argument,
   Bindings,
-  Invocation,
+  Environment,
   MutableChoicePoint,
   Operation,
-  Processor,
+  Processor
 } from './processor.js'
-import { Query } from './query.js'
 import { Term } from './term.js'
 
 export type Leaf = Set<Term> | Map<Term, number>
@@ -32,16 +32,24 @@ export const operations: { [k: string]: Operation } = {
     proc.programP = programP as number
   },
 
-  call(proc: Processor, scopeP: Argument, query: Argument): void {
-    // todo: check memo
+  doCalls(proc: Processor, _: Argument, __: Argument): void {
+    if (proc.lastMade === proc.lastSched) return
+
+    // todo: check memo, use IteratingChoicePoint if hit
+    // todo: external calls? JS or WASM? math, findall, etc
+
+    proc.lastMade++
+    const callee = proc.callees[proc.lastMade]
+
     proc.andP = Math.max(proc.andP, proc.orP) + 1
-    proc.stack[proc.andP] = new Invocation(proc)
-    proc.scopeP = proc.envP + (scopeP as number)
-    proc.envP = proc.envP + proc.query!.size
-    proc.query = query as Query
-    for (let i = proc.envP; i < proc.envP + proc.query!.size; i++)
+    proc.stack[proc.andP] = new Environment(proc)
+
+    proc.scopeP = proc.envP + callee.offset
+    proc.envP = proc.envP + proc.query!.envSize
+    proc.query = callee.target.body
+    for (let i = proc.envP; i < proc.envP + proc.query!.envSize; i++)
       proc.heap[i] = i
-    proc.programP = 0
+    proc.programP = -1
   },
 
   return(proc: Processor, _: Argument, __: Argument): void {
@@ -51,9 +59,9 @@ export const operations: { [k: string]: Operation } = {
 
   emitResult(proc: Processor, _: Argument, __: Argument): void {
     const binds: Bindings = new Map()
-    for (const i in proc.query!.vars)
+    for (const i in proc.query!.scope)
       binds.set(
-        proc.query!.vars[i],
+        proc.query!.scope[i],
         // scopeP isn't necessary iff we're at top-level - it'll
         // always be 0 then - but this might still be handy
         proc.heap[proc.scopeP + parseInt(i)] as Term,
@@ -62,8 +70,17 @@ export const operations: { [k: string]: Operation } = {
     proc.fail = true
   },
 
-  setCalleeP(proc: Processor, calleeP: Argument, _: Argument): void {
+  setCallee(proc: Processor, calleeP: Argument, callee: Argument): void {
     proc.calleeP = proc.envP + (calleeP as number)
+    if (!callee) return // callee has no body, no need to schedule a call
+    // todo: alternatives to doing this as a loop:
+    // - compute the whole set of all queries at compile time, map these to
+    //   places in a bit string, and this instruction idempotently sets the
+    //   corresponding bit.
+    let i = proc.prevLastSched + 1 
+    for (; i <= proc.lastSched; i++) if (proc.callees[i] === callee) return
+    proc.lastSched++
+    proc.callees[proc.lastSched] = callee as Callee
   },
 
   setIndex(proc: Processor, branch: Argument, _: Argument): void {

@@ -5,19 +5,19 @@ import { Name, Variable } from './term.js'
 
 export class Query {
   program: Program
-  vars: Variable[]
-  size: number // size of activation record, ie all callee vars
+  scope: Variable[]
+  envSize: number
 
   constructor(module?: Module, name?: Name, initVars?: Variable[]) {
     if (module && name) {
       const [program, vars, size] = compile(module, name, initVars)
       this.program = program
-      this.vars = vars
-      this.size = size
+      this.scope = vars
+      this.envSize = size
     } else {
       this.program = []
-      this.vars = []
-      this.size = 0
+      this.scope = []
+      this.envSize = 0
     }
   }
 }

@@ -42,7 +42,7 @@ export function compile(module: Module, name: Name): Query {
   }
 
   out.program.push([ops.emitResult, null, null])
-  out.vars = vars.vars
+  out.scope = vars.vars
   return out
 }
 
@@ -132,7 +132,7 @@ function operations(): InstructionSet {
     place: Variable,
   ): IteratorResult<Term> {
     const next = proc.nextChoice(() =>
-      match(proc.dbNode as VTSet, proc.query?.vars[caller]!),
+      match(proc.dbNode as VTSet, proc.query?.scope[caller]!),
     )
     if (next.done) return next
     const { value } = next

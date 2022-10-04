@@ -1,16 +1,12 @@
-import { Memo, MemoItem } from './collections/data-set.js'
-import { Callee } from './compiler/general.js'
 import {
   Argument,
   Bindings,
   Environment,
-  IteratingChoicePoint,
-  MemoChoicePoint,
   MutableChoicePoint,
   Operation,
   Processor,
 } from './processor.js'
-import { ANON, Term, Variable } from './term.js'
+import { Term } from './term.js'
 
 export type Leaf = Set<Term> | Map<Term, number>
 export type Branch = Map<Term, Leaf> | Map<Term, Map<Term, Leaf>>
@@ -38,90 +34,27 @@ export const operations: { [k: string]: Operation } = {
   // todo: external calls? JS or WASM? math, findall, etc
   // can just be another clause with a special body that has one instruction
   doCalls(proc: Processor, _: Argument, __: Argument): void {
-    function bindMemo(result: Term[]) {
-      for (let i = 0; i < result.length; i++) {
-        const derefed = proc.derefCallee(i)
-        if (typeof derefed === 'number') proc.bind(derefed, result[i])
+    proc.lastCall++
+    let bitIndex = 1 << proc.lastCall
+    while (true) {
+      if (proc.lastCall === proc.query!.callees.length) return
+      if (!(proc.neededCalls & bitIndex)) {
+        proc.lastCall++
+        bitIndex = bitIndex << 1
+        continue
       }
-    }
-
-    function invoke() {
+      const callee = proc.query!.callees[proc.lastCall]
       proc.andP = Math.max(proc.andP, proc.orP) + 1
       proc.stack[proc.andP] = new Environment(proc)
+      proc.neededCalls = 0
+      proc.lastCall = -1
       proc.scopeP = proc.envP + callee.offset
       proc.envP = proc.envP + proc.query!.envSize
       proc.query = callee.target.body
       for (let i = proc.envP; i < proc.envP + proc.query!.envSize; i++)
         proc.heap[i] = i
       proc.programP = -1
-    }
-
-    function memoKey(): Term[] {
-      const key = proc.heap.slice(proc.calleeP, proc.calleeP + memo!.pathLength)
-      const outArgs = new Map<number, Variable>()
-
-      for (let i = 0; i < key.length; i++)
-        if (typeof key[i] === 'number') {
-          const derefed = proc.deref(key[i] as number)
-          if (typeof derefed === 'number') {
-            let first = outArgs.get(derefed)
-            if (!first) {
-              // todo: allow numbers in memo keys? mostly to avoid
-              // this next line
-              first = callee!.target.vars[i]
-              outArgs.set(derefed, first)
-            }
-            key[i] = first
-          } else key[i] = derefed
-        }
-
-      return key as Term[]
-    }
-
-    if (proc.lastMade === proc.lastSched) return
-
-    const cp = proc.stack[proc.orP] as IteratingChoicePoint
-    if (cp && cp.isCurrent()) {
-      const { done, value } = (cp as MemoChoicePoint).next()
-      if (!done) bindMemo(value)
       return
-    }
-
-    // haven't made the call yet, so let's do that
-    proc.lastMade++
-    const callee = proc.callees[proc.lastMade]
-
-    // check memo
-    const memo = callee.target.memo
-    // unmemoized clause
-    // todo: eliminate this branch by having callee stack accumulate the
-    // instruction used to call that specific clause. also seems like a
-    // good design more generally
-    if (memo === null) {
-      invoke()
-      return
-    }
-
-    const key = memoKey()
-    const memoItem = memo.get(key)
-    if (memoItem) {
-      const { done, value } = proc.nextChoice(
-        () => memoItem.bindings,
-        MemoChoicePoint,
-      )
-      if (!done) bindMemo(value)
-    } else {
-      // todo: have get() be an upsert which adds an empty MemoItem, and stash
-      // that on proc instead of the key
-      proc.memoKey = key
-      invoke()
-    }
-  },
-
-  updateMemo(proc: Processor, memo: Argument, _: Argument): void {
-    let memoItem = (memo as Memo).get(proc.memoKey!)
-    if (!memoItem) {
-      memoItem = new MemoItem()
     }
   },
 
@@ -132,17 +65,17 @@ export const operations: { [k: string]: Operation } = {
 
   emitResult(proc: Processor, _: Argument, __: Argument): void {
     const binds: Bindings = new Map()
+    // scopeP isn't necessary in the index to proc.heap since we're at
+    // top-level
     for (const i in proc.query!.scope)
-      // scopeP isn't necessary in the index to proc.heap since we're at
-      // top-level
       binds.set(proc.query!.scope[i], proc.heap[i] as Term)
     proc.emit!(binds)
     proc.fail = true
   },
 
-  setCallee(proc: Processor, calleeP: Argument, calleeIndex: Argument): void {
+  setCallee(proc: Processor, calleeP: Argument, bitIndex: Argument): void {
     proc.calleeP = proc.envP + (calleeP as number)
-    proc.neededCalls |= calleeIndex as number
+    proc.neededCalls |= bitIndex as number
   },
 
   setIndex(proc: Processor, branch: Argument, _: Argument): void {

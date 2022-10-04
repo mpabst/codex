@@ -108,7 +108,7 @@ export function compile(
   module: Module,
   query: Name,
   vars: Variable[] = [],
-): [Program, Variable[], number] {
+): [Program, Scope, number] {
   const prog: Program = []
   const proc = new Processor()
   const scope = new Scope(module, vars)
@@ -174,5 +174,5 @@ export function compile(
   traverse(module.facts, query, { doPattern })
 
   const envSize = adjustCallees()
-  return [prog, scope.vars.vars, envSize]
+  return [prog, scope, envSize]
 }

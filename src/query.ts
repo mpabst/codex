@@ -1,5 +1,5 @@
 import { Clause } from './clause.js'
-import { compile } from './compiler/general.js'
+import { Callee, compile } from './compiler/general.js'
 import { Prefixers } from './data-factory.js'
 import { Module } from './module.js'
 import { operations } from './operations.js'
@@ -11,13 +11,15 @@ const { fpc } = Prefixers
 export abstract class Query {
   program: Program = []
   scope: Variable[] = []
+  callees: Callee[] = []
   envSize: number = 0
 
   constructor(public module: Module | null, public name: Name | null, initVars: Variable[]) {
     if (module && name) {
-      const [program, vars, size] = compile(module, name, initVars)
+      const [program, scope, size] = compile(module, name, initVars)
       this.program = program
-      this.scope = vars
+      this.scope = scope.vars.vars
+      this.callees = scope.callees
       this.envSize = size
     }
   }

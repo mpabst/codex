@@ -1,7 +1,7 @@
-import { Triple } from '../term.js'
-import { DataSet, Order, TripleSet } from './data-set.js'
+import { Term, Triple } from '../term.js'
+import { CurlyDataSet, Order, TripleSet } from './data-set.js'
 
-export class Index<D extends DataSet<Triple> = TripleSet> {
+export class Index<D extends CurlyDataSet = TripleSet> {
   protected data = new Map<Order, D>()
 
   constructor(Data: new (o: string) => D, protected orders: Order[] = ['SPO']) {

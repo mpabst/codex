@@ -1,6 +1,6 @@
-import { Prefixers, variable } from '../data-factory.js'
+import { Prefixers } from '../data-factory.js'
 import { Bindings, Processor } from '../processor.js'
-import { Query } from '../query.js'
+import { TopLevel } from '../query.js'
 import { Store } from '../store.js'
 
 const { fpc, test } = Prefixers
@@ -16,8 +16,10 @@ describe('Query', () => {
       .getRoot('SPO')
       .get(test('query.fp#whoIsMortal'))!
       .get(fpc('body'))
-    const query = new Query(module, body)
-    debugger
-    new Processor().evaluate(query, (b: Bindings) => console.log(b.get(variable('who'))))
+    const query = new TopLevel(module, body)
+    // debugger
+    const proc = new Processor()    
+    for (let i = 0; i < 10_000; i++) proc.evaluate(query, (b: Bindings) => {})
+    console.log(proc.instrCount)
   })
 })

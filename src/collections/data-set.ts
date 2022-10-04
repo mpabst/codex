@@ -1,3 +1,4 @@
+import { Query } from '../query.js'
 import { Quad, Term, Triple } from '../term.js'
 
 const PLACES: { [k: string]: keyof Quad } = {
@@ -8,46 +9,43 @@ const PLACES: { [k: string]: keyof Quad } = {
 }
 
 export type Order = string
+type Twig = Set<Term>
+type Branch = Map<Term, any>
+type Node = Set<Term> | Map<Term, any>
 
 const TRIPLE_LENGTH = 3
 const QUAD_LENGTH = 4
 
-export abstract class DataSet<D extends { [k: string]: Term }> {
+export abstract class DataSet {
   protected readonly Branch: MapConstructor = Map
   protected readonly Twig: SetConstructor = Set
 
-  readonly order: (keyof D)[]
+  protected abstract readonly pathLength: number
   protected _size: number = 0
 
   abstract root: Map<Term, any>
-
-  constructor(order: Order) {
-    this.order = order.split('').map(s => PLACES[s] as keyof D)
-  }
 
   get size(): number {
     return this._size
   }
 
-  add(data: D): this {
-    this._size++
-    const path = this.reorder(data)
+  protected addPath(path: Term[]): void {
     let prev = this.root
     let next
     for (let i = 0; i < this.pathLength - 1; i++) {
       next = prev.get(path[i])
       if (next) prev = next
       else {
-        prev.set(path[i], this.buildTail(path, i + 1)) 
-        return this
+        prev.set(path[i], this.buildTail(path, i + 1))
+        return
       }
     }
     next.add(path[this.pathLength - 1])
-    return this
+    this._size++
   }
 
-  buildTail(path: Term[], start: number) {
-    let prev: any = new this.Twig()
+  protected buildTail(path: Term[], start: number) {
+    let prev: Node = new this.Twig()
     prev.add(path[this.pathLength - 1])
     for (let i = this.pathLength - 2; i >= start; i--) {
       let next = new this.Branch()
@@ -57,72 +55,129 @@ export abstract class DataSet<D extends { [k: string]: Term }> {
     return prev
   }
 
-  abstract delete(data: D): void
-
-  abstract get pathLength(): number
-
-  protected reorder(data: D): Term[] {
-    return this.order.map(o => data[o])
-  }
-}
-
-export class TripleSet extends DataSet<Triple> {
-  root = new this.Branch()
-
-  delete(data: Triple): void {
-    const path = this.reorder(data)
-    const a = this.root.get(path[0])!
-    // don't nilcheck for now...
-    const b = a.get(path[1])!
-    b.delete(path[2])
-    if (b.size === 0) a.delete(path[1])
-    if (a.size === 0) this.root.delete(path[0])
+  protected deletePath(path: Term[]): void {
+    const nodes = this.mapPath(path)
+    if (nodes.length !== this.pathLength) return // not found
+    nodes[nodes.length - 1].delete(path[path.length - 1])
+    for (let i = nodes.length - 2; i > 0; i--)
+      if (nodes[i].size === 0) nodes[i - 1].delete(path[i])
     this._size--
   }
 
-  get pathLength(): number {
-    return TRIPLE_LENGTH
-  }
-}
-
-export class QuadSet extends DataSet<Quad> {
-  root = new this.Branch()
-
-  delete(data: Quad): void {
-    const path = this.reorder(data)
-    const a = this.root.get(path[0])!
-    // don't nilcheck for now...
-    const b = a.get(path[1])!
-    const c = b.get(path[2])!
-    c.delete(path[3])
-    if (c.size === 0) {
-      b.delete(path[2])
-      if (b.size === 0) {
-        a.delete(path[1])
-        if (a.size === 0) this.root.delete(path[0])
-      }
-    }
-    this._size--
-  }
-
-  forEach(cb: (q: Quad) => void): void {
-    const out: Partial<Quad> = {}
-    for (const [a, bs] of this.root) {
-      out[this.order[0]] = a
-      for (const [b, cs] of bs) {
-        out[this.order[1]] = b
-        for (const [c, ds] of cs) {
-          out[this.order[2]] = c
-          for (const d of ds) {
-            out[this.order[3]] = d
-            cb(out as Quad)
-          }
+  protected forEachPath(cb: (d: Term[]) => void): void {
+    const found: Term[] = []
+    const recursive = (node: Node, place: number) => {
+      if (node instanceof this.Twig)
+        for (const term of node) {
+          found[place] = term
+          cb(found)
         }
-      }
+      else
+        for (const [key, val] of node) {
+          found[place] = key
+          recursive(val, place + 1)
+        }
     }
+    recursive(this.root, 0)
   }
 
-  get pathLength(): number {
-    return QUAD_LENGTH
+  protected mapPath(path: Term[]): Node[] {
+    const out: Node[] = []
+    let next: Branch = this.root
+    for (const term of path) {
+      out.push(next)
+      if (next instanceof this.Twig) break
+      next = next.get(term)
+      if (!next) break
+    }
+    return out
   }
+}
+
+class FlatDataSet<D extends Term[] = Term[]> extends DataSet {
+  root = new this.Branch()
+
+  constructor(public pathLength: number) {
+    super()
+  }
+
+  add(datum: D): void {
+    return super.addPath(datum)
+  }
+
+  delete(datum: D): void {
+    super.deletePath(datum)
+  }
+
+  forEach(cb: (d: Term[]) => void): void {
+    this.forEachPath(cb)
+  }
+}
+
+export class MemoItem {
+  callers = new Set<Query>()
+  bindings: Term[][] = []
+}
+
+class MemoTwig extends Map<Term, MemoItem> {
+  add(term: Term): void {
+    this.set(term, new MemoItem())
+  }
+}
+
+export class Memo extends FlatDataSet {
+  twig = MemoTwig
+
+  get(path: Term[]): MemoItem | null {
+    let next = this.root
+    for (let i = 0; i < path.length; i++) {
+      if (!next) return null
+      next = next.get(path[i])
+    }
+    return next as unknown as MemoItem
+  }
+}
+
+// flat and curly, like parsley ^_^
+export abstract class CurlyDataSet<
+  D extends { [k: string]: Term } = { [k: string]: Term },
+> extends DataSet {
+  readonly order: (keyof D)[]
+
+  constructor(order: Order) {
+    super()
+    this.order = order.split('').map(s => PLACES[s] as keyof D)
+  }
+
+  add(datum: D): void {
+    super.addPath(this.reorder(datum))
+  }
+
+  delete(datum: D): void {
+    super.deletePath(this.reorder(datum))
+  }
+
+  protected deorder(path: Term[]): D {
+    const out: Partial<D> = {}
+    for (let i = 0; i < path.length; i++) (out[this.order[i]] as any) = path[i]
+    return out as D
+  }
+
+  forEach(cb: (d: D) => void): void {
+    this.forEachPath((path: Term[]) => cb(this.deorder(path)))
+  }
+
+  protected reorder(datum: D): Term[] {
+    return this.order.map(o => datum[o])
+  }
+}
+
+export class TripleSet extends CurlyDataSet<Triple> {
+  pathLength = TRIPLE_LENGTH
+  root = new this.Branch()
+}
+
+export class QuadSet extends CurlyDataSet<Quad> {
+  pathLength = QUAD_LENGTH
+  root = new this.Branch()
 }

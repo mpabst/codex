@@ -1,8 +1,7 @@
-import { BindingsSet } from './collections/bindings-set.js'
+import { Memo } from './collections/data-set.js'
 import { Prefixers } from './data-factory.js'
 import { Module } from './module.js'
-import { operations } from './operations.js'
-import { Query } from './query.js'
+import { Body } from './query.js'
 import { Rule } from './rule.js'
 import { traverse } from './syntax.js'
 import { Name, Quad, Variable } from './term.js'
@@ -12,8 +11,8 @@ const { fpc } = Prefixers
 
 export class Clause {
   vars: Variable[]
-  body: Query | null
-  memo: BindingsSet | null
+  body: Body | null
+  memo: Memo | null
 
   constructor(public module: Module, public rule: Rule, public name: Name) {
     module.clauses.set(name, this)
@@ -22,14 +21,18 @@ export class Clause {
     const po = module.facts.getRoot('SPO').get(name)!
     const [head] = po.get(fpc('head'))!
     this.vars = this.initSignature(head)
-    this.memo = new BindingsSet(this.vars)
 
     const bodies = po.get(fpc('body'))!
     if (bodies) {
       const [body] = bodies
-      this.body = new Query(module, body, this.vars)
-      this.body.program.push([operations.return, null, null])
-    } else this.body = null
+      // init memo before compiling query, so the former doesn't use
+      // vars only found in the body as part of the memo key
+      this.memo = new Memo(this.vars.length)
+      this.body = new Body(module, this, body)
+    } else {
+      this.body = null
+      this.memo = null
+    }
   }
 
   protected initSignature(head: Name): Variable[] {

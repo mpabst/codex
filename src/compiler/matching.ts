@@ -2,8 +2,8 @@ import { VTQuadSet, VTSet } from '../collections/var-tracking.js'
 import { Prefixers, variable } from '../data-factory.js'
 import { Callable, Module } from '../module.js'
 import { Branch } from '../operations.js'
-import { Argument, Bindings, InstructionSet, Processor } from '../processor.js'
-import { Query } from '../query.js'
+import { Argument, Bindings, InstructionSet, Processor, Program } from '../processor.js'
+import { Matcher, Query } from '../query.js'
 import { ANON, DEFAULT_GRAPH, Name, Quad, Term, Variable } from '../term.js'
 import { getReifiedTriple, VarMap } from '../util.js'
 
@@ -24,14 +24,13 @@ export function compile(module: Module, name: Name): Query {
   const pattern = getReifiedTriple(module, name)
   const ops = operations()
   const vars = new VarMap()
-  const out = new Query()
-  out.program = [[ops.sChooseGraph, root, null]]
+  const program: Program = [[ops.sChooseGraph, root, null]]
 
   for (const place of order.slice(1)) {
     const pos = place === order[order.length - 1] ? 'sFinal' : 'sMedial'
     const term = pattern[place]
     const push = (type: string, caller: Argument) =>
-      out.program.push([ops[pos + type], caller, variable(place as string)])
+      program.push([ops[pos + type], caller, variable(place as string)])
     if (term instanceof Variable) {
       if (term === ANON) push('AnonVar', null)
       else {
@@ -41,9 +40,8 @@ export function compile(module: Module, name: Name): Query {
     } else push('Const', term)
   }
 
-  out.program.push([ops.emitResult, null, null])
-  out.scope = vars.vars
-  return out
+  program.push([ops.emitResult, null, null])
+  return new Matcher(program, vars.vars)
 }
 
 function getSignature(module: Module, pattern: Name): VTQuadSet {

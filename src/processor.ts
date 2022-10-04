@@ -1,17 +1,19 @@
+import { Memo } from './collections/data-set.js'
 import { Callee } from './compiler/general.js'
-import { Branch, Leaf, operations } from './operations.js'
-import { Query } from './query.js'
+import { Branch, Leaf } from './operations.js'
+import { Query, TopLevel } from './query.js'
 import { Term, Variable } from './term.js'
 
 export type Bindings<T = Term> = Map<Variable, T>
 // TODO: Does an Argument union break monomorphism? How much do I care if I'm
 // gonna port all this anyways
-export type Argument = Term | Branch | Callee | number | null
+export type Argument = Term | Branch | Callee | Memo | number | null
 export type Operation = (m: Processor, l: Argument, r: Argument) => void
 export type InstructionSet = { [k: string]: Operation }
 export type Instruction = [Operation, Argument, Argument]
 export type Program = Instruction[]
 export type DBNode = Leaf | Branch
+export type Direction = 'up' | 'down'
 
 export class Environment {
   query: Query
@@ -23,11 +25,8 @@ export class Environment {
   scopeP: number
   calleeP: number
   // no need for dbNode since we never call mid-pattern
-  prevLastSched: number
-  lastMade: number
-  // i wanted to restore this based on proc.prevLastSched - 1
-  // but that breaks down when restoring the very first stack frame
-  lastSched: number
+  neededCalls: number
+  lastCall: number
 
   constructor(protected proc: Processor) {
     this.query = proc.query!
@@ -36,9 +35,8 @@ export class Environment {
     this.envP = proc.envP
     this.scopeP = proc.scopeP
     this.calleeP = proc.calleeP
-    this.prevLastSched = proc.prevLastSched
-    this.lastMade = proc.lastMade
-    this.lastSched = proc.lastSched
+    this.neededCalls = proc.neededCalls
+    this.lastCall = proc.lastCall
   }
 
   restore(): void {
@@ -48,9 +46,8 @@ export class Environment {
     this.proc.envP = this.envP
     this.proc.scopeP = this.scopeP
     this.proc.calleeP = this.calleeP
-    this.proc.lastSched = this.lastSched
-    this.proc.prevLastSched = this.prevLastSched
-    this.proc.lastMade = this.lastMade
+    this.proc.neededCalls = this.neededCalls
+    this.proc.lastCall = this.lastCall
   }
 }
 
@@ -77,19 +74,19 @@ abstract class ChoicePoint extends Environment {
   }
 }
 
-class IteratingChoicePoint extends ChoicePoint {
+export class IteratingChoicePoint<T = Term> extends ChoicePoint {
   dbNode: DBNode | null
   // fixme: iterate over entries rather than keys, so we
   // don't have to refetch the value
-  protected iterator: Iterator<Term>
+  protected iterator: Iterator<T>
 
-  constructor(proc: Processor, iterable: Iterable<Term>) {
+  constructor(proc: Processor, iterable: Iterable<T>) {
     super(proc)
     this.dbNode = proc.dbNode
     this.iterator = iterable[Symbol.iterator]()
   }
 
-  next(): IteratorResult<Term> {
+  next(): IteratorResult<T> {
     const out = this.iterator.next()
     // save an iteration by checking IteratorHasMore instead
     // of waiting for done?
@@ -117,12 +114,19 @@ export class MutableChoicePoint extends ChoicePoint {
   }
 }
 
+export class MemoChoicePoint extends IteratingChoicePoint<Term[]> {
+  isCurrent(): boolean {
+    return this.lastCall === this.proc.lastCall && super.isCurrent()
+  }
+}
+
 export class Processor {
   // todo: have operations call backtrack, and main while loop increment
   // programC. maybe work out negation first. or just have backtrack()
   // check for negation?
 
   //-- Global stuff
+  direction: Direction | null = null
   stack: Environment[] = []
   andP: number = -1
   orP: number = -1
@@ -143,10 +147,8 @@ export class Processor {
   scopeP: number = 0 // start of our args, in prev env
   calleeP: number = -1 // start of current callee's args
 
-  callees: Callee[] = []
-  prevLastSched: number = -1 // last pending callee of our own caller
-  lastMade: number = -1 // last call we've made
-  lastSched: number = -1 // our last callee
+  neededCalls: number = 0
+  lastCall: number = -1 // last call we've made
 
   trail: number[] = []
   trailP: number = -1
@@ -156,6 +158,8 @@ export class Processor {
   // maybe negation will get messy, idk. better read the WAM book.
   // maybe: set fail, fetch next instr, if 'not', then continue, else backtrack
   fail: boolean = false
+
+  instrCount: number = 0
 
   bind(addr: number, value: Term | number): void {
     this.heap[addr] = value
@@ -171,7 +175,7 @@ export class Processor {
     return this.bind(this.scopeP + offset, val)
   }
 
-  protected deref(addr: number): Term | number {
+  deref(addr: number): Term | number {
     while (true) {
       const found = this.heap[addr]
       if (typeof found === 'number' && found !== addr) addr = found
@@ -188,13 +192,12 @@ export class Processor {
   }
 
   evaluate(
-    query: Query,
+    query: TopLevel,
     emit: (b: Bindings) => void = console.log,
     args: Bindings = new Map(),
+    dir: Direction = 'down',
   ): void {
-    // fixme: don't mutate arg. this isn't applicable to sig matching, too
-    // probably just some query builder fcn for top-level invocations
-    query.program.push([operations.emitResult, null, null])
+    this.direction = dir
     this.query = query
     this.initArgs(args)
     this.fail = false
@@ -206,6 +209,7 @@ export class Processor {
         if (this.orP < 0) break
         this.stack[this.orP].restore()
       } else this.programP++
+      this.instrCount++
     }
   }
 
@@ -224,14 +228,18 @@ export class Processor {
       this.heap[i] = i
   }
 
-  nextChoice(
+  nextChoice<T = Term>(
     // instead of using a thunk, maybe move more of the flow of control
     // of this method into the operations?
-    iterable: () => Iterable<Term> = () => this.dbNode!.keys(),
-  ): IteratorResult<Term> {
-    let cp = this.stack[this.orP] as IteratingChoicePoint
+    iterable: () => Iterable<any> = () => this.dbNode!.keys(),
+    klass: new (
+      p: Processor,
+      it: Iterable<T>,
+    ) => IteratingChoicePoint<T> = IteratingChoicePoint,
+  ): IteratorResult<T> {
+    let cp = this.stack[this.orP] as IteratingChoicePoint<T>
     if (!cp || !cp.isCurrent()) {
-      cp = new IteratingChoicePoint(this, iterable())
+      cp = new klass(this, iterable())
       this.orP = Math.max(this.andP, this.orP) + 1
       this.stack[this.orP] = cp
     }

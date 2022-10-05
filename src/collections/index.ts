@@ -1,4 +1,4 @@
-import { Term, Triple } from '../term.js'
+import { Triple } from '../term.js'
 import { CurlyDataSet, Order, TripleSet } from './data-set.js'
 
 export class Index<D extends CurlyDataSet = TripleSet> {

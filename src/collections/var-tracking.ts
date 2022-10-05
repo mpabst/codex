@@ -1,5 +1,5 @@
 import { Term, Variable } from '../term.js'
-import { QuadSet } from './data-set.js'
+import { QuadSet, TripleSet } from './data-set.js'
 
 export class VTSet extends Set<Term> {
   varKeys = new Set<Variable>()
@@ -31,13 +31,23 @@ export class VTMap extends Map<Term, VTMap | VTSet> {
   }
 }
 
+export class VTTripleSet extends TripleSet {
+  protected readonly Branch = VTMap
+  protected readonly Twig = VTSet
+
+  constructor(order: string = 'SPO') {
+    super(order)
+    // have to overwrite this after we set this.Branch
+    this.root = new VTMap()
+  }
+}
+
 export class VTQuadSet extends QuadSet {
   protected readonly Branch = VTMap
   protected readonly Twig = VTSet
 
   constructor(order: string = 'GSPO') {
     super(order)
-    // have to overwrite this after we set this.Branch
     this.root = new VTMap()
   }
 }

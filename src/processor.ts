@@ -1,13 +1,12 @@
-import { Memo } from './collections/data-set.js'
-import { Callee } from './compiler/general.js'
+import { Index } from './collections/index.js'
 import { Branch, Leaf } from './operations.js'
 import { Query, TopLevel } from './query.js'
-import { Term, Variable } from './term.js'
+import { Term, Triple, Variable } from './term.js'
 
 export type Bindings<T = Term> = Map<Variable, T>
 // TODO: Does an Argument union break monomorphism? How much do I care if I'm
 // gonna port all this anyways
-export type Argument = Term | Branch | Callee | Memo | number | null
+export type Argument = Term | Branch | Direction | keyof Triple | number | null
 export type Operation = (m: Processor, l: Argument, r: Argument) => void
 export type InstructionSet = { [k: string]: Operation }
 export type Instruction = [Operation, Argument, Argument]
@@ -27,6 +26,7 @@ export class Environment {
   // no need for dbNode since we never call mid-pattern
   neededCalls: number
   lastCall: number
+  memo: Index | null
 
   constructor(protected proc: Processor) {
     this.query = proc.query!
@@ -37,6 +37,7 @@ export class Environment {
     this.calleeP = proc.calleeP
     this.neededCalls = proc.neededCalls
     this.lastCall = proc.lastCall
+    this.memo = proc.memo
   }
 
   restore(): void {
@@ -48,6 +49,7 @@ export class Environment {
     this.proc.calleeP = this.calleeP
     this.proc.neededCalls = this.neededCalls
     this.proc.lastCall = this.lastCall
+    this.proc.memo = this.memo
   }
 }
 
@@ -152,6 +154,11 @@ export class Processor {
 
   trail: number[] = []
   trailP: number = -1
+
+  memo: Index | null = null
+  // no need to save triple in Environment, because memo-updating instructions
+  // always come at end of body, after calls
+  triple: Partial<Triple> = {}
 
   //-- Instruction-local stuff
   // instead of failing, just jump to whatever's on top of the stack?

@@ -1,12 +1,13 @@
 import {
   Argument,
   Bindings,
+  Direction,
   Environment,
   MutableChoicePoint,
   Operation,
   Processor,
 } from './processor.js'
-import { Term } from './term.js'
+import { Term, Triple } from './term.js'
 
 export type Leaf = Set<Term> | Map<Term, number>
 export type Branch = Map<Term, Leaf> | Map<Term, Map<Term, Leaf>>
@@ -31,6 +32,15 @@ export const operations: { [k: string]: Operation } = {
     proc.programP = programP as number
   },
 
+  skipIfDirection(
+    proc: Processor,
+    programP: Argument,
+    direction: Argument,
+  ): void {
+    if (proc.direction === (direction as Direction))
+      proc.programP = programP as number
+  },
+
   // todo: external calls? JS or WASM? math, findall, etc
   // can just be another clause with a special body that has one instruction
   doCalls(proc: Processor, _: Argument, __: Argument): void {
@@ -51,6 +61,7 @@ export const operations: { [k: string]: Operation } = {
       proc.scopeP = proc.envP + callee.offset
       proc.envP = proc.envP + proc.query!.envSize
       proc.query = callee.target.body
+      proc.memo = callee.target.memo
       for (let i = proc.envP; i < proc.envP + proc.query!.envSize; i++)
         proc.heap[i] = i
       proc.programP = -1
@@ -76,6 +87,16 @@ export const operations: { [k: string]: Operation } = {
   setCallee(proc: Processor, calleeP: Argument, bitIndex: Argument): void {
     proc.calleeP = proc.envP + (calleeP as number)
     proc.neededCalls |= bitIndex as number
+  },
+
+  derefTerm(proc: Processor, term: Argument, place: Argument): void {
+    proc.triple[place as keyof Triple] = (
+      typeof term === 'number' ? proc.derefScope(term) : term
+    ) as Term
+  },
+
+  addTriple(proc: Processor, _: Argument, __: Argument): void {
+    proc.memo!.add(proc.triple as Triple)
   },
 
   setIndex(proc: Processor, branch: Argument, _: Argument): void {

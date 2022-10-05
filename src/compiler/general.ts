@@ -5,9 +5,15 @@
 // backtracking necessary to do that elimination
 
 import { Clause } from '../clause.js'
+import { Index } from '../collections/index.js'
 import { Module } from '../module.js'
 import { operations } from '../operations.js'
-import { Argument, Instruction, Processor, Program } from '../processor.js'
+import {
+  Argument,
+  Instruction,
+  Processor,
+  Program,
+} from '../processor.js'
 import { traverse } from '../syntax.js'
 import { ANON, Name, Quad, Term, Triple, Variable } from '../term.js'
 import { getReifiedTriple, VarMap } from '../util.js'
@@ -21,28 +27,13 @@ class Scope {
     this.vars = new VarMap(vars)
   }
 
-  compile(er: Triple, ee: Quad): Program {
-    let instrs: Program
-    const edb = this.module.modules.get(ee.graph)
-    if (edb) {
-      instrs = [
-        [operations.setIndex, edb.facts.getRoot('SPO'), null],
-        this.edbInstr('Medial', er.subject),
-        this.edbInstr('Medial', er.predicate),
-        this.edbInstr('Final', er.object),
-      ].filter(Boolean) as Program
-    } else {
-      const [callee, idx] = this.getCallee(this.module.clauses.get(ee.graph)!)
-      instrs = [
-        [operations.setCallee, idx, callee.target.body ? callee : null],
-        callee.idbInstr(er.subject, ee.subject),
-        callee.idbInstr(er.predicate, ee.predicate),
-        callee.idbInstr(er.object, ee.object),
-      ].filter(Boolean) as Program
-      // all anons or const-consts
-      if (instrs.length === 1) return []
-    }
-    return instrs
+  buildPattern(data: Index, pat: Triple): Program {
+    return [
+      [operations.setIndex, data.getRoot('SPO'), null],
+      this.edbInstr('Medial', pat.subject),
+      this.edbInstr('Medial', pat.predicate),
+      this.edbInstr('Final', pat.object),
+    ].filter(Boolean) as Program
   }
 
   edbInstr(position: string, term: Term): Instruction | null {
@@ -78,6 +69,15 @@ export class Callee {
     this.caller.callees.push(this)
   }
 
+  buildPattern(idx: number, erPat: Triple, eePat: Triple): Program {
+    return [
+      [operations.setCallee, idx, this.target.body ? this : null],
+      this.idbInstr(erPat.subject, eePat.subject),
+      this.idbInstr(erPat.predicate, eePat.predicate),
+      this.idbInstr(erPat.object, eePat.object),
+    ].filter(Boolean) as Program
+  }
+
   idbInstr(erArg: Argument, eeArg: Argument): Instruction | null {
     if (erArg === ANON || erArg === ANON) return null
 
@@ -109,9 +109,12 @@ export function compile(
   query: Name,
   vars: Variable[] = [],
 ): [Program, Scope, number] {
-  const prog: Program = []
+  const ground: Program[][] = []
+  const calls: Program[][] = []
+  const memos: Program[][] = []
   const proc = new Processor()
   const scope = new Scope(module, vars)
+  const out: Program = []
 
   function adjustCallees(): number {
     if (scope.callees.length === 0) return 0
@@ -123,56 +126,88 @@ export function compile(
       offset += c.target.vars.length
     }
     // adjust setCallee offset args to their correct values
-    for (let i = 0; i < prog.length; i++) {
-      const [op, left, right] = prog[i]
+    for (let i = 0; i < out.length; i++) {
+      const [op, left, right] = out[i]
       if (op === operations.setCallee)
-        prog[i] = [op, scope.callees[left as number].offset, right]
+        out[i] = [op, scope.callees[left as number].offset, right]
     }
-    prog.push([operations.doCalls, null, null])
+    out.push([operations.doCalls, null, null])
 
     return offset
   }
 
+  // this should throw an error if there are no matches
   function doPattern(pattern: Name): void {
-    const choices: Program[] = []
+    const gChoices: Program[] = []
+    const cChoices: Program[] = []
+    const mChoices: Program[] = []
+
+    function addChoice(er: Triple, ee: Quad): void {
+      const edb = module.modules.get(ee.graph)
+      if (edb) gChoices.push(scope.buildPattern(edb.facts, er))
+      else {
+        const [callee, idx] = scope.getCallee(module.clauses.get(ee.graph)!)
+        const call = callee.buildPattern(idx, er, ee)
+        if (call.length > 1) cChoices.push(call)
+        if (callee.target.memo)
+          mChoices.push(scope.buildPattern(callee.target.memo, er))
+      }
+    }
+
+    const caller = getReifiedTriple(module, pattern)
+
     proc.evaluate(
       compileMatcher(module, pattern),
-      bindingsToQuad((callee: Quad) =>
-        choices.push(scope.compile(getReifiedTriple(module, pattern), callee)),
-      ),
+      bindingsToQuad((callee: Quad) => addChoice(caller, callee))
     )
-    pushDisjunction(choices)
+
+    ground.push(gChoices)
+    calls.push(cChoices)
+    memos.push(mChoices)
   }
 
   function pushDisjunction(choices: Program[]): void {
     if (choices.length === 1) {
-      prog.push(...choices[0])
+      out.push(...choices[0])
       return
     }
-    const start = prog.length
-    const next = (choice: Program) => prog.length + choice.length + 2
-    prog.push([operations.tryMeElse, next(choices[0]), null], ...choices[0], [
+    const start = out.length
+    const next = (choice: Program) => out.length + choice.length + 2
+    out.push([operations.tryMeElse, next(choices[0]), null], ...choices[0], [
       operations.skip,
       null,
       null,
     ])
     for (let i = 1; i < choices.length - 1; i++)
-      prog.push(
+      out.push(
         [operations.retryMeElse, next(choices[i]), null],
         ...choices[i],
         [operations.skip, null, null],
       )
-    prog.push([operations.trustMe, null, null], ...choices[choices.length - 1])
+    out.push(
+      [operations.trustMe, null, null],
+      ...choices[choices.length - 1],
+    )
     // rewrite all skip args
-    for (let i = start; i < prog.length; i++) {
-      const instr = prog[i]
+    for (let i = start; i < out.length; i++) {
+      const instr = out[i]
       // -1 because the processor increments programP after we set its value
-      if (instr[0] === operations.skip) instr[1] = prog.length - 1
+      if (instr[0] === operations.skip) instr[1] = out.length - 1
     }
   }
 
   traverse(module.facts, query, { doPattern })
 
+  for (const g of ground) pushDisjunction(g)
+  let prevSkip = out.length
+  out.push([operations.skipIfDirection, null, 'up'])
+  for (const c of calls) pushDisjunction(c)
+  out[prevSkip][1] = out.length - 1
+  prevSkip = out.length
+  out.push([operations.skipIfDirection, null, 'down'])
+  for (const m of memos) pushDisjunction(m)
+  out[prevSkip][1] = out.length - 1
+
   const envSize = adjustCallees()
-  return [prog, scope, envSize]
+  return [out, scope, envSize]
 }

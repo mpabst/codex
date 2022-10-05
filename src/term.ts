@@ -93,6 +93,8 @@ export interface Triple extends Tuple {
   object: Object
 }
 
+export const TRIPLE_PLACES: (keyof Triple)[] = ['subject', 'predicate', 'object']
+
 export interface Quad extends Triple {
   graph: Graph
 }

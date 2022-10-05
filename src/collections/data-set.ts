@@ -1,4 +1,3 @@
-import { Query } from '../query.js'
 import { Quad, Term, Triple } from '../term.js'
 
 const PLACES: { [k: string]: keyof Quad } = {
@@ -91,50 +90,6 @@ export abstract class DataSet {
       if (!next) break
     }
     return out
-  }
-}
-
-class FlatDataSet<D extends Term[] = Term[]> extends DataSet {
-  root = new this.Branch()
-
-  constructor(public pathLength: number) {
-    super()
-  }
-
-  add(datum: D): void {
-    return super.addPath(datum)
-  }
-
-  delete(datum: D): void {
-    super.deletePath(datum)
-  }
-
-  forEach(cb: (d: Term[]) => void): void {
-    this.forEachPath(cb)
-  }
-}
-
-export class MemoItem {
-  callers = new Set<Query>()
-  bindings: Term[][] = []
-}
-
-class MemoTwig extends Map<Term, MemoItem> {
-  add(term: Term): void {
-    this.set(term, new MemoItem())
-  }
-}
-
-export class Memo extends FlatDataSet {
-  twig = MemoTwig
-
-  get(path: Term[]): MemoItem | null {
-    let next = this.root
-    for (let i = 0; i < path.length; i++) {
-      if (!next) return null
-      next = next.get(path[i])
-    }
-    return next as unknown as MemoItem
   }
 }
 

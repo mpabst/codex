@@ -15,6 +15,9 @@ export const bindingsToQuad = (cb: (q: Quad) => void) => (b: Bindings) => {
   cb(out as Quad)
 }
 
+// make this an instance function on Matcher (extends Query);
+// rn the superclass will call general.ts#compile(), but the
+// subclass expects someone else to provide a compiled prog
 export function compile(module: Module, name: Name): Query {
   const { root, order } = getSignature(module, name)
 

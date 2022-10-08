@@ -57,5 +57,6 @@ export class Matcher extends Query {
 export class TopLevel extends Query {
   constructor(module: Module, name: Name) {
     super(module, name, [])
+    this.program.push([operations.emitResult, null, null])
   }
 }

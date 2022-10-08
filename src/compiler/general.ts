@@ -8,12 +8,7 @@ import { Clause } from '../clause.js'
 import { Index } from '../collections/index.js'
 import { Module } from '../module.js'
 import { operations } from '../operations.js'
-import {
-  Argument,
-  Instruction,
-  Processor,
-  Program,
-} from '../processor.js'
+import { Argument, Instruction, Processor, Program } from '../processor.js'
 import { traverse } from '../syntax.js'
 import { ANON, Name, Quad, Term, Triple, Variable } from '../term.js'
 import { getReifiedTriple, VarMap } from '../util.js'
@@ -85,9 +80,8 @@ export class Callee {
     let eeType = 'Const'
 
     if (erArg instanceof Variable) {
-      let [idx, isNew] = this.caller.vars.map(erArg)
-      if (isNew) erType = 'NewVar'
-      else erType = 'OldVar'
+      const [idx, isNew] = this.caller.vars.map(erArg)
+      erType = (isNew ? 'New' : 'Old') + 'Var'
       erArg = idx
     }
 
@@ -125,13 +119,13 @@ export function compile(
       c.offset = offset
       offset += c.target.vars.length
     }
+
     // adjust setCallee offset args to their correct values
     for (let i = 0; i < out.length; i++) {
       const [op, left, right] = out[i]
       if (op === operations.setCallee)
         out[i] = [op, scope.callees[left as number].offset, right]
     }
-    out.push([operations.doCalls, null, null])
 
     return offset
   }
@@ -158,7 +152,7 @@ export function compile(
 
     proc.evaluate(
       compileMatcher(module, pattern),
-      bindingsToQuad((callee: Quad) => addChoice(caller, callee))
+      bindingsToQuad((callee: Quad) => addChoice(caller, callee)),
     )
 
     ground.push(gChoices)
@@ -167,27 +161,30 @@ export function compile(
   }
 
   function pushDisjunction(choices: Program[]): void {
-    if (choices.length === 1) {
-      out.push(...choices[0])
+    if (choices.length < 2) {
+      if (choices.length > 0) out.push(...choices[0])
       return
     }
+
     const start = out.length
     const next = (choice: Program) => out.length + choice.length + 2
+
     out.push([operations.tryMeElse, next(choices[0]), null], ...choices[0], [
       operations.skip,
       null,
       null,
     ])
+
+    // trim bounds on either side, for tryMeElse & trustMe
     for (let i = 1; i < choices.length - 1; i++)
       out.push(
         [operations.retryMeElse, next(choices[i]), null],
         ...choices[i],
         [operations.skip, null, null],
       )
-    out.push(
-      [operations.trustMe, null, null],
-      ...choices[choices.length - 1],
-    )
+
+    out.push([operations.trustMe, null, null], ...choices[choices.length - 1])
+
     // rewrite all skip args
     for (let i = start; i < out.length; i++) {
       const instr = out[i]
@@ -201,10 +198,13 @@ export function compile(
   for (const g of ground) pushDisjunction(g)
   let prevSkip = out.length
   out.push([operations.skipIfDirection, null, 'up'])
+
   for (const c of calls) pushDisjunction(c)
+  out.push([operations.doCalls, null, null])
   out[prevSkip][1] = out.length - 1
   prevSkip = out.length
   out.push([operations.skipIfDirection, null, 'down'])
+
   for (const m of memos) pushDisjunction(m)
   out[prevSkip][1] = out.length - 1
 

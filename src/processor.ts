@@ -143,7 +143,6 @@ export class Processor {
 
   // abuse of terminology: not really a heap, just sorta
   // like the WAM's heap
-  // todo: ensure environment protection applies to heap, too
   heap: (Term | number)[] = []
   envP: number = -1 // start of environment
   scopeP: number = 0 // start of our args, in prev env

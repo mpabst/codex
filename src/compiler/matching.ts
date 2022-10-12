@@ -1,3 +1,4 @@
+import { CurlyDataSet } from '../collections/data-set.js'
 import { VTQuadSet, VTSet } from '../collections/var-tracking.js'
 import { Prefixers, variable } from '../data-factory.js'
 import { Callable, Module } from '../module.js'
@@ -19,7 +20,8 @@ export const bindingsToQuad = (cb: (q: Quad) => void) => (b: Bindings) => {
 // rn the superclass will call general.ts#compile(), but the
 // subclass expects someone else to provide a compiled prog
 export function compile(module: Module, name: Name): Query {
-  const { root, order } = getSignature(module, name)
+  const sig = getSignature(module, name)
+  const { order } = sig
 
   if (order[0] !== 'graph')
     throw new Error('signature order must start with graph')
@@ -27,7 +29,7 @@ export function compile(module: Module, name: Name): Query {
   const pattern = getReifiedTriple(module, name)
   const ops = operations()
   const vars = new VarMap()
-  const program: Program = [[ops.sChooseGraph, root, null]]
+  const program: Program = [[ops.sChooseGraph, sig, null]]
 
   for (const place of order.slice(1)) {
     const pos = place === order[order.length - 1] ? 'sFinal' : 'sMedial'
@@ -162,8 +164,8 @@ function operations(): InstructionSet {
   }
 
   const ops: InstructionSet = {
-    sChooseGraph(proc: Processor, root: Argument, _: Argument): void {
-      proc.dbNode = root as Branch
+    sChooseGraph(proc: Processor, data: Argument, _: Argument): void {
+      proc.dbNode = (data as CurlyDataSet).root
       const { value, done } = proc.nextChoice()
       if (done) return
       proc.dbNode = proc.dbNode.get(value) as Branch

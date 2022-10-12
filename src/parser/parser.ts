@@ -21,7 +21,7 @@ import {
   Subject,
   Triple,
 } from '../term.js'
-import { ParseError, unwrap } from './common.js'
+import { isLiteral, ParseError, unwrap } from './common.js'
 import { Context, Expression } from './context.js'
 import { Lexer, NoMoreTokens } from './lexer.js'
 import { Namespace } from './namespace.js'
@@ -152,12 +152,6 @@ export class Parser {
     return this.firstExpr !== null
   }
 
-  protected isLiteral(): boolean {
-    return (
-      /^[+-\d'"]/.test(this.token) || ['true', 'false'].includes(this.token)
-    )
-  }
-
   protected literal(): Literal {
     return this.namespace.literal(this.token)
   }
@@ -173,7 +167,7 @@ export class Parser {
   }
 
   protected makeObject(): Object {
-    return this.isLiteral() ? this.literal() : this.makeSubject()
+    return isLiteral(this.token) ? this.literal() : this.makeSubject()
   }
 
   protected nearest(test: (c: Context) => boolean): Context | null {
@@ -303,7 +297,7 @@ export class Parser {
       case '-':
         throw this.unexpected()
       default:
-        if (this.isLiteral()) throw this.unexpected()
+        if (isLiteral(this.token)) throw this.unexpected()
         this.context.subject = this.makeSubject()
     }
   }

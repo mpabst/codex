@@ -1,12 +1,16 @@
+import { CurlyDataSet } from './collections/data-set.js'
 import { Index } from './collections/index.js'
 import { Branch, Leaf } from './operations.js'
 import { Query, TopLevel } from './query.js'
 import { Term, Triple, Variable } from './term.js'
 
+import { formatInstruction as fI } from './test/helpers.js'
+console.log(fI.name)
+
 export type Bindings<T = Term> = Map<Variable, T>
 // TODO: Does an Argument union break monomorphism? How much do I care if I'm
 // gonna port all this anyways
-export type Argument = Term | Branch | Direction | keyof Triple | number | null
+export type Argument = Term | CurlyDataSet | Direction | keyof Triple | number | null
 export type Operation = (m: Processor, l: Argument, r: Argument) => void
 export type InstructionSet = { [k: string]: Operation }
 export type Instruction = [Operation, Argument, Argument]
@@ -209,8 +213,8 @@ export class Processor {
     this.fail = false
     this.emit = emit
     while (true) {
-      const [op, left, right] = this.query.program[this.programP]
-      op(this, left, right)
+      const i = this.query.program[this.programP]
+      i[0](this, i[1], i[2])
       if (this.fail) {
         if (this.orP < 0) break
         this.stack[this.orP].restore()

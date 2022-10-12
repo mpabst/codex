@@ -5,6 +5,7 @@ import { Module } from './module.js'
 import { operations } from './operations.js'
 import { Instruction, Program } from './processor.js'
 import { Name, Term, Triple, TRIPLE_PLACES, Variable } from './term.js'
+import { printProgram } from './test/helpers.js'
 
 const { fpc } = Prefixers
 
@@ -26,6 +27,12 @@ export abstract class Query {
       this.callees = scope.callees
       this.envSize = size
     }
+  }
+
+  printProgram(): string {
+    const out: string[] = []
+    printProgram(this.program, l => out.push(l))
+    return out.join('\n')
   }
 }
 

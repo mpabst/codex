@@ -1,3 +1,4 @@
+import { CurlyDataSet } from './collections/data-set.js'
 import {
   Argument,
   Bindings,
@@ -84,8 +85,11 @@ export const operations: { [k: string]: Operation } = {
     proc.fail = true
   },
 
-  setCallee(proc: Processor, calleeP: Argument, bitIndex: Argument): void {
+  setCalleeP(proc: Processor, calleeP: Argument, _: Argument): void {
     proc.calleeP = proc.envP + (calleeP as number)
+  },
+
+  scheduleCall(proc: Processor, bitIndex: Argument, _: Argument): void {
     proc.neededCalls |= bitIndex as number
   },
 
@@ -99,8 +103,8 @@ export const operations: { [k: string]: Operation } = {
     proc.memo!.add(proc.triple as Triple)
   },
 
-  setIndex(proc: Processor, branch: Argument, _: Argument): void {
-    proc.dbNode = branch as Branch
+  setIndex(proc: Processor, data: Argument, _: Argument): void {
+    proc.dbNode = (data as CurlyDataSet).root
   },
 
   eMedialConst(proc: Processor, caller: Argument, _: Argument): void {

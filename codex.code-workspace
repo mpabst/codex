@@ -10,5 +10,15 @@
 			"public/src": true
 		},
 		"files.autoSave": "onFocusChange"
+	},
+	"launch": {
+		"configurations": [
+			{
+				"type": "pwa-chrome",
+				"name": "http://127.0.0.1:8080/test/index.html",
+				"request": "launch",
+				"url": "http://127.0.0.1:8080/test/index.html"
+			}
+		]
 	}
 }

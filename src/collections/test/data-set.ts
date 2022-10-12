@@ -1,4 +1,4 @@
-import { literal as l, namedNode as nn } from '../../data-factory.js'
+import { blankNode, literal as l, namedNode as nn } from '../../data-factory.js'
 import { Triple } from '../../term.js'
 import { TripleSet } from '../data-set.js'
 

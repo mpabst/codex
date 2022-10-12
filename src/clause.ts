@@ -1,7 +1,7 @@
 import { TripleSet } from './collections/data-set.js'
 import { Index } from './collections/index.js'
 import { VTTripleSet } from './collections/var-tracking.js'
-import { Prefixers } from './data-factory.js'
+import { namedNode, Prefixers } from './data-factory.js'
 import { Module } from './module.js'
 import { Body } from './query.js'
 import { Rule } from './rule.js'
@@ -30,7 +30,7 @@ export class Clause {
       const [body] = bodies
       // init memo before compiling query, so the former doesn't use
       // vars only found in the body as part of the memo key
-      this.memo = new Index(TripleSet)
+      this.memo = new Index(namedNode(name.value + '/memo'), TripleSet)
       this.body = new Body(module, this, body)
     } else {
       this.body = null

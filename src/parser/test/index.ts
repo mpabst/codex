@@ -5,8 +5,9 @@ import { Parser } from '../parser.js'
 
 describe('parser', () => {
   it('parses', () => {
+    const todo = namedNode('https://fingerpaint.systems/apps/todo')
     const parser = new Parser(
-      namedNode('https://fingerpaint.systems/apps/todo'),
+      todo,
       `
       prefix : <#> .
       prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
@@ -22,7 +23,7 @@ describe('parser', () => {
     `,
     )
 
-    parser.parse(new Index(TripleSet))
+    parser.parse(new Index(todo, TripleSet))
     console.log(parser.namespace.prettyPrint(parser.resultAry))
   })
 })

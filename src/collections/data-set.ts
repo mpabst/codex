@@ -1,4 +1,5 @@
 import { Quad, Term, Triple } from '../term.js'
+import { Index } from './index.js'
 
 const PLACES: { [k: string]: keyof Quad } = {
   G: 'graph',
@@ -99,7 +100,7 @@ export abstract class CurlyDataSet<
 > extends DataSet {
   readonly order: (keyof D)[]
 
-  constructor(order: Order) {
+  constructor(order: Order, public parent: Index | null = null) {
     super()
     this.order = order.split('').map(s => PLACES[s] as keyof D)
   }

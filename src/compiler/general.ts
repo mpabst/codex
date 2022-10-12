@@ -10,7 +10,15 @@ import { Module } from '../module.js'
 import { operations } from '../operations.js'
 import { Argument, Instruction, Processor, Program } from '../processor.js'
 import { traverse } from '../syntax.js'
-import { ANON, Name, Quad, Term, Triple, Variable } from '../term.js'
+import {
+  ANON,
+  Name,
+  Quad,
+  Term,
+  Triple,
+  TRIPLE_PLACES,
+  Variable,
+} from '../term.js'
 import { getReifiedTriple, VarMap } from '../util.js'
 import { bindingsToQuad, compile as compileMatcher } from './matching.js'
 
@@ -24,7 +32,7 @@ class Scope {
 
   buildPattern(data: Index, pat: Triple): Program {
     return [
-      [operations.setIndex, data.getRoot('SPO'), null],
+      [operations.setIndex, data.data.get('SPO'), null],
       this.edbInstr('Medial', pat.subject),
       this.edbInstr('Medial', pat.predicate),
       this.edbInstr('Final', pat.object),
@@ -43,6 +51,8 @@ class Scope {
     }
     if (term instanceof Variable) {
       let type = 'OldVar'
+      // opt: isNew should be scoped to this branch of
+      // the disjunction if we know we're the first line 
       let [idx, isNew] = this.vars.map(term)
       if (isNew) type = 'NewVar'
       return instr(type, idx)
@@ -65,12 +75,13 @@ export class Callee {
   }
 
   buildPattern(idx: number, erPat: Triple, eePat: Triple): Program {
-    return [
-      [operations.setCallee, idx, this.target.body ? this : null],
-      this.idbInstr(erPat.subject, eePat.subject),
-      this.idbInstr(erPat.predicate, eePat.predicate),
-      this.idbInstr(erPat.object, eePat.object),
-    ].filter(Boolean) as Program
+    const out: (Instruction | null)[] = []
+    if (this.target.vars.length > 0)
+      out.push([operations.setCalleeP, idx, null])
+    if (this.target.body) out.push([operations.scheduleCall, 2 ** idx, null])
+    for (const place of TRIPLE_PLACES)
+      out.push(this.idbInstr(erPat[place], eePat[place]))
+    return out.filter(Boolean) as Program
   }
 
   idbInstr(erArg: Argument, eeArg: Argument): Instruction | null {
@@ -103,9 +114,9 @@ export function compile(
   query: Name,
   vars: Variable[] = [],
 ): [Program, Scope, number] {
-  const ground: Program[][] = []
-  const calls: Program[][] = []
-  const memos: Program[][] = []
+  // const ground: Program[][] = []
+  // const calls: Program[][] = []
+  // const memos: Program[][] = []
   const proc = new Processor()
   const scope = new Scope(module, vars)
   const out: Program = []
@@ -123,7 +134,7 @@ export function compile(
     // adjust setCallee offset args to their correct values
     for (let i = 0; i < out.length; i++) {
       const [op, left, right] = out[i]
-      if (op === operations.setCallee)
+      if (op === operations.setCalleeP)
         out[i] = [op, scope.callees[left as number].offset, right]
     }
 
@@ -148,6 +159,36 @@ export function compile(
       }
     }
 
+    function pushDisjunction(choices: Program[]): void {
+      if (choices.length < 2) {
+        if (choices.length > 0) out.push(...choices[0])
+        return
+      }
+
+      const start = out.length
+      const next = (choice: Program) => out.length + choice.length + 2
+
+      out.push([operations.tryMeElse, next(choices[0]), null], ...choices[0], [
+        operations.skip,
+        null,
+        null,
+      ])
+
+      const max = 
+
+      for (let i = 1; i < choices.length - 1; i++)
+        out.push(
+          [operations.retryMeElse, next(choices[i]), null],
+          ...choices[i],
+          [operations.skip, null, null],
+        )
+
+      if (calls.length === 0 && memos.length === 0)
+
+      else
+      out.push([operations.trustMe, null, null], ...choices[choices.length - 1])
+    }
+
     const caller = getReifiedTriple(module, pattern)
 
     proc.evaluate(
@@ -158,39 +199,6 @@ export function compile(
     ground.push(gChoices)
     calls.push(cChoices)
     memos.push(mChoices)
-  }
-
-  function pushDisjunction(choices: Program[]): void {
-    if (choices.length < 2) {
-      if (choices.length > 0) out.push(...choices[0])
-      return
-    }
-
-    const start = out.length
-    const next = (choice: Program) => out.length + choice.length + 2
-
-    out.push([operations.tryMeElse, next(choices[0]), null], ...choices[0], [
-      operations.skip,
-      null,
-      null,
-    ])
-
-    // trim bounds on either side, for tryMeElse & trustMe
-    for (let i = 1; i < choices.length - 1; i++)
-      out.push(
-        [operations.retryMeElse, next(choices[i]), null],
-        ...choices[i],
-        [operations.skip, null, null],
-      )
-
-    out.push([operations.trustMe, null, null], ...choices[choices.length - 1])
-
-    // rewrite all skip args
-    for (let i = start; i < out.length; i++) {
-      const instr = out[i]
-      // -1 because the processor increments programP after we set its value
-      if (instr[0] === operations.skip) instr[1] = out.length - 1
-    }
   }
 
   traverse(module.facts, query, { doPattern })

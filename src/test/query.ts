@@ -2,6 +2,7 @@ import { Prefixers } from '../data-factory.js'
 import { Bindings, Processor } from '../processor.js'
 import { TopLevel } from '../query.js'
 import { Store } from '../store.js'
+import { printBindings } from './helpers.js'
 
 const { fpc, test } = Prefixers
 
@@ -19,7 +20,7 @@ describe('Query', () => {
     const query = new TopLevel(module, body)
     debugger
     const proc = new Processor()    
-    for (let i = 0; i < 1; i++) proc.evaluate(query, (b: Bindings) => {})
+    for (let i = 0; i < 1; i++) proc.evaluate(query, printBindings)
     console.log(proc.instrCount)
   })
 })

@@ -1,7 +1,7 @@
 prefix : <#> .
 prefix fpc: <https://fingerpaint.systems/core/> .
 
-:socrates a :Man , :Mortal .
+:socrates a :Man .
 
 :mortality a fpc:Rule ;
   fpc:clause [

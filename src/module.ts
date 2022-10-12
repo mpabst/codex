@@ -2,7 +2,7 @@ import { Clause } from './clause.js'
 import { TripleSet } from './collections/data-set.js'
 import { Index } from './collections/index.js'
 import { VTQuadSet } from './collections/var-tracking.js'
-import { Prefixers } from './data-factory.js'
+import { namedNode, Prefixers } from './data-factory.js'
 import { Parser } from './parser/parser.js'
 import { Rule } from './rule.js'
 import { Store } from './store.js'
@@ -22,7 +22,7 @@ export class Module implements Callable {
     source: string,
   ): Promise<Module> {
     const parser = new Parser(name, source)
-    parser.parse(new Index(TripleSet, ['SPO', 'POS']))
+    parser.parse(new Index(name, TripleSet, ['SPO', 'POS']))
     const module = new Module(store, name, parser.output!)
     await module.load()
     return module
@@ -38,7 +38,7 @@ export class Module implements Callable {
   constructor(
     public store: Store,
     public name: NamedNode,
-    public facts: Index<TripleSet> = new Index(TripleSet),
+    public facts: Index<TripleSet> = new Index(name, TripleSet),
   ) {
     store.modules.set(name, this)
     this.modules.set(name, this)

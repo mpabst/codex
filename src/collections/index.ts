@@ -1,11 +1,15 @@
-import { Triple } from '../term.js'
+import { Name, Triple } from '../term.js'
 import { CurlyDataSet, Order, TripleSet } from './data-set.js'
 
 export class Index<D extends CurlyDataSet = TripleSet> {
-  protected data = new Map<Order, D>()
+  data = new Map<Order, D>()
 
-  constructor(Data: new (o: string) => D, protected orders: Order[] = ['SPO']) {
-    for (const o of orders) this.data.set(o, new Data(o))
+  constructor(
+    public name: Name,
+    Data: new (o: string, i: Index<D>) => D,
+    protected orders: Order[] = ['SPO'],
+  ) {
+    for (const o of orders) this.data.set(o, new Data(o, this))
   }
 
   add(triple: Triple): void {

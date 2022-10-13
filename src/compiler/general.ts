@@ -204,9 +204,8 @@ export function compile(
       )
     }
 
-    out.push([ops.popCP, null, null])
-
     if (startedMemos) out[prevSkip!][1] = out.length - 1
+    out.push([ops.popCP, null, null])
 
     for (let i = start; i < out.length; i++) {
       const instr = out[i]

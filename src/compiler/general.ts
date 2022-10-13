@@ -7,7 +7,7 @@
 import { Clause } from '../clause.js'
 import { Index } from '../collections/index.js'
 import { Module } from '../module.js'
-import { operations } from '../operations.js'
+import { operations as ops } from '../operations.js'
 import { Argument, Instruction, Processor, Program } from '../processor.js'
 import { traverse } from '../syntax.js'
 import {
@@ -32,7 +32,7 @@ class Scope {
 
   buildPattern(data: Index, pat: Triple): Program {
     return [
-      [operations.setIndex, data.data.get('SPO'), null],
+      [ops.setIndex, data.data.get('SPO'), null],
       this.edbInstr('Medial', pat.subject),
       this.edbInstr('Medial', pat.predicate),
       this.edbInstr('Final', pat.object),
@@ -41,7 +41,7 @@ class Scope {
 
   edbInstr(position: string, term: Term): Instruction | null {
     const instr = (type: string, arg: Argument): Instruction => [
-      operations['e' + position + type],
+      ops['e' + position + type],
       arg,
       null,
     ]
@@ -52,7 +52,7 @@ class Scope {
     if (term instanceof Variable) {
       let type = 'OldVar'
       // opt: isNew should be scoped to this branch of
-      // the disjunction if we know we're the first line 
+      // the disjunction if we know we're the first line
       let [idx, isNew] = this.vars.map(term)
       if (isNew) type = 'NewVar'
       return instr(type, idx)
@@ -76,9 +76,8 @@ export class Callee {
 
   buildPattern(idx: number, erPat: Triple, eePat: Triple): Program {
     const out: (Instruction | null)[] = []
-    if (this.target.vars.length > 0)
-      out.push([operations.setCalleeP, idx, null])
-    if (this.target.body) out.push([operations.scheduleCall, 2 ** idx, null])
+    if (this.target.vars.length > 0) out.push([ops.setCalleeP, idx, null])
+    if (this.target.body) out.push([ops.scheduleCall, 2 ** idx, null])
     for (const place of TRIPLE_PLACES)
       out.push(this.idbInstr(erPat[place], eePat[place]))
     return out.filter(Boolean) as Program
@@ -105,7 +104,7 @@ export class Callee {
     // wouldn't return this result otherwise
     if (erType === 'Const' && eeType === 'Const') return null
 
-    return [operations['i' + erType + eeType], erArg, eeArg]
+    return [ops['i' + erType + eeType], erArg, eeArg]
   }
 }
 
@@ -114,9 +113,9 @@ export function compile(
   query: Name,
   vars: Variable[] = [],
 ): [Program, Scope, number] {
-  // const ground: Program[][] = []
-  // const calls: Program[][] = []
-  // const memos: Program[][] = []
+  type Type = 'edb' | 'call' | 'memo'
+  type Choice = [Program, Type]
+
   const proc = new Processor()
   const scope = new Scope(module, vars)
   const out: Program = []
@@ -134,88 +133,90 @@ export function compile(
     // adjust setCallee offset args to their correct values
     for (let i = 0; i < out.length; i++) {
       const [op, left, right] = out[i]
-      if (op === operations.setCalleeP)
+      if (op === ops.setCalleeP)
         out[i] = [op, scope.callees[left as number].offset, right]
     }
 
     return offset
   }
 
-  // this should throw an error if there are no matches
+  // this should throw a compile error if there are no matches
   function doPattern(pattern: Name): void {
-    const gChoices: Program[] = []
-    const cChoices: Program[] = []
-    const mChoices: Program[] = []
+    const choices: Choice[] = []
 
-    function addChoice(er: Triple, ee: Quad): void {
+    function addChoices(er: Triple, ee: Quad): void {
       const edb = module.modules.get(ee.graph)
-      if (edb) gChoices.push(scope.buildPattern(edb.facts, er))
+      if (edb) choices.push([scope.buildPattern(edb.facts, er), 'edb'])
       else {
         const [callee, idx] = scope.getCallee(module.clauses.get(ee.graph)!)
         const call = callee.buildPattern(idx, er, ee)
-        if (call.length > 1) cChoices.push(call)
+        if (call.length > 1) choices.push([call, 'call'])
         if (callee.target.memo)
-          mChoices.push(scope.buildPattern(callee.target.memo, er))
+          choices.push([scope.buildPattern(callee.target.memo, er), 'memo'])
       }
-    }
-
-    function pushDisjunction(choices: Program[]): void {
-      if (choices.length < 2) {
-        if (choices.length > 0) out.push(...choices[0])
-        return
-      }
-
-      const start = out.length
-      const next = (choice: Program) => out.length + choice.length + 2
-
-      out.push([operations.tryMeElse, next(choices[0]), null], ...choices[0], [
-        operations.skip,
-        null,
-        null,
-      ])
-
-      const max = 
-
-      for (let i = 1; i < choices.length - 1; i++)
-        out.push(
-          [operations.retryMeElse, next(choices[i]), null],
-          ...choices[i],
-          [operations.skip, null, null],
-        )
-
-      if (calls.length === 0 && memos.length === 0)
-
-      else
-      out.push([operations.trustMe, null, null], ...choices[choices.length - 1])
     }
 
     const caller = getReifiedTriple(module, pattern)
 
     proc.evaluate(
       compileMatcher(module, pattern),
-      bindingsToQuad((callee: Quad) => addChoice(caller, callee)),
+      bindingsToQuad((callee: Quad) => addChoices(caller, callee)),
     )
 
-    ground.push(gChoices)
-    calls.push(cChoices)
-    memos.push(mChoices)
+    pushDisjunction(choices)
+  }
+
+  function pushDisjunction(choices: Choice[]): void {
+    if (choices.length < 2) {
+      if (choices.length > 0) out.push(...choices[0][0])
+      return
+    }
+
+    const order: Type[] = ['edb', 'call', 'memo']
+    choices.sort(([, a], [, b]) => order.indexOf(a) - order.indexOf(b))
+
+    let startedCalls = false
+    let startedMemos = false
+    const start = out.length
+    let prevSkip: number
+    for (let i = 0; i < choices.length; i++) {
+      const [choice, type] = choices[i]
+
+      if (!startedCalls && type === 'call') {
+        startedCalls = true
+        prevSkip = out.length
+        out.push([ops.skipIfDirection, null, 'up'])
+      } else if (!startedMemos && type === 'memo') {
+        out[prevSkip!][1] = out.length
+        startedMemos = true
+        prevSkip = out.length
+        out.push([ops.skipIfDirection, null, 'down'])
+      }
+
+      out.push(
+        [
+          i === 0 ? ops.tryMeElse : ops.retryMeElse,
+          out.length + choice.length + 2,
+          null,
+        ],
+        ...choice,
+        [ops.skip, null, null]
+      )
+    }
+
+    out.push([ops.popCP, null, null])
+
+    if (startedMemos) out[prevSkip!][1] = out.length - 1
+
+    for (let i = start; i < out.length; i++) {
+      const instr = out[i]
+      if (instr[0] === ops.skip) instr[1] = out.length - 1
+    }
   }
 
   traverse(module.facts, query, { doPattern })
 
-  for (const g of ground) pushDisjunction(g)
-  let prevSkip = out.length
-  out.push([operations.skipIfDirection, null, 'up'])
-
-  for (const c of calls) pushDisjunction(c)
-  out.push([operations.doCalls, null, null])
-  out[prevSkip][1] = out.length - 1
-  prevSkip = out.length
-  out.push([operations.skipIfDirection, null, 'down'])
-
-  for (const m of memos) pushDisjunction(m)
-  out[prevSkip][1] = out.length - 1
-
   const envSize = adjustCallees()
+  if (scope.callees.length > 0) out.push([ops.doCalls, null, null])
   return [out, scope, envSize]
 }

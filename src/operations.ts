@@ -25,8 +25,9 @@ export const operations: { [k: string]: Operation } = {
       nextProgramP as number
   },
 
-  trustMe(proc: Processor, _: Argument, __: Argument): void {
+  popCP(proc: Processor, _: Argument, __: Argument): void {
     proc.orP = (proc.stack[proc.orP] as MutableChoicePoint).orP
+    proc.fail = true
   },
 
   skip(proc: Processor, programP: Argument, _: Argument): void {

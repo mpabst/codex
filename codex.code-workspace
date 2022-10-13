@@ -14,8 +14,8 @@
 	"launch": {
 		"configurations": [
 			{
-				"type": "pwa-chrome",
-				"name": "http://127.0.0.1:8080/test/index.html",
+				"type": "chrome",
+				"name": "Test Suite",
 				"request": "launch",
 				"url": "http://127.0.0.1:8080/test/index.html"
 			}

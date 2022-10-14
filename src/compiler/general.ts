@@ -145,10 +145,14 @@ export function compile(
     const choices: Choice[] = []
 
     function addChoices(er: Triple, ee: Quad): void {
+      const listener = { graph: query, ...er }
       const edb = module.modules.get(ee.graph)
-      if (edb) choices.push([scope.buildPattern(edb.facts, er), 'edb'])
-      else {
+      if (edb) {
+        choices.push([scope.buildPattern(edb.facts, er), 'edb'])
+        edb.listeners.add(listener)
+      } else {
         const [callee, idx] = scope.getCallee(module.clauses.get(ee.graph)!)
+        callee.target.listeners.add(listener)
         const call = callee.buildPattern(idx, er, ee)
         if (call.length > 1) choices.push([call, 'call'])
         if (callee.target.memo)

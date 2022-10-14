@@ -19,6 +19,10 @@ export const bindingsToQuad = (cb: (q: Quad) => void) => (b: Bindings) => {
 // make this an instance function on Matcher (extends Query);
 // rn the superclass will call general.ts#compile(), but the
 // subclass expects someone else to provide a compiled prog
+//
+// when i do that, separate this into two parts: one which finds
+// the signature and reified pattern, and another which accepts
+// a plain Triple
 export function compile(module: Module, name: Name): Query {
   const sig = getSignature(module, name)
   const { order } = sig
@@ -29,6 +33,7 @@ export function compile(module: Module, name: Name): Query {
   const pattern = getReifiedTriple(module, name)
   const ops = operations()
   const vars = new VarMap()
+  // why am i choosing the graph first? why not SPOG?
   const program: Program = [[ops.sChooseGraph, sig, null]]
 
   for (const place of order.slice(1)) {
@@ -36,6 +41,7 @@ export function compile(module: Module, name: Name): Query {
     const term = pattern[place]
     const push = (type: string, caller: Argument) =>
       program.push([ops[pos + type], caller, variable(place as string)])
+
     if (term instanceof Variable) {
       if (term === ANON) push('AnonVar', null)
       else {
@@ -49,6 +55,8 @@ export function compile(module: Module, name: Name): Query {
   return new Matcher(program, vars.vars)
 }
 
+// looks for pattern in module, and maps its graph term to some
+// signature object
 function getSignature(module: Module, pattern: Name): VTQuadSet {
   const po = module.facts.getRoot('SPO').get(pattern)
   const graphs = po.get(rdf('graph'))
@@ -83,8 +91,12 @@ function match(dbNode: VTSet, term: Term): Iterable<Term> {
 
 function operations(): InstructionSet {
   let calleeVars = new VarMap()
+
+  // todo: use Processor.triple
   const result: Bindings = new Map()
 
+  // todo: possible to do this statically? maybe put a Variable[] on
+  // the signature or whatever I'm matching against?
   function mapVar(proc: Processor, v: Variable): number {
     const [offset, isNew] = calleeVars.map(v)
     if (isNew) {

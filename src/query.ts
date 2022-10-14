@@ -41,10 +41,12 @@ export class Body extends Query {
     if (!name)
       [name] = module.facts.getRoot('SPO').get(clause.name).get(fpc('body'))!
     super(module, name!, clause.vars)
+
     clause.head.forEach((t: Triple) => {
       for (const place of TRIPLE_PLACES) this.program.push(this.buildDerefTerm(t, place))
       this.program.push([operations.addTriple, null, null])
     })
+
     this.program.push([operations.return, null, null])
   }
 

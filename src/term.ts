@@ -3,6 +3,7 @@
 
 import { Namespace } from './parser/namespace.js'
 import { Prefixers } from './data-factory.js'
+import { TripleSet } from './collections/data-set.js'
 
 export abstract class Term {
   constructor(public readonly value: string) {}
@@ -109,9 +110,9 @@ export type Statement = Quad | Triple
 
 // will make something more RDFy later
 export interface Diff {
-  id: NamedNode
-  target: NamedNode
-  meta: Triple[]
-  assertions: Triple[]
-  retractions: Triple[]
+  id: Name
+  target: Name
+  meta: TripleSet
+  assertions: TripleSet
+  retractions: TripleSet
 }

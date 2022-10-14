@@ -11,8 +11,8 @@ import { A, ANON, Name, NamedNode, Quad } from './term.js'
 const { fpc } = Prefixers
 
 export interface Callable {
-  signature: VTQuadSet
   clauses: Map<Name, Clause>
+  signature: VTQuadSet
 }
 
 export class Module implements Callable {
@@ -34,6 +34,7 @@ export class Module implements Callable {
   clauses = new Map<Name, Clause>()
 
   signature = new VTQuadSet()
+  listeners = new VTQuadSet('SPOG')
 
   constructor(
     public store: Store,

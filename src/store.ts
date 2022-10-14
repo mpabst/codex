@@ -1,8 +1,11 @@
+import { QuadSet } from './collections/data-set.js'
 import { Module } from './module.js'
-import { Diff, Quad, NamedNode, Name } from './term.js'
+import { Bindings, Processor } from './processor.js'
+import { Diff, Quad, NamedNode, Name, Triple } from './term.js'
 
 export class Store {
   modules = new Map<Name, Module>()
+  proc = new Processor()
 
   // what abt system listeners for things like rule compilation, etc
   constructor(data: Iterable<Quad> = []) {
@@ -25,44 +28,35 @@ export class Store {
   }
 
   processEvent(event: Diff[]) {
-    // let delta = new Index()
+    type WorkItem = [Body, Bindings]
 
-    // for (const diff of event) {
-    //   // todo: heads, and exactly when and how to update which ones
-    //   // this.set(diff.id, diff)
-    //   const snap = this.get(diff.target) as Index
-    //   for (const ret of diff.retractions) {
-    //     snap.delete(ret)
-    //     delta.add(ret)
-    //   }
-    //   for (const ass of diff.assertions) snap.add(ass)
-    // }
-
-    // while (delta.size > 0) {}
-
-    // delta = new Index()
-    // for (const diff of event) for (const ass of diff.assertions) delta.add(ass)
-
-    // for each quad in delta
-    // - match against bodies of stratum 1
-    // - re-eval with vars bound
-    //   - for each result
-    //     - if no body-only vars, just remove?
-    //     - else try to rederive result
-    //       - add to check set
-    //       - if proven, add to proved set
-    //       - else add to removals
-    // set delta := removals, run to fixpoint
-    // repeat for all strata
-    // per stratum, removals then additions, then next stratum
-    // bnode reuse: idea is that if we're just mutating
-    // an object, look for the corresponding (id same pred)
-    // deletion when we do the addition. what if there are
-    // a bunch of changes? most efficient is typically to
-    // take the deleted bnode with the least edit distance,
-    // but i'm guessing the cost of optimality won't be worth
-    // the gain. just, first one we come across? maybe i could
-    // do some kind of counting, count # of changed triples.
-    // just first for now
+    for (const diff of event) {
+      const delta = new QuadSet('GSPO')
+      const worklist: WorkItem[] = []
+      delta.root.set(diff.target, diff.retractions)
+      delta.forEach((d: Quad) => {
+        // proc.evaluate(
+        //   compileMatcher(target.listeners, d),
+        //   (listener: Quad) => {
+        //     // opt: let Processor.evaluate() take a Term[] for its
+        //     // args, just use it as the initial heap?
+        //     const args: Bindings = new Map()
+        //     for (const p of QUAD_PLACES)
+        //       if (listener[p] instanceof Variable)
+        //         args.set(listener[p], d[p])
+        //     worklist.push([listener.graph, args])
+        //   }
+        // )
+      })
+      for (const item of worklist) {
+        // lookup Query, set Processor.memo, evaluate()
+        // addTriple branches on Processor.direction, adding
+        // to a head memo or a bottom-up delta as appropriate
+        // i think the only difference is that for dir = up,
+        // first check the memo to see whether we need it
+        // maybe have a second field, Processor.delta
+      }
+      // take our memo, filter out anything we already have
+    }
   }
 }

@@ -27,6 +27,21 @@ prefix html: <https://fingerpaint.systems/core/html/> .
     ) ]
 ] } .
 
+{ [
+  a fpc:MappedList ;
+  # cons notation
+  from ( +fFirst | +fRest ) ;
+  to ( -tFirst | -tRest ) ;
+  +via # single term is same as `via +via`
+] } if {
+  [ a fpc:Call ; of +via ;
+    # not sure i like this? ?calleeVar = ?callerVar
+    with { ?in = +fFirst . ?out = -tFirst } ] .
+  [ a fpc:MappedList ; from +fRest ; to -tRest ; +via ] .
+} .
+
+
+
 [ a fpc:Rule ;
   fpc:head { [
     a fpc:MappedList ;
@@ -46,16 +61,3 @@ prefix html: <https://fingerpaint.systems/core/html/> .
       fpc:via +fn ] .
   }
 ]
-
-{ [
-  a fpc:MappedList ;
-  # cons notation
-  from ( +fFirst | +fRest ) ;
-  to ( -tFirst | -tRest ) ;
-  +via # single term is same as `via +via`
-] } if {
-  [ a fpc:Call ; of +via ;
-    # not sure i like this? ?calleeVar = ?callerVar
-    with { ?in = +fFirst . ?out = -tFirst } ] .
-  [ a fpc:MappedList ; from +fRest ; to -tRest ; +via ] .
-} .

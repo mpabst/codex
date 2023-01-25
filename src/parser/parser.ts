@@ -79,6 +79,7 @@ export class Parser {
 
     const graph = this.rContext!.graph!
     let bnode = randomBlankNode()
+    
     const add = (q: Partial<Quad>) =>
       this.addQuad({ graph, subject: bnode, ...q } as Quad)
 

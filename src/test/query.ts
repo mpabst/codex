@@ -18,9 +18,12 @@ describe('Query', () => {
       .get(test('query.fp#whoIsMortal'))!
       .get(fpc('body'))
     const query = new TopLevel(module, body)
-    debugger
-    const proc = new Processor()    
-    for (let i = 0; i < 1; i++) proc.evaluate(query, printBindings)
-    console.log(proc.instrCount)
+    // debugger
+    // const proc = new Processor()    
+    for (let i = 0; i < 100; i++) {
+      if (i % 10 === 0) console.log(new Date().toISOString());
+      new Processor().evaluate(query, () => {})
+    }
+    // console.log(proc.instrCount)
   })
 })

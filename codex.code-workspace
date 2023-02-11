@@ -9,7 +9,8 @@
 			"public/lib": true,
 			"public/src": true
 		},
-		"files.autoSave": "onFocusChange"
+		"files.autoSave": "onFocusChange",
+		"workbench.editor.languageDetection": false
 	},
 	"launch": {
 		"configurations": [

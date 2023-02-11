@@ -9,13 +9,13 @@ const { fpc, test } = Prefixers
 describe('Query', () => {
   it.only('smoke test', async () => {
     const store = new Store()
-    const name = test('query.fp')
+    const name = test('query')
     await store.load(name)
     console.log(`loaded: ${name}`)
-    const module = store.modules.get(test('query.fp'))!
+    const module = store.modules.get(test('query'))!
     const [body] = module.facts
       .getRoot('SPO')
-      .get(test('query.fp#whoIsMortal'))!
+      .get(test('query#whoIsMortal'))!
       .get(fpc('body'))
     const query = new TopLevel(module, body)
     // debugger

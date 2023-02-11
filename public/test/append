@@ -1,0 +1,20 @@
+prefix : <#> .
+prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+prefix fpc: <https://fingerpaint.systems/core/> .
+
+:append a fpc:Rule ;
+  fpc:clause [
+    fpc:head {
+      [ a :Appending ; :left rdf:nil ; :right ?right ; :both ?right ] .
+    }
+  ] , [
+    fpc:head {
+      [ a :Appending 
+        :left [ rdf:first ?lf ; rdf:rest ?lr ] ;
+        :right ?right ;
+        :both [ rdf:first ?lf ; rdf:rest ?br ] ]
+    } ;
+    fpc:body {
+      [ a :Appending ; :left ?lr ; :right ?right ; :both ?br ]
+    }
+  ] .

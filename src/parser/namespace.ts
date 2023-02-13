@@ -59,7 +59,6 @@ export class Namespace {
       return namedNode(this.base + unwrap(token))
     }
     const [prefix, suffix] = token.split(':')
-    if (!suffix) throw this.error('named node', token)
     if (!(prefix in this.prefixes))
       throw new ParseError(`unknown prefix: ${prefix}:`)
     return namedNode(this.prefixes[prefix] + suffix)

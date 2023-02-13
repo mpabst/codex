@@ -21,7 +21,6 @@ describe('Query', () => {
       .get(fpc('body'))
 
     const query = new TopLevel(mod, body)
-    // debugger
     // const proc = new Processor()    
     for (let i = 0; i < 100; i++) {
       if (i % 10 === 0) console.log(new Date().toISOString());

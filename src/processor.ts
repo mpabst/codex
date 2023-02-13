@@ -177,6 +177,7 @@ export class Processor {
     this.trail[this.trailP] = addr
   }
 
+  // unused?
   bindCallee(offset: number, val: Term | number): void {
     return this.bind(this.calleeP + offset, val)
   }

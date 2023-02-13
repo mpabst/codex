@@ -1,4 +1,5 @@
 import { CurlyDataSet } from './collections/data-set.js'
+import { randomBlankNode } from './data-factory.js'
 import {
   Argument,
   Bindings,
@@ -94,10 +95,17 @@ export const operations: { [k: string]: Operation } = {
     proc.neededCalls |= bitIndex as number
   },
 
-  derefTerm(proc: Processor, term: Argument, place: Argument): void {
-    proc.triple[place as keyof Triple] = (
-      typeof term === 'number' ? proc.derefScope(term) : term
-    ) as Term
+  memoizeConst(proc: Processor, term: Argument, place: Argument): void {
+    proc.triple[place as keyof Triple] = term as Term
+  },
+
+  memoizeVar(proc: Processor, vari: Argument, place: Argument): void {
+    let found = proc.derefScope(vari as number)
+    if (typeof found === 'number') {
+      found = randomBlankNode()
+      proc.bind(vari as number, found)
+    }
+    proc.triple[place as keyof Triple] = found
   },
 
   addTriple(proc: Processor, _: Argument, __: Argument): void {

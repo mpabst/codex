@@ -42,18 +42,23 @@ export class Body extends Query {
       [name] = module.facts.getRoot('SPO').get(clause.name).get(fpc('body'))!
     super(module, name!, clause.vars)
 
+    // TODO: Support unmemo'd rules
     clause.head.forEach((t: Triple) => {
-      for (const place of TRIPLE_PLACES) this.program.push(this.buildDerefTerm(t, place))
+      for (const place of TRIPLE_PLACES)
+        this.program.push(this.memoInstr(t, place))
       this.program.push([operations.addTriple, null, null])
     })
 
     this.program.push([operations.return, null, null])
   }
 
-  protected buildDerefTerm(t: Triple, place: keyof Triple): Instruction {
+  // OPT: instead of a two-stage copy through Processor#triple, have
+  // memoize instructions reach directly into memos. Use Proc#dbNode?
+  protected memoInstr(t: Triple, place: keyof Triple): Instruction {
     let arg: Term | number = t[place]
-    if (arg instanceof Variable) arg = this.scope.indexOf(arg)
-    return [operations.derefTerm, arg, place]
+    if (arg instanceof Variable)
+      return [operations.memoizeVar, this.scope.indexOf(arg), place]
+    else return [operations.memoizeConst, arg, place]
   }
 }
 

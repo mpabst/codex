@@ -81,10 +81,8 @@ export function randomBlankNode(): BlankNode {
   return blankNode(randomString())
 }
 
-export function randomVariable(original: Variable): Variable {
-  const out: any = variable(randomString())
-  out.original = original
-  return out
+export function randomVariable(): Variable {
+  return variable(randomString())
 }
 
 // TODO: replace with https://github.com/ai/nanoid

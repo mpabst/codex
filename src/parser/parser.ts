@@ -7,6 +7,7 @@ import {
   namedNode,
   Prefixers,
   randomBlankNode,
+  randomVariable,
   variable,
 } from '../data-factory.js'
 import {
@@ -20,6 +21,7 @@ import {
   Quad,
   Subject,
   Triple,
+  Variable,
 } from '../term.js'
 import { isLiteral, ParseError, unwrap } from './common.js'
 import { Context, Expression } from './context.js'
@@ -57,7 +59,7 @@ export class Parser {
   }
 
   protected addListNode(first: Object): void {
-    const node = randomBlankNode()
+    const node = this.blankNode()
     this.addResult({ object: node })
     this.addResult({
       subject: node,
@@ -69,6 +71,9 @@ export class Parser {
     this.context.place = 'list'
   }
 
+  // FIXME: This always calls randomBlankNode() instead of this.blankNode(),
+  // but what if we want to express a pattern in a head or call? Well, then
+  // it'll be explicitly reified...
   protected addPattern(): void {
     const expr = this.nearest(c => c instanceof Expression) as Expression
 
@@ -143,6 +148,10 @@ export class Parser {
   protected advance(): void {
     this.lexer.advance()
     this.token = this.lexer.token
+  }
+
+  protected blankNode(): BlankNode | Variable {
+    return this.isInExpression() ? randomVariable() : randomBlankNode()
   }
 
   get context(): Context {
@@ -278,10 +287,10 @@ export class Parser {
         break
       case '[':
         this.push()
-        this.context.subject = randomBlankNode()
+        this.context.subject = this.blankNode()
         break
       case '[]':
-        this.context.subject = randomBlankNode()
+        this.context.subject = this.blankNode()
         break
       case '(':
         throw this.unexpected()
@@ -321,7 +330,7 @@ export class Parser {
     switch (this.token) {
       case '[':
         this.push()
-        const bnode = randomBlankNode()
+        const bnode = this.blankNode()
         this.addResult({ object: bnode })
         this.context.subject = bnode
         break
@@ -352,7 +361,7 @@ export class Parser {
         this.pop()
         break
       case '[':
-        const first = randomBlankNode()
+        const first = this.blankNode()
         this.addListNode(first)
         this.push()
         this.context.subject = first

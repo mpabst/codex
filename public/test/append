@@ -18,3 +18,11 @@ prefix fpc: <https://fingerpaint.systems/core/> .
       [ a :Appending ; :left ?lr ; :right ?right ; :both ?br ]
     }
   ] .
+
+:query a fpc:Query ;
+  fpc:body {
+    [ a :Appending ;
+      :left ( 1 2 ) ;
+      :right ( 3 ) ;
+      :both ?both ]
+   } .

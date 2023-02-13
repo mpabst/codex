@@ -1,4 +1,5 @@
-import { Name, Triple } from '../term.js'
+import { stringifyTriple } from '../debug.js'
+import { Name, Triple, TRIPLE_PLACES } from '../term.js'
 import { CurlyDataSet, Order, TripleSet } from './data-set.js'
 
 export class Index<D extends CurlyDataSet = TripleSet> {
@@ -26,5 +27,23 @@ export class Index<D extends CurlyDataSet = TripleSet> {
 
   get size(): number {
     return this.data.get(this.orders[0])!.size
+  }
+
+  // @debug
+  toStrings(): string[][] {
+    const out: string[][] = []
+    this.data.get('SPO')!.forEach(t => {
+      out.push(stringifyTriple(t as Triple))
+    })
+    return out
+  }
+
+  // @debug
+  print(): void {
+    console.log(
+      this.toStrings()
+        .map(t => t.join(' '))
+        .join('\n'),
+    )
   }
 }

@@ -5,7 +5,7 @@ import { Module } from './module.js'
 import { operations } from './operations.js'
 import { Instruction, Program } from './processor.js'
 import { Name, Term, Triple, TRIPLE_PLACES, Variable } from './term.js'
-import { printProgram } from './test/helpers.js'
+import { printProgram } from './debug.js'
 
 const { fpc } = Prefixers
 

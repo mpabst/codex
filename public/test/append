@@ -4,25 +4,30 @@ prefix fpc: <https://fingerpaint.systems/core/> .
 
 :append a fpc:Rule ;
   fpc:clause [
-    fpc:head {
-      [ a :Appending ; :left rdf:nil ; :right ?right ; :both ?right ] .
-    }
+    fpc:head { [
+      a :Appending ;
+      :left rdf:nil ;
+      :right ?right ;
+      :both ?right
+    ] }
   ] , [
-    fpc:head {
-      [ a :Appending 
-        :left [ rdf:first ?lf ; rdf:rest ?lr ] ;
-        :right ?right ;
-        :both [ rdf:first ?lf ; rdf:rest ?br ] ]
-    } ;
-    fpc:body {
-      [ a :Appending ; :left ?lr ; :right ?right ; :both ?br ]
-    }
+    fpc:head { [
+      a :Appending ;
+      :left [ rdf:first ?lf ; rdf:rest ?lr ] ;
+      :right ?right ;
+      :both [ rdf:first ?lf ; rdf:rest ?br ]
+    ] } ;
+    fpc:body { [
+      a :Appending ;
+      :left ?lr ;
+      :right ?right ;
+      :both ?br
+    ] }
   ] .
 
 :query a fpc:Query ;
-  fpc:body {
-    [ a :Appending ;
-      :left ( 1 2 ) ;
-      :right ( 3 ) ;
-      :both ?both ]
-   } .
+  fpc:body { [
+    a :Appending ;
+    :left ( 1 2 ) ;
+    :right ( 3 ) ;
+    :both ?both ] } .

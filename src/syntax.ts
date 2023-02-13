@@ -59,7 +59,7 @@ export function traverse(
   while (true) {
     const node = stack.pop()!
 
-    if (node === null) continue
+    if (node === rdf('nil')) continue
     if (node === undefined) return
 
     const po = spo.get(node)

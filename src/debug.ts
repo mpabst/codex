@@ -1,10 +1,10 @@
-import { CurlyDataSet } from '../collections/data-set.js'
-import { PREFIXES } from '../data-factory.js'
-import { Argument, Bindings, Instruction, Program } from '../processor.js'
-import { FlatQuad, NamedNode, Term } from '../term.js'
+import { CurlyDataSet } from './collections/data-set.js'
+import { PREFIXES } from './data-factory.js'
+import { Argument, Bindings, Instruction, Program } from './processor.js'
+import { FlatQuad, NamedNode, Term, Triple, TRIPLE_PLACES } from './term.js'
 
-const prefixes = new Map()
-for (const [abbrev, url] of Object.entries(PREFIXES)) prefixes.set(url, abbrev)
+const prefixes: { [k: string]: string } = {}
+for (const [abbrev, url] of Object.entries(PREFIXES)) prefixes[url] = abbrev
 
 function abbreviate(s: string, max: number = 20): string {
   if (s.length <= max) return s
@@ -38,22 +38,34 @@ export function formatInstruction([op, left, right]: Instruction): string {
 //   }
 // }
 
-export function prefixify({ value }: Term): string {
-  for (const [url, abbrev] of prefixes)
+export function prefixify({ value }: Term, extraPrefixes = {}): string {
+  for (const [url, abbrev] of Object.entries({ ...prefixes, ...extraPrefixes }))
     if (value.startsWith(url)) return value.replace(url, abbrev + ':')
   return value
 }
 
-export function printBindings(bindings: Bindings): void {
+export function stringifyBindings(bindings: Bindings): string[][] {
   const out = []
-  for (const pair of bindings) out.push(pair.map(prefixify).join(': '))
-  console.log(out.join('\n'))
+  for (const pair of bindings) out.push(pair.map(prefixify))
+  return out
 }
 
-export function printQuad(q: FlatQuad): void {
+export function printBindings(bindings: Bindings): void {
+  console.log(
+    stringifyBindings(bindings)
+      .map(o => o.join(': '))
+      .join('\n'),
+  )
+}
+
+export function stringifyTriple(triple: Triple): string[] {
   const out = []
-  for (const t of q) out.push(prefixify(t))
-  console.log(out.join(' '))
+  for (const t of TRIPLE_PLACES) out.push(prefixify(triple[t]))
+  return out
+}
+
+export function printTriple(triple: Triple): void {
+  console.log(stringifyTriple(triple).join(' '))
 }
 
 export function printProgram(

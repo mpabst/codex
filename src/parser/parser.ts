@@ -90,8 +90,10 @@ export class Parser {
 
     if (!expr.tail) {
       // head is just a Pattern, let's wrap it in a Conj
+      // FIXME: I don't need to wrap it; see Clause#initSignature()
       add({ predicate: rdf('type'), object: fpc('Conjunction') })
       add({ predicate: rdf('first'), object: expr.head })
+      add({ predicate: rdf('rest'), object: rdf('nil') })
       expr.head = expr.tail = bnode
       bnode = randomBlankNode()
     }

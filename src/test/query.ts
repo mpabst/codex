@@ -7,17 +7,20 @@ import { printBindings } from './helpers.js'
 const { fpc, test } = Prefixers
 
 describe('Query', () => {
-  it.only('smoke test', async () => {
+  it.only('who is mortal?', async () => {
     const store = new Store()
-    const name = test('query')
-    await store.load(name)
-    console.log(`loaded: ${name}`)
-    const module = store.modules.get(test('query'))!
-    const [body] = module.facts
+
+    const node = test('who-is-mortal')
+    await store.load(node)
+    console.log(`loaded: ${node}`)
+
+    const mod = store.modules.get(node)!
+    const [body] = mod.facts
       .getRoot('SPO')
-      .get(test('query#whoIsMortal'))!
+      .get(test('who-is-mortal#'))!
       .get(fpc('body'))
-    const query = new TopLevel(module, body)
+
+    const query = new TopLevel(mod, body)
     // debugger
     // const proc = new Processor()    
     for (let i = 0; i < 100; i++) {

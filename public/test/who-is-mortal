@@ -4,5 +4,5 @@ prefix fpc: <https://fingerpaint.systems/core/> .
 
 <> fpc:imports test:mortality .
 
-:whoIsMortal a fpc:Query ;
+<#> a fpc:Query ;
   fpc:body { ?who a test:mortality#Mortal } .

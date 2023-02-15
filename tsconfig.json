@@ -6,6 +6,7 @@
     "target": "ESNext",
     "module": "ESNext",
     "inlineSourceMap": true,
+    "removeComments": false,
     "moduleResolution": "node",
     "allowSyntheticDefaultImports": true,
     "experimentalDecorators": true

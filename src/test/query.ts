@@ -23,10 +23,8 @@ describe('Query', () => {
     const query = new TopLevel(mod, body)
     for (let i = 0; i < 1; i++) {
       if (i % 10 === 0) console.log(new Date().toISOString())
-      new Processor().evaluate(query, (b: Bindings) => {
-        printBindings(b)
-        debugger
-      })
+      // debugger
+      new Processor().evaluate(query, printBindings)
     }
   })
 

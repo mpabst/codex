@@ -1,4 +1,4 @@
-import { prefixify, stringifyTriple } from '../debug.js'
+import { prefixify, Printer, stringifyTriple } from '../debug.js'
 import {
   BlankNode,
   Name,
@@ -47,48 +47,35 @@ export class Index<D extends CurlyDataSet = TripleSet> {
 
   // @debug
   print(): void {
+    const floaters = new Set<BlankNode>()
+    const printed = new Set<BlankNode>()
+    const printer = new Printer()
+    const p = printer.send.bind(printer)
+
     const spo = this.getRoot('SPO')
 
-    class Printer {
-      #buf: string
-      #indent = ''
-
-      constructor(indent: number) {
-        for (let i = 0; i < indent; i++) this.#indent += ' '
-        this.#buf = this.#indent
-      }
-
-      print(...args: (Term | string)[]): void {
-        for (const arg of args)
-          if (arg instanceof Term) this.print(prefixify(arg))
-          else
-            for (const char of arg)
-              if (char === '\n') {
-                console.log(this.#buf)
-                this.#buf = this.#indent
-              } else this.#buf += char
-      }
-    }
-
-    function printSubject(subj: Subject, indent: number = 0): void {
-      const printer = new Printer(indent)
-      const p = printer.print.bind(printer)
-
-      const po = spo.get(subj) as Map<Term, Set<Term>>
-      p(subj, po.size > 1 ? '\n' : ' ')
-      for (const [pred, os] of po) {
-        p(pred, os.size > 1 ? '\n' : ' ')
-        ;[...os].forEach((o, i) => {
-          if (o instanceof BlankNode) {
+    function printSubject(subj: Subject, level: number = 0): void {
+      const po = [...spo.get(subj)] as [Term, Set<Term>][]
+      if (level === 0) p(subj, po.length > 1 ? '\n' : ' ')
+      printer.indent()
+      po.forEach(([pred, oSet], i) => {
+        const oAry = [...oSet]
+        p(pred, oAry.length > 1 ? '\n' : ' ')
+        ;[...oAry].forEach((o, i) => {
+          if (!(o instanceof BlankNode) || printed.has(o)) p(o)
+          else {
+            printed.add(o)
+            floaters.delete(o)
             p(`[ ${o}\n`)
-            printSubject(o)
+            printSubject(o, level + 1)
             p(']')
-          } else p(o)
-          if (i < os.size - 1) p(' ,\n')
+          }
+          if (i < oAry.length - 1) p(' ,\n')
         })
-        p(' ;\n')
-      }
-      p(' .\n')
+        if (i < po.length - 1) p(' ;\n')
+      })
+      if (level === 0) p(' .\n')
+      printer.outdent()
     }
 
     // print only named subjects at first, collect bnodes while printing them,
@@ -96,6 +83,13 @@ export class Index<D extends CurlyDataSet = TripleSet> {
     // another subject - need to compute trans closure to find bnode roots,
     // which isn't worth it - maybe just unnest all bnode children of (other)
     // leftover bnodes
-    for (const subj of spo.keys()) printSubject(subj)
+    for (const subj of spo.keys())
+      if (subj instanceof BlankNode) {
+        if (!printed.has(subj)) floaters.add(subj)
+      } else printSubject(subj)
+    for (const subj of floaters) {
+      printed.add(subj)
+      printSubject(subj)
+    }
   }
 }

@@ -123,6 +123,12 @@ export abstract class CurlyDataSet<
     this.forEachPath((path: Term[]) => cb(this.deorder(path)))
   }
 
+  map<T>(cb: (d: D) => T): T[] {
+    const out: T[] = []
+    this.forEach(d => out.push(cb(d)))
+    return out
+  }
+
   protected reorder(datum: D): Term[] {
     return this.order.map(o => datum[o])
   }

@@ -2,7 +2,7 @@ prefix : <#> .
 prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 prefix fpc: <https://fingerpaint.systems/core/> .
 
-:append a fpc:Rule ;
+<#> a fpc:Rule ;
   fpc:clause [
     fpc:head { [
       a :Appending ;

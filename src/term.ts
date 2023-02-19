@@ -23,7 +23,7 @@ export class BlankNode extends Term {
 
 export class DefaultGraph extends Term {
   constructor() {
-    super('')
+    super('<>')
   }
 
   toString(): string {

@@ -38,7 +38,9 @@ export function formatInstruction([op, left, right]: Instruction): string {
 //   }
 // }
 
-export function prefixify({ value }: Term, extraPrefixes = {}): string {
+export function prefixify(term: Term, extraPrefixes = {}): string {
+  if (!(term instanceof NamedNode)) return term.toString()
+  const { value } = term
   for (const [url, abbrev] of Object.entries({ ...prefixes, ...extraPrefixes }))
     if (value.startsWith(url)) return value.replace(url, abbrev + ':')
   return value

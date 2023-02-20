@@ -39,7 +39,13 @@ export class Test extends LitElement {
 export class TripleTable extends LitElement {
   static styles = css`
     table {
-      padding-left: 5rem;
+      padding-left: 3rem;
+    }
+
+    th {
+      font-size: large;
+      padding-bottom: 0.2rem;
+      border-bottom: 1px solid grey;
     }
 
     tr.alternate {
@@ -82,8 +88,9 @@ export class TripleTable extends LitElement {
       first = true
     }
     const [s, p, o] = TRIPLE_PLACES.map(p => prefixify(t[p]))
+
     return html`<tr class=${this.alternate ? 'alternate' : ''}>
-      ${ first ? html`<td id=${s}>${s}</td>` : html`<td>${s}</td>` }
+      ${ first ? html`<td id="${s}">${s}</td>` : html`<td>${s}</td>` }
       <td>${p}</td>
       <td><a href="#${o}">${o}</td>
     </tr>`

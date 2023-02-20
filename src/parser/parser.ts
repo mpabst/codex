@@ -71,7 +71,7 @@ export class Parser {
     this.context.place = 'list'
   }
 
-  // FIXME: This always calls randomBlankNode() instead of this.blankNode(),
+  // FIXME? This always calls randomBlankNode() instead of this.blankNode(),
   // but what if we want to express a pattern in a head or call? Well, then
   // it'll be explicitly reified...
   protected addPattern(): void {
@@ -93,7 +93,6 @@ export class Parser {
       // FIXME: I don't need to wrap it; see Clause#initSignature()
       add({ predicate: rdf('type'), object: fpc('Conjunction') })
       add({ predicate: rdf('first'), object: expr.head })
-      add({ predicate: rdf('rest'), object: rdf('nil') })
       expr.head = expr.tail = bnode
       bnode = randomBlankNode()
     }

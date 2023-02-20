@@ -66,7 +66,7 @@ export function traverse(
     const types = po.get(A)
     if (types.has(fpc('Conjunction'))) {
       const [first] = po.get(rdf('first'))
-      const [rest] = po.get(rdf('rest'))
+      const [rest] = po.get(rdf('rest')) ?? []
       stack.push(rest, first)
     }
     if (types.has(fpc('Pattern'))) handlers.doPattern(node)

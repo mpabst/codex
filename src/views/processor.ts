@@ -12,9 +12,15 @@ export default class ProcessorView extends View {
   static styles = css`
     .container {
       display: grid;
-      grid-template-columns: 10rem calc(100vw - 10rem);
-      grid-template-rows: 100vh;
-      grid-template-areas: 'globals query';
+      grid-template-rows: 2rem calc(100vh - 2rem);
+      grid-template-columns: 10rem 30rem 20rem;
+      grid-template-areas:
+        'controls query heap'
+        'globals query heap';
+    }
+
+    .controls {
+      grid-area: controls;
     }
 
     .globals {
@@ -40,6 +46,10 @@ export default class ProcessorView extends View {
       grid-area: query;
       width: min-content;
     }
+
+    .heap {
+      grid-area: heap;
+    }
   `
 
   @property({ attribute: false })
@@ -48,11 +58,18 @@ export default class ProcessorView extends View {
   protected toRefresh = ['fp-query']
 
   render() {
-    return html`<section class="container">
-      ${this.renderGlobals()}
-      <fp-query .query=${this.proc.query} .programP=${this.proc.programP} />
+    return html`<div class="container">
+      ${this.renderControls()} ${this.renderGlobals()}
+      <fp-query
+        .query=${this.proc.query}
+        .programP=${this.proc.programP}
+      ></fp-query>
       ${this.renderHeap()}
-    </section>`
+    </div>`
+  }
+
+  renderControls() {
+    return html`<button @click=${() => this.step()}>step</button>`
   }
 
   renderGlobals() {
@@ -80,7 +97,7 @@ export default class ProcessorView extends View {
 
   renderHeap() {
     return html`
-      <table>
+      <table class="heap">
         <tbody>
           ${this.proc.heap.map((h, i) => this.renderHeapCell(h, i))}
         </tbody>
@@ -95,5 +112,10 @@ export default class ProcessorView extends View {
         <td>${value instanceof Term ? prefixify(value) : value}</td>
       </tr>
     `
+  }
+
+  step() {
+    this.proc.step()
+    this.refresh()
   }
 }

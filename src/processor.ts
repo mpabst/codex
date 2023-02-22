@@ -224,6 +224,17 @@ export class Processor {
     }
   }
 
+  step() {
+    if (this.fail) {
+      if (this.orP < 0) return
+      this.stack[this.orP].restore()
+      return
+    }
+    const i = this.query!.program[this.programP]
+    i[0](this, i[1], i[2])
+    if (!this.fail) this.programP++
+  }
+
   initArgs(args: Bindings): void {
     for (let prev of this.query!.scope) {
       let next: Term | undefined

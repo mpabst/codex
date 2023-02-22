@@ -1,12 +1,13 @@
 import { customElement, property } from 'lit/decorators.js'
-import { css, html, LitElement } from 'lit/index.js'
+import { css, html } from 'lit/index.js'
 import { TripleSet } from '../collections/data-set.js'
 
 import { prefixify } from '../debug.js'
 import { Term, Triple, TRIPLE_PLACES } from '../term.js'
+import View from './view.js'
 
 @customElement('fp-triple-table')
-export class TripleTable extends LitElement {
+export class TripleTable extends View {
   static styles = css`
     table {
       padding-left: 3rem;

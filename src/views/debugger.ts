@@ -1,38 +1,66 @@
-import { until } from 'lit-html/directives/until.js'
-import { customElement, property } from 'lit/decorators.js'
-import { css, html, LitElement } from 'lit/index.js'
+import { customElement, property, state } from 'lit/decorators.js'
+import { css, html, PropertyValues } from 'lit/index.js'
+import { TripleSet } from '../collections/data-set.js'
+import { Index } from '../collections/index.js'
 
 import { Prefixers } from '../data-factory.js'
+import { TopLevel } from '../query.js'
 import { Store } from '../store.js'
+import './processor.js'
 import './triple-table.js'
+import View from './view.js'
 
-const { test } = Prefixers
+const { fpc, test } = Prefixers
 
 @customElement('fp-debugger')
-export class Debugger extends LitElement {
+export class Debugger extends View {
   static styles = css`
-    h1 {
-      font-style: italic;
+    :root {
+      display: flex;
     }
   `
 
   @property()
   graph?: string
 
-  store = new Store()
+  @state()
+  facts?: Index<TripleSet>
 
-  async facts() {
+  store = new Store()
+  protected toRefresh = ['fp-processor']
+
+  async fetchModule() {
     if (!this.graph) return
+
     const node = test(this.graph)
-    await this.store.load(node)
-    return this.store.modules.get(node)!.facts
+    if (!this.store.modules.has(node)) await this.store.load(node)
+    const mod = this.store.modules.get(node)!
+    this.facts = mod.facts
+
+    // FIXME: just hardcode which query for now
+    const [body] = mod.facts
+      .getRoot('SPO')
+      .get(test('append#query'))!
+      .get(fpc('body'))
+
+    this.store.proc.query = new TopLevel(mod, body)
+
+    this.refresh()
   }
 
   render() {
-    return until(
-      this.facts().then(
-        f => f && html`<fp-triple-table .triples=${f.data.get('SPO')} />`,
-      ),
-    )
+    return html`
+      ${this.renderFacts()}
+      <fp-processor .proc=${this.store.proc} />
+    `
+  }
+
+  renderFacts() {
+    if (!this.facts) return
+    return html`<fp-triple-table .triples=${this.facts.data.get('SPO')} />`
+  }
+
+  willUpdate(changed: PropertyValues<this>) {
+    if (changed.has('graph') || (this.graph && !this.facts)) this.fetchModule()
   }
 }

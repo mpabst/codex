@@ -13,38 +13,43 @@ export default class ProcessorView extends View {
     .container {
       display: grid;
       grid-template-rows: 2rem calc(100vh - 2rem);
-      grid-template-columns: 10rem 30rem 20rem;
+      grid-template-columns: 8rem 40rem 20rem;
       grid-template-areas:
         'controls query heap'
         'globals query heap';
+      gap: 1rem;
     }
 
     .controls {
       grid-area: controls;
     }
 
+    .controls > button {
+      width: 100%;
+      height: 100%;
+    }
+
     .globals {
       grid-area: globals;
       display: flex;
       flex-direction: column;
+      gap: 0.5rem;
     }
 
-    .globals tr {
-      text-align: left;
+    .globals > div {
+      display: flex;
+      justify-content: space-between;
     }
 
-    .globals th {
-      font-weight: normal;
-    }
-
-    .globals td {
+    .globals > div > div:last-child {
       font-weight: bold;
+      text-align: right;
     }
 
     fp-query {
       overflow-y: auto;
       grid-area: query;
-      width: min-content;
+      width: fit-content;
     }
 
     .heap {
@@ -60,38 +65,35 @@ export default class ProcessorView extends View {
   render() {
     return html`<div class="container">
       ${this.renderControls()} ${this.renderGlobals()}
-      <fp-query
-        .query=${this.proc.query}
-        .programP=${this.proc.programP}
-      ></fp-query>
+      <fp-query .query=${this.proc.query} .programP=${this.proc.programP} />
       ${this.renderHeap()}
     </div>`
   }
 
   renderControls() {
-    return html`<button @click=${() => this.step()}>step</button>`
+    return html`<div class="controls">
+      <button @click=${() => this.step()}>step</button>
+    </div>`
   }
 
   renderGlobals() {
+    const field = (
+      name: string | number,
+      val: any = (this.proc as any)[name],
+    ) => html`<div>
+      <div>${name}:</div>
+      <div>${val}</div>
+    </div>`
+
     return html`
-      <table class="globals">
-        <tr>
-          <th>direction:</th>
-          <td>${this.proc.direction}</td>
-        </tr>
-        <tr>
-          <th>fail:</th>
-          <td>${this.proc.fail}</td>
-        </tr>
-        ${TRIPLE_PLACES.map(
-          p => html`
-            <tr>
-              <th>${p}:</th>
-              <td>${prefixify(this.proc.triple[p])}</td>
-            </tr>
-          `,
+      <div class="globals">
+        ${['fail', 'programP', 'andP', 'orP', 'scopeP', 'envP', 'calleeP'].map(
+          f => field(f),
         )}
-      </table>
+        ${TRIPLE_PLACES.map(p =>
+          field(p, prefixify(this.proc.triple[p] ?? null)),
+        )}
+      </div>
     `
   }
 

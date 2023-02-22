@@ -64,6 +64,7 @@ export const operations: { [k: string]: Operation } = {
       proc.scopeP = proc.envP + callee.offset
       proc.envP = proc.envP + proc.query!.envSize
       proc.query = callee.target.body
+      proc.callStack.push([proc.envP, proc.query!])
       proc.memo = callee.target.memo
       for (let i = proc.envP; i < proc.envP + proc.query!.envSize; i++)
         proc.heap[i] = i
@@ -74,14 +75,17 @@ export const operations: { [k: string]: Operation } = {
 
   return(proc: Processor, _: Argument, __: Argument): void {
     if (proc.andP < 0) proc.fail = true
-    else proc.stack[proc.andP].restore()
+    else {
+      proc.stack[proc.andP].restore()
+      proc.callStack.pop()
+    }
   },
 
   emitResult(proc: Processor, _: Argument, __: Argument): void {
     const binds: Bindings = new Map()
-    // scopeP isn't necessary in the index to proc.heap since we're at
-    // top-level
     for (const i in proc.query!.scope)
+      // scopeP isn't necessary in the index to proc.heap since we're at
+      // top-level
       binds.set(proc.query!.scope[i], proc.heap[i] as Term)
     proc.emit!(binds)
     proc.fail = true

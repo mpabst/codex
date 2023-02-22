@@ -41,10 +41,10 @@ export function formatInstruction([op, left, right]: Instruction): string {
 //   }
 // }
 
-export function prefixify(term: Term | undefined | null, extraPrefixes = {}): string {
-  if (!term) return ''
-  if (!(term instanceof NamedNode)) return term.toString()
-  const { value } = term
+export function prefixify(arg: Argument, extraPrefixes = {}): string {
+  if (arg === null) return ''
+  if (!(arg instanceof NamedNode)) return arg.toString()
+  const { value } = arg
   for (const [url, abbrev] of Object.entries({ ...prefixes, ...extraPrefixes }))
     if (value.startsWith(url)) return value.replace(url, abbrev + ':')
   return value

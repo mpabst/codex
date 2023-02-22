@@ -169,7 +169,10 @@ export class Processor {
   // maybe: set fail, fetch next instr, if 'not', then continue, else backtrack
   fail: boolean = false
 
+  // @debug
   instrCount: number = 0
+  // @debug
+  callStack: [number, Query][] = []
 
   bind(addr: number, value: Term | number): void {
     this.heap[addr] = value
@@ -210,6 +213,7 @@ export class Processor {
   ): void {
     this.direction = dir
     this.query = query
+    this.callStack.push([0, query])
     this.initArgs(args)
     this.fail = false
     this.emit = emit
@@ -224,6 +228,7 @@ export class Processor {
     }
   }
 
+  // @debug
   step() {
     if (this.fail) {
       if (this.orP < 0) return

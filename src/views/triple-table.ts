@@ -1,5 +1,5 @@
 import { customElement, property } from 'lit/decorators.js'
-import { css, html } from 'lit/index.js'
+import { css, html, nothing } from 'lit/index.js'
 import { TripleSet } from '../collections/data-set.js'
 
 import { prefixify } from '../debug.js'
@@ -60,7 +60,7 @@ export class TripleTable extends View {
     }
     const [s, p, o] = TRIPLE_PLACES.map(p => prefixify(t[p]))
 
-    return html`<tr class=${this.alternate ? 'alternate' : ''}>
+    return html`<tr class=${this.alternate ? 'alternate' : nothing}>
       ${first ? html`<td id="${s}">${s}</td>` : html`<td>${s}</td>`}
       <td>${p}</td>
       <td><a href="#${o}">${o}</td>

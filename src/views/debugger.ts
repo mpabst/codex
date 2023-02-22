@@ -49,11 +49,7 @@ export class Debugger extends View {
   }
 
   render() {
-    return html`
-      <div class="container">
-        <fp-processor .proc=${this.store.proc} />
-      </div>
-    `
+    return html`<fp-processor .proc=${this.store.proc} />`
   }
 
   renderFacts() {

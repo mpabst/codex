@@ -12,18 +12,21 @@ function abbreviate(s: string, max: number = 20): string {
   return `${s.slice(0, half)}…${s.slice(-half)}`
 }
 
+export function formatArg(a: Argument): string {
+  if (a === null) return ''
+  else if (a instanceof CurlyDataSet) return prefixify(a.parent!.name)
+  else if (a instanceof NamedNode) return prefixify(a)
+  else return a.toString()
+}
+
 export function formatInstruction([op, left, right]: Instruction): string {
   const width = 25
-  const formatArg = (a: Argument): string => {
-    let out: string
-    if (a === null) out = ''
-    else if (a instanceof CurlyDataSet) out = prefixify(a.parent!.name)
-    else if (a instanceof NamedNode) out = prefixify(a)
-    else out = a!.toString()
-    if (out.length > width) out = abbreviate(out)
-    return out.padEnd(width)
+  function arg(a: Argument): string {
+    const s = formatArg(a)
+    if (s.length > width) return abbreviate(s)
+    return s.padEnd(width)
   }
-  return `${op.name.padEnd(16)} ${formatArg(left)} ${formatArg(right)}`
+  return `${op.name.padEnd(16)} ${arg(left)} ${arg(right)}`
 }
 
 // export function parseProgram(source: string): Program {
@@ -38,7 +41,8 @@ export function formatInstruction([op, left, right]: Instruction): string {
 //   }
 // }
 
-export function prefixify(term: Term, extraPrefixes = {}): string {
+export function prefixify(term: Term | undefined | null, extraPrefixes = {}): string {
+  if (!term) return ''
   if (!(term instanceof NamedNode)) return term.toString()
   const { value } = term
   for (const [url, abbrev] of Object.entries({ ...prefixes, ...extraPrefixes }))

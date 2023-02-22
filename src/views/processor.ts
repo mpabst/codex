@@ -22,7 +22,7 @@ export default class ProcessorView extends View {
 
   render() {
     return html`<section class="container">
-      <fp-query .query=${this.proc.query} />
+      <fp-query .query=${this.proc.query} .programP=${this.proc.programP} />
       ${this.renderHeap()}
     </section>`
   }

@@ -4,8 +4,8 @@ import { Branch, Leaf } from './operations.js'
 import { Query, TopLevel } from './query.js'
 import { Term, Triple, Variable } from './term.js'
 
-import { formatInstruction as fI } from './debug.js'
-console.log(fI.name)
+// import { formatInstruction as fI } from './debug.js'
+// console.log(fI.name)
 
 export type Bindings<T = Term> = Map<Variable, T>
 // TODO: Does an Argument union break monomorphism? How much do I care if I'm

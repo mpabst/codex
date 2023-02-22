@@ -15,7 +15,7 @@ const { fpc, test } = Prefixers
 @customElement('fp-debugger')
 export class Debugger extends View {
   static styles = css`
-    :root {
+    .container {
       display: flex;
     }
   `
@@ -50,8 +50,9 @@ export class Debugger extends View {
 
   render() {
     return html`
-      ${this.renderFacts()}
-      <fp-processor .proc=${this.store.proc} />
+      <div class="container">
+        <fp-processor .proc=${this.store.proc} />
+      </div>
     `
   }
 

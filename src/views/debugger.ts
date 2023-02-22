@@ -44,6 +44,7 @@ export class Debugger extends View {
       .get(fpc('body'))
 
     this.store.proc.query = new TopLevel(mod, body)
+    this.store.proc.initArgs(new Map())
 
     this.refresh()
   }

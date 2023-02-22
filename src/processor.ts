@@ -10,7 +10,13 @@ import { Term, Triple, Variable } from './term.js'
 export type Bindings<T = Term> = Map<Variable, T>
 // TODO: Does an Argument union break monomorphism? How much do I care if I'm
 // gonna port all this anyways
-export type Argument = Term | CurlyDataSet | Direction | keyof Triple | number | null
+export type Argument =
+  | Term
+  | CurlyDataSet
+  | Direction
+  | keyof Triple
+  | number
+  | null
 export type Operation = (m: Processor, l: Argument, r: Argument) => void
 export type InstructionSet = { [k: string]: Operation }
 export type Instruction = [Operation, Argument, Argument]
@@ -241,6 +247,7 @@ export class Processor {
   }
 
   initArgs(args: Bindings): void {
+    this.callStack.push([0, this.query!])
     for (let prev of this.query!.scope) {
       let next: Term | undefined
       while (true) {

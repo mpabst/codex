@@ -1,7 +1,8 @@
 import { CurlyDataSet } from './collections/data-set.js'
 import { PREFIXES } from './data-factory.js'
 import { Argument, Bindings, Instruction, Program } from './processor.js'
-import { NamedNode, Term, Triple, TRIPLE_PLACES } from './term.js'
+import { Query } from './query.js'
+import { NamedNode, Triple, TRIPLE_PLACES, Variable } from './term.js'
 
 const prefixes: { [k: string]: string } = {}
 for (const [abbrev, url] of Object.entries(PREFIXES)) prefixes[url] = abbrev
@@ -10,6 +11,13 @@ function abbreviate(s: string, max: number = 20): string {
   if (s.length <= max) return s
   const half = Math.floor((max - 1) / 2)
   return `${s.slice(0, half)}…${s.slice(-half)}`
+}
+
+// offset is a calleeP-relative address
+export function calleeVar({ callees }: Query, offset: number): Variable {
+  let i = callees.length - 1
+  while (callees[i].offset > offset) i--
+  return callees[i].target.vars[offset - callees[i].offset]
 }
 
 export function formatArg(a: Argument): string {

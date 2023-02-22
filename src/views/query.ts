@@ -2,7 +2,7 @@ import { customElement, property } from 'lit/decorators.js'
 import { css, html, nothing } from 'lit/index.js'
 import { Clause } from '../clause.js'
 import { CurlyDataSet } from '../collections/data-set.js'
-import { prefixify } from '../debug.js'
+import { calleeVar, prefixify } from '../debug.js'
 import { Argument, Instruction, Operation } from '../processor.js'
 import { Query } from '../query.js'
 import { Term, Variable } from '../term.js'
@@ -32,7 +32,11 @@ const calleeRelative: { [k: string]: (1 | 2)[] } = {
 @customElement('fp-query')
 export default class QueryView extends View {
   static styles = css`
-    .program td {
+    table {
+      width: 100%;
+    }
+
+    td {
       white-space: nowrap;
     }
 
@@ -50,7 +54,7 @@ export default class QueryView extends View {
   render() {
     if (!this.query) return
     return html`
-      <table class="program">
+      <table>
         <tbody>
           ${this.query.program.map((instr, i) =>
             this.renderInstruction(instr, i),
@@ -63,17 +67,11 @@ export default class QueryView extends View {
   renderArgument(op: Operation, arg: Argument, pos: 1 | 2) {
     let out = arg
 
-    const calleeVar = (): Variable => {
-      const callees = this.query!.callees
-      let i = callees.length - 1
-      while (callees[i].offset > (arg as number)) i--
-      return callees[i].target.vars[arg as number - callees[i].offset]
-    }
-
     if (arg === null) out = ''
     if (typeof arg === 'number') {
       if (scopeRelative[op.name]?.includes(pos)) out = this.query!.scope[arg]
-      if (calleeRelative[op.name]?.includes(pos)) out = calleeVar()
+      if (calleeRelative[op.name]?.includes(pos))
+        out = calleeVar(this.query!, arg)
     }
     if (arg instanceof CurlyDataSet) out = arg.parent!.name
     if (arg instanceof Term) out = arg

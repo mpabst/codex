@@ -112,6 +112,7 @@ export function compile(
   module: Module,
   query: Name,
   vars: Variable[] = [],
+  doMemos: boolean = false
 ): [Program, Scope, number] {
   type Type = 'edb' | 'call' | 'memo'
   type Choice = [Program, Type]
@@ -155,7 +156,7 @@ export function compile(
         callee.target.listeners.add(listener)
         const call = callee.buildPattern(idx, er, ee)
         if (call.length > 1) choices.push([call, 'call'])
-        if (callee.target.memo)
+        if (doMemos && callee.target.memo)
           choices.push([scope.buildPattern(callee.target.memo, er), 'memo'])
       }
     }
@@ -186,15 +187,17 @@ export function compile(
     for (let i = 0; i < choices.length; i++) {
       const [choice, type] = choices[i]
 
-      if (!startedCalls && type === 'call') {
-        startedCalls = true
-        prevSkip = out.length
-        out.push([ops.skipIfDirection, null, 'up'])
-      } else if (!startedMemos && type === 'memo') {
-        out[prevSkip!][1] = out.length
-        startedMemos = true
-        prevSkip = out.length
-        out.push([ops.skipIfDirection, null, 'down'])
+      if (doMemos) {
+        if (!startedCalls && type === 'call') {
+          startedCalls = true
+          prevSkip = out.length
+          out.push([ops.skipIfDirection, null, 'up'])
+        } else if (!startedMemos && type === 'memo') {
+          out[prevSkip!][1] = out.length
+          startedMemos = true
+          prevSkip = out.length
+          out.push([ops.skipIfDirection, null, 'down'])
+        }
       }
 
       out.push(

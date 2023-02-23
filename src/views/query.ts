@@ -10,8 +10,8 @@ import View from './view.js'
 
 // These could be summarized by /Var/.test(op.name) ? pos === 1 ? ...
 // but they're already written so I'll keep them. Why is this pattern
-// here? I don't remember deciding to make the second arg always callee
-// relative
+// here? I don't remember explicitly deciding to make the second arg
+// always callee relative
 const scopeRelative: { [k: string]: (1 | 2)[] } = {
   memoizeVar: [1],
   eMedialNewVar: [1],
@@ -47,7 +47,11 @@ export default class QueryView extends View {
   `
 
   @property()
+  envP: number = -1
+  @property()
   programP: number = -1
+  @property()
+  scopeP: number = -1
   @property({ attribute: false })
   query?: Query
 
@@ -69,9 +73,14 @@ export default class QueryView extends View {
 
     if (arg === null) out = ''
     if (typeof arg === 'number') {
-      if (scopeRelative[op.name]?.includes(pos)) out = this.query!.scope[arg]
-      if (calleeRelative[op.name]?.includes(pos))
+      if (scopeRelative[op.name]?.includes(pos)) {
+        out = this.query!.scope[arg]
+        if ((out as Variable).isRandom()) return arg + this.scopeP
+      }
+      else if (calleeRelative[op.name]?.includes(pos)) {
         out = calleeVar(this.query!, arg)
+        if ((out as Variable).isRandom()) return arg + this.envP
+      }        
     }
     if (arg instanceof CurlyDataSet) out = arg.parent!.name
     if (arg instanceof Term) out = arg

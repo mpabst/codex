@@ -82,7 +82,7 @@ export function randomBlankNode(): BlankNode {
 }
 
 export function randomVariable(): Variable {
-  return variable(randomString())
+  return variable('_' + randomString())
 }
 
 // TODO: replace with https://github.com/ai/nanoid

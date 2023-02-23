@@ -8,7 +8,13 @@ import { Clause } from '../clause.js'
 import { Index } from '../collections/index.js'
 import { Module } from '../module.js'
 import { operations as ops } from '../operations.js'
-import { Argument, Instruction, Processor, Program } from '../processor.js'
+import {
+  Argument,
+  Instruction,
+  Operation,
+  Processor,
+  Program,
+} from '../processor.js'
 import { traverse } from '../syntax.js'
 import {
   ANON,
@@ -21,6 +27,9 @@ import {
 } from '../term.js'
 import { getReifiedTriple, VarMap } from '../util.js'
 import { bindingsToQuad, compile as compileMatcher } from './matching.js'
+
+type Thunkable = [Operation, Argument, Argument | (() => Argument)]
+type PreProgram = Thunkable[]
 
 class Scope {
   callees: Callee[] = []
@@ -74,16 +83,20 @@ export class Callee {
     this.caller.callees.push(this)
   }
 
-  buildPattern(idx: number, erPat: Triple, eePat: Triple): Program {
-    const out: (Instruction | null)[] = []
-    if (this.target.vars.length > 0) out.push([ops.setCalleeP, idx, null])
+  buildPattern(idx: number, erPat: Triple, eePat: Triple): PreProgram {
+    const out: (Thunkable | null)[] = []
+    // should we do scheduleCall after we match the pattern line? no need to
+    // unwind it if the match fails. minor @opt maybe
     if (this.target.body) out.push([ops.scheduleCall, 2 ** idx, null])
     for (const place of TRIPLE_PLACES)
       out.push(this.idbInstr(erPat[place], eePat[place]))
-    return out.filter(Boolean) as Program
+    return out.filter(Boolean) as PreProgram
   }
 
-  idbInstr(erArg: Argument, eeArg: Argument): Instruction | null {
+  idbInstr(
+    erArg: Argument,
+    eeArg: Argument | (() => Argument),
+  ): Thunkable | null {
     if (erArg === ANON || erArg === ANON) return null
 
     let erType = 'Const'
@@ -96,7 +109,9 @@ export class Callee {
     }
 
     if (eeArg instanceof Variable) {
-      eeArg = this.target.vars.indexOf(eeArg)
+      // thunking since we don't know the real offset yet; thunk called in
+      // adjustCalleeVars()
+      eeArg = () => this.target.vars.indexOf(eeArg as Variable) + this.offset
       eeType = 'Var'
     }
 
@@ -112,16 +127,16 @@ export function compile(
   module: Module,
   query: Name,
   vars: Variable[] = [],
-  doMemos: boolean = false
+  doMemos: boolean = false,
 ): [Program, Scope, number] {
   type Type = 'edb' | 'call' | 'memo'
-  type Choice = [Program, Type]
+  type Choice = [PreProgram, Type]
 
   const proc = new Processor()
   const scope = new Scope(module, vars)
-  const out: Program = []
+  const out: PreProgram = []
 
-  function adjustCallees(): number {
+  function adjustCalleeVars(): number {
     if (scope.callees.length === 0) return 0
 
     // compute callee offsets
@@ -131,11 +146,10 @@ export function compile(
       offset += c.target.vars.length
     }
 
-    // adjust setCallee offset args to their correct values
+    // adjust callee var offset args to envP-relative values
     for (let i = 0; i < out.length; i++) {
       const [op, left, right] = out[i]
-      if (op === ops.setCalleeP)
-        out[i] = [op, scope.callees[left as number].offset, right]
+      if (right instanceof Function) out[i] = [op, left, (right as Function)()]
     }
 
     return offset
@@ -148,14 +162,18 @@ export function compile(
     function addChoices(er: Triple, ee: Quad): void {
       const listener = { graph: query, ...er }
       const edb = module.modules.get(ee.graph)
+
       if (edb) {
         choices.push([scope.buildPattern(edb.facts, er), 'edb'])
         edb.listeners.add(listener)
+
       } else {
         const [callee, idx] = scope.getCallee(module.clauses.get(ee.graph)!)
         callee.target.listeners.add(listener)
+
         const call = callee.buildPattern(idx, er, ee)
         if (call.length > 1) choices.push([call, 'call'])
+
         if (doMemos && callee.target.memo)
           choices.push([scope.buildPattern(callee.target.memo, er), 'memo'])
       }
@@ -207,7 +225,7 @@ export function compile(
           null,
         ],
         ...choice,
-        [ops.skip, null, null]
+        [ops.skip, null, null],
       )
     }
 
@@ -222,7 +240,7 @@ export function compile(
 
   traverse(module.facts, query, { doPattern })
 
-  const envSize = adjustCallees()
+  const envSize = adjustCalleeVars()
   if (scope.callees.length > 0) out.push([ops.doCalls, null, null])
-  return [out, scope, envSize]
+  return [out as Program, scope, envSize]
 }

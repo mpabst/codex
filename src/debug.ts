@@ -13,7 +13,7 @@ function abbreviate(s: string, max: number = 20): string {
   return `${s.slice(0, half)}…${s.slice(-half)}`
 }
 
-// offset is a calleeP-relative address
+// offset is a envP-relative address
 export function calleeVar({ callees }: Query, offset: number): Variable {
   let i = callees.length - 1
   while (callees[i].offset > offset) i--

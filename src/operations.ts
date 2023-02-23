@@ -91,10 +91,6 @@ export const operations: { [k: string]: Operation } = {
     proc.fail = true
   },
 
-  setCalleeP(proc: Processor, calleeP: Argument, _: Argument): void {
-    proc.calleeP = proc.envP + (calleeP as number)
-  },
-
   scheduleCall(proc: Processor, bitIndex: Argument, _: Argument): void {
     proc.neededCalls |= bitIndex as number
   },

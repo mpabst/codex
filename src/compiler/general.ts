@@ -85,11 +85,14 @@ export class Callee {
 
   buildPattern(idx: number, erPat: Triple, eePat: Triple): PreProgram {
     const out: (Thunkable | null)[] = []
+
     // should we do scheduleCall after we match the pattern line? no need to
     // unwind it if the match fails. minor @opt maybe
     if (this.target.body) out.push([ops.scheduleCall, 2 ** idx, null])
+
     for (const place of TRIPLE_PLACES)
       out.push(this.idbInstr(erPat[place], eePat[place]))
+
     return out.filter(Boolean) as PreProgram
   }
 
@@ -146,7 +149,9 @@ export function compile(
       offset += c.target.vars.length
     }
 
-    // adjust callee var offset args to envP-relative values
+    // now that our callees know their offsets, we can adjust callee var args
+    // to envP-relative values, by calling the thunk Callee.idbInstr() created
+    // earlier
     for (let i = 0; i < out.length; i++) {
       const [op, left, right] = out[i]
       if (right instanceof Function) out[i] = [op, left, (right as Function)()]
@@ -172,6 +177,9 @@ export function compile(
         callee.target.listeners.add(listener)
 
         const call = callee.buildPattern(idx, er, ee)
+        // > 1, because buildPattern() always produces a scheduleCall instr,
+        // even if that's the only one (ie all three pattern terms are matching
+        // consts)
         if (call.length > 1) choices.push([call, 'call'])
 
         if (doMemos && callee.target.memo)

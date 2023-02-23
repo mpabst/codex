@@ -73,14 +73,15 @@ export default class QueryView extends View {
 
     if (arg === null) out = ''
     if (typeof arg === 'number') {
-      if (scopeRelative[op.name]?.includes(pos)) {
-        out = this.query!.scope[arg]
-        if ((out as Variable).isRandom()) return arg + this.scopeP
-      }
-      else if (calleeRelative[op.name]?.includes(pos)) {
-        out = calleeVar(this.query!, arg)
-        if ((out as Variable).isRandom()) return arg + this.envP
-      }        
+      return arg
+      // if (scopeRelative[op.name]?.includes(pos)) {
+      //   out = this.query!.scope[arg]
+      //   if ((out as Variable).isRandom()) return arg + this.scopeP
+      // }
+      // else if (calleeRelative[op.name]?.includes(pos)) {
+      //   out = calleeVar(this.query!, arg)
+      //   if ((out as Variable).isRandom()) return arg + this.envP
+      // }        
     }
     if (arg instanceof CurlyDataSet) out = arg.parent!.name
     if (arg instanceof Term) out = arg

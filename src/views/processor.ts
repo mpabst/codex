@@ -4,7 +4,7 @@ import { calleeVar, prefixify } from '../debug.js'
 
 import { Processor } from '../processor.js'
 import { Query } from '../query.js'
-import { TRIPLE_PLACES, Variable } from '../term.js'
+import { Term, TRIPLE_PLACES, Variable } from '../term.js'
 import './query.js'
 import View from './view.js'
 
@@ -123,20 +123,31 @@ export default class ProcessorView extends View {
   // necessary) for random vars
   renderFrame(envP: number, query: Query) {
     const renderHeapCell = (i: number) => {
-      const getVar = (): Variable => {
+      const getVar = (): Variable | number => {
+        let out: Variable
         if (envP === 0) {
-          if (i < query.scope.length) return query.scope[i]
-          return calleeVar(query, i - query.scope.length)
-        }
-        return calleeVar(query, i)
+          if (i < query.scope.length) out = query.scope[i]
+          else out = calleeVar(query, i - query.scope.length)
+        } else out = calleeVar(query, i - envP)
+        return out.isRandom() ? i : out
       }
 
-      // index, name of var, current value
+      const getValue = (): Variable | string | number => {
+        const found = this.proc.deref(i)
+        // FIXME: getVar here is wrong, because found might not belong to the
+        // current query. we can fix this by having calleeVar take a callStack
+        // as its first arg, and an absolute addy as its second. The single-
+        // query case is handled with a one-item callStack of [[0, query]]?
+        // nah, because it needs to special case scope vars. wrap current
+        // calleeVar() with a second function that takes a callStack? queryVar
+        // vs heapVar?
+        return found instanceof Term ? prefixify(found) : getVar(found)
+      }
+
       return html`
         <tr>
-          <td>${i}</td>
           <td>${getVar()}</td>
-          <td>${prefixify(this.proc.heap[i])}</td>
+          <td>${getValue()}</td>
         </tr>
       `
     }

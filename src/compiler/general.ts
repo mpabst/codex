@@ -112,9 +112,10 @@ export class Callee {
     }
 
     if (eeArg instanceof Variable) {
-      // thunking since we don't know the real offset yet; thunk called in
-      // adjustCalleeVars()
-      eeArg = () => this.target.vars.indexOf(eeArg as Variable) + this.offset
+      const eeIndex = this.target.vars.indexOf(eeArg as Variable)
+      // thunking since we don't know our real offset yet; thunk called in
+      // adjustCalleeOffsets()
+      eeArg = () => eeIndex + this.offset
       eeType = 'Var'
     }
 
@@ -139,7 +140,7 @@ export function compile(
   const scope = new Scope(module, vars)
   const out: PreProgram = []
 
-  function adjustCalleeVars(): number {
+  function adjustCalleeOffsets(): number {
     if (scope.callees.length === 0) return 0
 
     // compute callee offsets
@@ -248,7 +249,7 @@ export function compile(
 
   traverse(module.facts, query, { doPattern })
 
-  const envSize = adjustCalleeVars()
+  const envSize = adjustCalleeOffsets()
   if (scope.callees.length > 0) out.push([ops.doCalls, null, null])
   return [out as Program, scope, envSize]
 }

@@ -46,7 +46,8 @@ export class Clause {
       doPattern: (pat: Name) => {
         const triple = getReifiedTriple(this.module, pat)
         for (const place of TRIPLE_PLACES)
-          if (triple[place] instanceof Variable) vars.map(triple[place])
+          if (triple[place] instanceof Variable)
+            vars.map(triple[place] as Variable)
         this.head.add(triple)
         const quad: Quad = { ...triple, graph: this.name }
         this.module.signature.add(quad)

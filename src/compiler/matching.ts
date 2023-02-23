@@ -3,7 +3,13 @@ import { VTQuadSet, VTSet } from '../collections/var-tracking.js'
 import { Prefixers, variable } from '../data-factory.js'
 import { Callable, Module } from '../module.js'
 import { Branch } from '../operations.js'
-import { Argument, Bindings, InstructionSet, Processor, Program } from '../processor.js'
+import {
+  Argument,
+  Bindings,
+  InstructionSet,
+  Processor,
+  Program,
+} from '../processor.js'
 import { Matcher, Query } from '../query.js'
 import { ANON, DEFAULT_GRAPH, Name, Quad, Term, Variable } from '../term.js'
 import { getReifiedTriple, VarMap } from '../util.js'
@@ -85,7 +91,8 @@ function match(dbNode: VTSet, term: Term): Iterable<Term> {
   // todo: separate this into separate var and const methods
   // for when we can statically determine the class of term
   const out = [...dbNode.varKeys]
-  if (dbNode.has(term) && !dbNode.varKeys.has(term)) out.push(term)
+  if (dbNode.has(term) && !dbNode.varKeys.has(term as Variable))
+    out.push(term as Variable)
   return out
 }
 

@@ -3,7 +3,7 @@ import { Module } from './module.js'
 import { Bindings, Processor } from './processor.js'
 import { Diff, Quad, NamedNode, Name, Triple } from './term.js'
 
-export class Store {
+export class Environment {
   modules = new Map<Name, Module>()
   proc = new Processor()
 

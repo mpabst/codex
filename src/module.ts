@@ -5,7 +5,7 @@ import { VTQuadSet } from './collections/var-tracking.js'
 import { namedNode, Prefixers } from './data-factory.js'
 import { Parser } from './parser/parser.js'
 import { Rule } from './rule.js'
-import { Store } from './store.js'
+import { Environment } from './environment.js'
 import { A, ANON, Name, NamedNode, Quad } from './term.js'
 
 const { fpc } = Prefixers
@@ -17,7 +17,7 @@ export interface Callable {
 
 export class Module implements Callable {
   static async parse(
-    store: Store,
+    store: Environment,
     name: Name,
     source: string,
   ): Promise<Module> {
@@ -37,7 +37,7 @@ export class Module implements Callable {
   listeners = new VTQuadSet('SPOG')
 
   constructor(
-    public store: Store,
+    public store: Environment,
     public name: NamedNode,
     public facts: Index<TripleSet> = new Index(name, TripleSet),
   ) {

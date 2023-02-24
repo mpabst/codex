@@ -1,14 +1,14 @@
 import { Prefixers } from '../data-factory.js'
 import { Bindings, Processor } from '../processor.js'
 import { TopLevel } from '../query.js'
-import { Store } from '../store.js'
+import { Environment } from '../environment.js'
 import { printBindings } from '../debug.js'
 
 const { fpc, test } = Prefixers
 
 describe('Query', () => {
   it.only('append', async () => {
-    const store = new Store()
+    const store = new Environment()
 
     const node = test('append')
     await store.load(node)
@@ -28,7 +28,7 @@ describe('Query', () => {
   })
 
   it('who is mortal?', async () => {
-    const store = new Store()
+    const store = new Environment()
 
     const node = test('who-is-mortal')
     await store.load(node)

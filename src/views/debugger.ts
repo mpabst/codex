@@ -5,7 +5,7 @@ import { Index } from '../collections/index.js'
 
 import { Prefixers } from '../data-factory.js'
 import { TopLevel } from '../query.js'
-import { Store } from '../store.js'
+import { Environment } from '../environment.js'
 import './processor.js'
 import './triple-table.js'
 import View from './view.js'
@@ -26,7 +26,7 @@ export class Debugger extends View {
   @state()
   facts?: Index<TripleSet>
 
-  store = new Store()
+  store = new Environment()
   protected toRefresh = ['fp-processor']
 
   async fetchModule() {

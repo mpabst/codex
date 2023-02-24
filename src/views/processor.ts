@@ -5,7 +5,7 @@ import { calleeVar, prefixify } from '../debug.js'
 import { Processor } from '../processor.js'
 import { Query } from '../query.js'
 import { Term, TRIPLE_PLACES, Variable } from '../term.js'
-import './query.js'
+import './program.js'
 import View from './view.js'
 
 @customElement('fp-processor')
@@ -76,10 +76,10 @@ export default class ProcessorView extends View {
   render() {
     return html`<div class="container">
       ${this.renderControls()} ${this.renderGlobals()}
-      <fp-query
+      <fp-program
         .query=${this.proc.query}
         .programP=${this.proc.programP}
-      ></fp-query>
+      ></fp-program>
       ${this.renderHeap()}
     </div>`
   }
@@ -141,7 +141,8 @@ export default class ProcessorView extends View {
         // nah, because it needs to special case scope vars. wrap current
         // calleeVar() with a second function that takes a callStack? queryVar
         // vs heapVar?
-        return found instanceof Term ? prefixify(found) : getVar(found)
+        // return found instanceof Term ? prefixify(found) : getVar(found)
+        return prefixify(found)
       }
 
       return html`

@@ -8,7 +8,7 @@ import { TopLevel } from '../query.js'
 import { Environment } from '../environment.js'
 import './processor.js'
 import './triple-table.js'
-import View from './view.js'
+import { View } from './view.js'
 
 const { fpc, test } = Prefixers
 

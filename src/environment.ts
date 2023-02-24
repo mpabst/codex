@@ -1,7 +1,7 @@
 import { QuadSet } from './collections/data-set.js'
 import { Module } from './module.js'
 import { Bindings, Processor } from './processor.js'
-import { Diff, Quad, NamedNode, Name, Triple } from './term.js'
+import { Diff, Quad, NamedNode, Name } from './term.js'
 
 export class Environment {
   modules = new Map<Name, Module>()

@@ -6,7 +6,7 @@ import { Processor } from '../processor.js'
 import { Query } from '../query.js'
 import { Term, TRIPLE_PLACES, Variable } from '../term.js'
 import './program.js'
-import View from './view.js'
+import { View } from './view.js'
 
 @customElement('fp-processor')
 export default class ProcessorView extends View {

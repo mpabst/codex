@@ -5,16 +5,16 @@ import { prefixify } from '../debug.js'
 import { Environment } from '../environment.js'
 import { BlankNode, Graph, Subject } from '../term.js'
 import './subject.js'
-import View from './view.js'
+import { View } from './view.js'
 
 export const env = new Environment()
 
 // showAnon toggle:
 // <input
-// name="show-anon"
-// type="checkbox"
-// @change=${(ev: InputEvent) => this.toggleAnon(ev)}
-// value=${this.showAnon}
+//   name="show-anon"
+//   type="checkbox"
+//   @change=${(ev: InputEvent) => this.toggleAnon(ev)}
+//   value=${this.showAnon}
 // />
 // <label for="show-anon">show anon</label>
 

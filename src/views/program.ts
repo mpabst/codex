@@ -6,7 +6,7 @@ import { calleeVar, prefixify } from '../debug.js'
 import { Argument, Instruction, Operation } from '../processor.js'
 import { Query } from '../query.js'
 import { Term, Variable } from '../term.js'
-import View from './view.js'
+import { View } from './view.js'
 
 // These could be summarized by /Var/.test(op.name) ? pos === 1 ? ...
 // but they're already written so I'll keep them. Why is this pattern

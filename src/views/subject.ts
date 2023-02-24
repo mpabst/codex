@@ -4,7 +4,7 @@ import { namedNode } from '../data-factory.js'
 import { prefixify } from '../debug.js'
 import { Graph, Subject, Term } from '../term.js'
 import { env } from './environment.js'
-import View from './view.js'
+import { View } from './view.js'
 
 const converter = {
   fromAttribute: (value: string) => namedNode(value),

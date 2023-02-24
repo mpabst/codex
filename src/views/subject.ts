@@ -44,24 +44,19 @@ export class SubjectView extends View {
     return html`
       <section>
         <header>${prefixify(this.subject)}</header>
-        <ul>
+        <table>
           ${[...props.entries()].flatMap(([p, oo]) =>
             [...oo].map(
               o => html`
-                <li>
-                  <span>${prefixify(p)}</span>
-                  <span>${prefixify(o)}</span>
-                </li>
+                <tr>
+                  <td>${prefixify(p)}</td>
+                  <td>${prefixify(o)}</td>
+                </tr>
               `,
             ),
           )}
-        </ul>
+        </table>
       </section>
     `
   }
 }
-
-export class ConjunctionView extends View {}
-
-@customElement('fp-query')
-export default class QueryView extends View {}

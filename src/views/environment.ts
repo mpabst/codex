@@ -1,10 +1,10 @@
 import { customElement, state } from 'lit/decorators.js'
 import { css, html } from 'lit/index.js'
-import { namedNode, Prefixers } from '../data-factory.js'
+import { Prefixers } from '../data-factory.js'
 import { prefixify } from '../debug.js'
 import { Environment } from '../environment.js'
-import { BlankNode, Graph, Subject, Term } from '../term.js'
-import './query.js'
+import { BlankNode, Graph, Subject } from '../term.js'
+import './subject.js'
 import View from './view.js'
 
 export const env = new Environment()
@@ -22,35 +22,21 @@ export const env = new Environment()
 export class EnvironmentView extends View {
   static styles = css`
     main {
-      display: grid;
-      grid-template-rows: 2rem auto;
-      grid-template-areas:
-        'list-header module-header subject-header'
-        'module-list subject-list subject-data';
+      display: flex;
       gap: 1rem;
       padding: 1rem;
     }
 
-    section.module-list > header {
-      grid-area: list-header;
+    section {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    header {
+      min-height: 2rem;
       display: flex;
       gap: 0.25rem;
-    }
-
-    section.module-list > ul {
-      grid-area: module-list;
-    }
-
-    section.module > header {
-      grid-area: module-header;
-    }
-
-    section.module > ul {
-      grid-area: subject-list;
-    }
-
-    fp-subject {
-      grid-area: subject-data;
     }
 
     ul {
@@ -90,7 +76,7 @@ export class EnvironmentView extends View {
 
     this.moduleName = Prefixers[prefix](suffix)
     await env.load(this.moduleName)
-    this.requestUpdate()
+    this.refresh()
   }
 
   render() {
@@ -99,8 +85,8 @@ export class EnvironmentView extends View {
         ${this.renderModuleList()} ${this.module && this.renderModule()}
         ${this.subjectName &&
         html`<fp-subject
-          graph="${this.moduleName}"
-          subject="${this.subjectName}"
+          graph="${this.moduleName!.value}"
+          subject="${this.subjectName!.value}"
         />`}
       </main>
     `
@@ -143,7 +129,14 @@ export class EnvironmentView extends View {
         ${[...this.module.facts.getRoot('SPO').keys()].map(k => {
           if (!this.showAnon && k instanceof BlankNode) return
           return html`
-            <li @click=${() => (this.subjectName = k)}>${prefixify(k)}</li>
+            <li
+              @click=${() => {
+                this.subjectName = k
+                this.refresh()
+              }}
+            >
+              ${prefixify(k)}
+            </li>
           `
         })}
       </ul>

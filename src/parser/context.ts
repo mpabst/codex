@@ -1,5 +1,5 @@
+import { randomBlankNode } from '../data-factory.js'
 import {
-  BlankNode,
   DEFAULT_GRAPH,
   Graph,
   Object,
@@ -30,6 +30,10 @@ export class Context {
     }
   }
 
+  // I think these can move to Parser, because I don't think I ever need to
+  // resume building a quad: as I open a new context, be it a list, an expr,
+  // or a reification, I always finish the quad that introduces it? I think
+  // so...
   get graph() {
     return this.quad.graph
   }
@@ -71,9 +75,8 @@ export class Context {
   }
 }
 
-export class Expression extends Context {
-  head?: BlankNode
-  tail?: BlankNode
+export class Conjunction extends Context {
+  entity: Subject = randomBlankNode()
 
   isReifying(): boolean {
     return true

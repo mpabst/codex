@@ -1,5 +1,5 @@
 import { CurlyDataSet } from './collections/data-set.js'
-import { PREFIXES } from './data-factory.js'
+import { Prefixers, PREFIXES } from './data-factory.js'
 import { Argument, Bindings, Instruction, Program } from './processor.js'
 import { Query } from './query.js'
 import { NamedNode, Triple, TRIPLE_PLACES, Variable } from './term.js'
@@ -22,8 +22,8 @@ export function calleeVar({ callees }: Query, offset: number): Variable {
 
 export function formatArg(a: Argument): string {
   if (a === null) return ''
-  else if (a instanceof CurlyDataSet) return prefixify(a.parent!.name)
-  else if (a instanceof NamedNode) return prefixify(a)
+  else if (a instanceof CurlyDataSet) return prefix(a.parent!.name)
+  else if (a instanceof NamedNode) return prefix(a)
   else return a.toString()
 }
 
@@ -49,7 +49,7 @@ export function formatInstruction([op, left, right]: Instruction): string {
 //   }
 // }
 
-export function prefixify(arg: Argument, extraPrefixes = {}): string {
+export function prefix(arg: Argument, extraPrefixes = {}): string {
   if (arg === null) return ''
   if (!(arg instanceof NamedNode)) return arg.toString()
   const { value } = arg
@@ -58,9 +58,16 @@ export function prefixify(arg: Argument, extraPrefixes = {}): string {
   return value
 }
 
+export function unprefix(qname: string | null): NamedNode | null {
+  if (!qname) return null
+  const [prefix, suffix] = qname.split(':')
+  if (!(prefix in Prefixers)) throw new Error(`unknown prefix: ${prefix}:`)
+  return Prefixers[prefix](suffix)
+}
+
 export function stringifyBindings(bindings: Bindings): string[][] {
   const out = []
-  for (const pair of bindings) out.push(pair.map(prefixify))
+  for (const pair of bindings) out.push(pair.map(prefix))
   return out
 }
 
@@ -74,7 +81,7 @@ export function printBindings(bindings: Bindings): void {
 
 export function stringifyTriple(triple: Triple): string[] {
   const out = []
-  for (const t of TRIPLE_PLACES) out.push(prefixify(triple[t]))
+  for (const t of TRIPLE_PLACES) out.push(prefix(triple[t]))
   return out
 }
 

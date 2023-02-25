@@ -11,6 +11,7 @@ import {
   variable,
 } from '../data-factory.js'
 import {
+  A,
   BlankNode,
   DefaultGraph,
   DEFAULT_GRAPH,
@@ -24,7 +25,7 @@ import {
   Variable,
 } from '../term.js'
 import { isLiteral, ParseError, unwrap } from './common.js'
-import { Context, Expression } from './context.js'
+import { Context, Conjunction } from './context.js'
 import { Lexer, NoMoreTokens } from './lexer.js'
 import { Namespace } from './namespace.js'
 
@@ -71,42 +72,14 @@ export class Parser {
     this.context.place = 'list'
   }
 
-  // FIXME? This always calls randomBlankNode() instead of this.blankNode(),
-  // but what if we want to express a pattern in a head or call? Well, then
-  // it'll be explicitly reified...
   protected addPattern(): void {
-    const expr = this.nearest(c => c instanceof Expression) as Expression
-
-    if (!expr.head) {
-      expr.head = this.addReification()
-      return
-    }
-
-    const graph = this.rContext!.graph!
-    let bnode = randomBlankNode()
-    
-    const add = (q: Partial<Quad>) =>
-      this.addQuad({ graph, subject: bnode, ...q } as Quad)
-
-    if (!expr.tail) {
-      // head is just a Pattern, let's wrap it in a Conj
-      // FIXME: I don't need to wrap it; see Clause#initSignature()
-      add({ predicate: rdf('type'), object: fpc('Conjunction') })
-      add({ predicate: rdf('first'), object: expr.head })
-      expr.head = expr.tail = bnode
-      bnode = randomBlankNode()
-    }
-
+    const expr = this.nearest(c => c instanceof Conjunction) as Conjunction
     this.addQuad({
-      graph,
-      subject: expr.tail,
-      predicate: rdf('rest'),
-      object: bnode,
+      graph: this.rContext!.graph!,
+      subject: expr.entity,
+      predicate: fpc('conjunct'),
+      object: this.addReification(),
     })
-    add({ predicate: rdf('type'), object: fpc('Conjunction') })
-    add({ predicate: rdf('first'), object: this.addReification() })
-
-    expr.tail = bnode
   }
 
   protected addQuad(q: Quad) {
@@ -114,6 +87,8 @@ export class Parser {
     this.resultAry.push({ ...q })
   }
 
+  // TODO: move this into Context et al, have a TopLevel context which just
+  // does addQuad()
   protected addResult(quad: Partial<Quad>): void {
     this.context.quad = { ...this.context.quad, ...quad }
     if (this.isInExpression()) this.addPattern()
@@ -134,7 +109,7 @@ export class Parser {
       } as Quad)
 
     let type = rdf('Statement')
-    if (this.isInExpression() || this.context.graph === this.rContext!.graph) {
+    if (this.isInExpression() || this.context.graph !== this.rContext!.graph) {
       type = fpc('Pattern')
       add({ predicate: fpc('graph'), object: this.context.graph! })
     }
@@ -181,54 +156,38 @@ export class Parser {
     return isLiteral(this.token) ? this.literal() : this.makeSubject()
   }
 
-  protected nearest(test: (c: Context) => boolean): Context | null {
+  protected nearest<C extends Context>(
+    test: (c: Context) => boolean,
+  ): C | null {
     for (let i = this.stack.length - 1; i > -1; i--)
-      if (test(this.stack[i])) return this.stack[i]
+      if (test(this.stack[i])) return this.stack[i] as C
     return null
   }
 
   protected push(ctor: new (p: Parser) => Context = Context): void {
     const newContext = new ctor(this)
+    if (newContext instanceof Conjunction) {
+      this.addResult({ object: newContext.entity })
+      this.addResult({
+        subject: newContext.entity,
+        predicate: A,
+        object: fpc('Conjunction'),
+      })
+      if (!this.firstExpr) this.firstExpr = this.stack.length
+    }
     if (newContext.isReifying()) this.rContext = this.context
-    if (ctor === Expression && !this.firstExpr)
-      this.firstExpr = this.stack.length
     this.stack.push(newContext)
   }
 
-  // probably want to move most of this logic into Context & Expression;
+  // probably want to move most of this logic into Context et al;
   // ditto push()
   protected pop(): void {
-    if (this.context instanceof Expression) {
-      // button up the subexpr we've just completed
-      // todo: first check this.result to see the type
-      // of this.context.tail
-      // this.addQuad({
-      //   graph: this.rContext!.graph,
-      //   subject: this.context.tail,
-      //   predicate: rdf('rest'),
-      //   object: rdf('nil'),
-      // } as Quad)
-
-      const prev = this.stack[this.stack.length - 2]
-      if (prev instanceof Expression) {
-        if (!prev.head) prev.head = this.context.head
-        else {
-          // prev.tail = new conj/disj with head = this.context.head
-          throw 'todo'
-        }
-      } else
-        this.addQuad({
-          ...this.rContext!.quad,
-          object: this.context.head,
-        } as Quad)
-    }
-
     if (this.context.isReifying()) {
       // originally I had this branch set a dirty flag, which would
       // then update rContext in a custom getter, but that didn't work
       // for some reason and it doesn't seem worth debugging
       for (let i = this.stack.length - 2; i > 0; i--)
-        // fixme: expressions inside reifications?
+        // FIXME: expressions inside reifications?
         if (this.stack[i].isReifying()) this.rContext = this.stack[i - 1]
         else if (i === 1) this.rContext = null
     }
@@ -299,10 +258,7 @@ export class Parser {
         this.context.subject = rdf('nil')
         break
       case '{':
-        if (this.context instanceof Expression) {
-          this.push(Expression)
-          break
-        } else throw this.unexpected()
+      // TODO: << seems fine?
       case '<<':
       case '+':
       case '-':
@@ -345,7 +301,7 @@ export class Parser {
         break
       case '{':
         if (this.expressions.includes(this.context.predicate!)) {
-          this.push(Expression)
+          this.push(Conjunction)
           this.context.place = 'subject'
           break
         } else throw this.unexpected()

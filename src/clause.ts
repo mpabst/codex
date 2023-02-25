@@ -31,6 +31,12 @@ export class Clause {
       const [body] = bodies
       // init memo before compiling query, so the former doesn't use
       // vars only found in the body as part of the memo key
+      // memo graphs should just have random names, but that's too confusing
+      // until my tooling is to where the original graph name can be subbed in
+      // automatically
+      // i think it'll be pretty standard to refer to 'anonymous' entities with
+      // some shorthand for their relationship to something named. a property
+      // path, basically. which is what the slash suggests.
       this.memo = new Index(namedNode(name.value + '/memo'), TripleSet)
       this.body = new Body(module, this, body)
     } else {
@@ -42,18 +48,20 @@ export class Clause {
   protected initSignature(head: Name): Variable[] {
     const vars = new VarMap()
 
-    traverse(this.module.facts, head, {
-      doPattern: (pat: Name) => {
-        const triple = getReifiedTriple(this.module, pat)
-        for (const place of TRIPLE_PLACES)
-          if (triple[place] instanceof Variable)
-            vars.map(triple[place] as Variable)
-        this.head.add(triple)
-        const quad: Quad = { ...triple, graph: this.name }
-        this.module.signature.add(quad)
-        this.rule.signature.add(quad)
-      },
-    })
+    const doPattern = (pat: Name) => {
+      const triple = getReifiedTriple(this.module, pat)
+
+      for (const place of TRIPLE_PLACES)
+        if (triple[place] instanceof Variable)
+          vars.map(triple[place] as Variable)
+
+      this.head.add(triple)
+      const quad: Quad = { ...triple, graph: this.name }
+      this.module.signature.add(quad)
+      this.rule.signature.add(quad)
+    }
+
+    traverse(this.module.facts, head, { doPattern })
 
     return vars.vars
   }

@@ -1,7 +1,6 @@
 import { customElement, state } from 'lit/decorators.js'
 import { css, html } from 'lit/index.js'
-import { Prefixers } from '../data-factory.js'
-import { prefixify } from '../debug.js'
+import { prefix, unprefix } from '../debug.js'
 import { Environment } from '../environment.js'
 import { BlankNode, Graph, Subject } from '../term.js'
 import './subject.js'
@@ -70,11 +69,8 @@ export class EnvironmentView extends View {
         '[name=module]',
       ) as HTMLInputElement
     ).value
-
-    const [prefix, suffix] = qname.split(':')
-    if (!(prefix in Prefixers)) throw new Error(`unknown prefix: ${prefix}:`)
-
-    this.moduleName = Prefixers[prefix](suffix)
+    if (!qname) return
+    this.moduleName = unprefix(qname)!;
     await env.load(this.moduleName)
     this.refresh()
   }
@@ -95,7 +91,7 @@ export class EnvironmentView extends View {
   renderModule() {
     return html`
       <section class="module">
-        <header>${prefixify(this.moduleName!)}</header>
+        <header>${prefix(this.moduleName!)}</header>
         ${this.renderSubjectList()}
       </section>
     `
@@ -114,7 +110,7 @@ export class EnvironmentView extends View {
           ${[...env.modules.keys()].map(k => {
             if (!this.showAnon && k instanceof BlankNode) return
             return html`<li @click=${() => (this.moduleName = k)}>
-              ${prefixify(k)}
+              ${prefix(k)}
             </li>`
           })}
         </ul>
@@ -135,7 +131,7 @@ export class EnvironmentView extends View {
                 this.refresh()
               }}
             >
-              ${prefixify(k)}
+              ${prefix(k)}
             </li>
           `
         })}

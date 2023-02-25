@@ -69,7 +69,7 @@ export class NamedNode extends Term {
 
 export class Variable extends Term {
   isRandom(): boolean {
-    return this.value[0] === '_'
+    return this.value[0] === '_' && this !== ANON
   }
 
   toString(): string {

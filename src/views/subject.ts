@@ -1,7 +1,7 @@
 import { customElement, property } from 'lit/decorators.js'
 import { css, html } from 'lit/index.js'
 import { namedNode } from '../data-factory.js'
-import { prefixify } from '../debug.js'
+import { prefix } from '../debug.js'
 import { Graph, Subject, Term } from '../term.js'
 import { env } from './environment.js'
 import { View } from './view.js'
@@ -43,14 +43,14 @@ export class SubjectView extends View {
 
     return html`
       <section>
-        <header>${prefixify(this.subject)}</header>
+        <header>${prefix(this.subject)}</header>
         <table>
           ${[...props.entries()].flatMap(([p, oo]) =>
             [...oo].map(
               o => html`
                 <tr>
-                  <td>${prefixify(p)}</td>
-                  <td>${prefixify(o)}</td>
+                  <td>${prefix(p)}</td>
+                  <td>${prefix(o)}</td>
                 </tr>
               `,
             ),

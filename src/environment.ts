@@ -1,9 +1,10 @@
 import { QuadSet } from './collections/data-set.js'
 import { Module } from './module.js'
 import { Bindings, Processor } from './processor.js'
-import { Diff, Quad, NamedNode, Name } from './term.js'
+import { Diff, Name, NamedNode, Quad } from './term.js'
 
 export class Environment {
+  loading = new Map<Name, Promise<Module>>()
   modules = new Map<Name, Module>()
   proc = new Processor()
 
@@ -18,13 +19,19 @@ export class Environment {
     // }
   }
 
-  async load(name: NamedNode): Promise<Module> {
-    // todo: normalize path, query string, etc?
-    // maybe fetch whatever, have server specify canonical, use that?
-    // where would non-normal iris be coming from tho?
-    const resp = await fetch(name.value)
-    if (!resp.ok) throw new Error(`Error loading module: ${name}`)
-    return Module.parse(this, name, await resp.text())
+  load(name: NamedNode): Promise<Module> {
+    let loading = this.loading.get(name)
+    if (loading) return loading
+    loading = new Promise(async (resolve, reject) => {
+      // todo: normalize path, query string, etc?
+      // maybe fetch whatever, have server specify canonical, use that?
+      // where would non-normal iris be coming from tho?
+      const resp = await fetch(name.value)
+      if (!resp.ok) reject(new Error(`error loading module: ${name}`))
+      else resolve(Module.parse(this, name, await resp.text()))
+    })
+    this.loading.set(name, loading)
+    return loading
   }
 
   processEvent(event: Diff[]) {

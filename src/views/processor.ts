@@ -1,6 +1,6 @@
 import { customElement, property } from 'lit/decorators.js'
 import { css, html, nothing, TemplateResult } from 'lit/index.js'
-import { calleeVar, prefixify } from '../debug.js'
+import { calleeVar, prefix } from '../debug.js'
 
 import { Processor } from '../processor.js'
 import { Query } from '../query.js'
@@ -109,7 +109,7 @@ export default class ProcessorView extends View {
           ${TRIPLE_PLACES.map(p =>
             field(
               p.toString()[0],
-              prefixify(this.proc.triple[p] ?? null),
+              prefix(this.proc.triple[p] ?? null),
               nothing,
             ),
           )}
@@ -142,7 +142,7 @@ export default class ProcessorView extends View {
         // calleeVar() with a second function that takes a callStack? queryVar
         // vs heapVar?
         // return found instanceof Term ? prefixify(found) : getVar(found)
-        return prefixify(found)
+        return prefix(found)
       }
 
       return html`

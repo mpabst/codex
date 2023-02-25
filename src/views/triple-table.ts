@@ -1,9 +1,10 @@
-import { customElement, property } from 'lit/decorators.js'
+import { customElement, property, state } from 'lit/decorators.js'
 import { css, html, nothing } from 'lit/index.js'
 import { TripleSet } from '../collections/data-set.js'
 
-import { prefixify } from '../debug.js'
-import { Term, Triple, TRIPLE_PLACES } from '../term.js'
+import { prefix, unprefix } from '../debug.js'
+import { Name, Term, Triple, TRIPLE_PLACES } from '../term.js'
+import { env } from './environment.js'
 import { View } from './view.js'
 
 @customElement('fp-triple-table')
@@ -28,11 +29,34 @@ export class TripleTable extends View {
     }
   `
 
-  @property()
+  @state()
   triples?: TripleSet
 
   lastSubject?: Term
   alternate = true
+
+  private _graph?: Name
+
+  @property({ converter: { fromAttribute: unprefix, toAttribute: prefix } })
+  get graph(): Name | undefined {
+    return this._graph
+  }
+
+  set graph(n: Name | undefined) {
+    if (n === this._graph) return
+    const old = this._graph
+    if (n)
+      env
+        .load(n)
+        .then(m => {
+          const old = this.triples
+          this.triples = m.facts.data.get('SPO')
+          this.requestUpdate('triples', old)
+        })
+        .catch(console.error)
+    this._graph = n
+    this.requestUpdate('graph', old)
+  }
 
   render() {
     if (!this.triples) return html`no data`
@@ -58,7 +82,7 @@ export class TripleTable extends View {
       this.lastSubject = subject
       first = true
     }
-    const [s, p, o] = TRIPLE_PLACES.map(p => prefixify(t[p]))
+    const [s, p, o] = TRIPLE_PLACES.map(p => prefix(t[p]))
 
     return html`<tr class=${this.alternate ? 'alternate' : nothing}>
       ${first ? html`<td id="${s}">${s}</td>` : html`<td>${s}</td>`}

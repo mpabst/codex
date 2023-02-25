@@ -2,7 +2,7 @@ import { customElement, property } from 'lit/decorators.js'
 import { css, html, nothing } from 'lit/index.js'
 import { Clause } from '../clause.js'
 import { CurlyDataSet } from '../collections/data-set.js'
-import { calleeVar, prefixify } from '../debug.js'
+import { calleeVar, prefix } from '../debug.js'
 import { Argument, Instruction, Operation } from '../processor.js'
 import { Query } from '../query.js'
 import { Term, Variable } from '../term.js'
@@ -86,7 +86,7 @@ export default class ProgramView extends View {
     if (arg instanceof CurlyDataSet) out = arg.parent!.name
     if (arg instanceof Term) out = arg
 
-    return prefixify(out)
+    return prefix(out)
   }
 
   renderInstruction([op, left, right]: Instruction, i: number) {

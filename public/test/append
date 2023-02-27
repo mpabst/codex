@@ -25,9 +25,19 @@ prefix fpc: <https://fingerpaint.systems/core/> .
     ] }
   ] .
 
+:head
+  a rdf:List ;
+  rdf:first 1 ;
+  rdf:rest ( 2 ) .
+
+:tail
+  a rdf:List ;
+  rdf:first 3 ;
+  rdf:rest rdf:nil .
+
 :query a fpc:Query ;
   fpc:body { [
     a :Appending ;
-    :left ( 1 2 ) ;
-    :right ( 3 ) ;
+    :left :head ;
+    :right :tail ;
     :both ?both ] } .

@@ -4,6 +4,23 @@
 // can be done in the FP language itself? that could give us the
 // backtracking necessary to do that elimination
 
+// opt: don't alternate bottom-up and top-down segments, instead keep them
+// contiguous for better caching.
+
+// maybe it even makes sense to break from the WAM and store programs as
+// trees, with nodes per expression or choice? that complicates the processor
+// a little, but not by much - we just need an expression stack. it might comp-
+// -licate the debugger UI a good deal, though. well, ig it could just be a tree
+// view, with collapsable nodes. it'd also be super easy to work with program
+// trees for now, and just flatten them into an array whenever i want to gain
+// the speed, which might even be a negligible difference. except each choice
+// will probs be less than a cache line - it's multiple choices per pattern -
+// so with a single, straight array i can at least exploit some locality there
+// it probably doesn't make that big of a diff either way, with a slight speed
+// advantage to an array and some compiler simplifications with a tree, but the
+// latter of these can be mitigated with good program design, and anyways have
+// no effect on the average user.
+
 import { Clause } from '../clause.js'
 import { Index } from '../collections/index.js'
 import { Module } from '../module.js'
@@ -210,10 +227,23 @@ export function compile(
     let startedCalls = false
     let startedMemos = false
     const start = out.length
+
+    // todo: i think we can avoid this rewriting by pushing skip instructions
+    // with the following Choice, not the preceeding as we do now
     let prevSkip: number
+
     for (let i = 0; i < choices.length; i++) {
       const [choice, type] = choices[i]
 
+      // FIXME: is all this skipIfDirection stuff right? bc top-down will still
+      // check memos, and bottom-up will still make calls. i should probs decide
+      // on what the memo structure is before designing the instruction set for
+      // it. and ideally it wouldn't be modal, either: in the process of setting
+      // up the call, i'd also check the memo, and then at the end of that:
+      // if no memo result
+      //    if memo is complete: fail
+      //    else: jump to body
+      // else: return memo result
       if (doMemos) {
         if (!startedCalls && type === 'call') {
           startedCalls = true
@@ -230,6 +260,7 @@ export function compile(
       out.push(
         [
           i === 0 ? ops.tryMeElse : ops.retryMeElse,
+          // ie the number of instrs passed to this push() call
           out.length + choice.length + 2,
           null,
         ],

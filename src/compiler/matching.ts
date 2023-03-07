@@ -94,6 +94,28 @@
 // bothers to the the lifetime analysis" lol. I can just have a CompilerContext
 // object or whatever to let me copy one pointer instead of three.
 
+// update: no EOL? every Compiler subclass (or implementor) does whatever book-
+// -keeping is necessary to stitch together its members, eg Conjunction and its
+// Patterns, or Pattern and its Choices. What are the two methods from the above
+// paragraph? I think I just need compile(), and I don't really need anything to
+// stick around, they compile and then they're done? Well, I could reuse a
+// PatternCompiler and just keep calling compile(pattern: Name) - but if the
+// only persistent state is that small bit of context - module, out stream, var
+// table - then I should just make that the class, or have various compile()
+// functions which take a context arg.
+// type Compiler = (ctx: CompilationContext) => (node: Name) => void ?
+// I think there might be a little more state re: skip addresses and the like
+// but I think I can keep that within CompilationContext, or specific compiler
+// functions.
+
+// maybe function compiler(ctx) {
+//  function pattern(node) { }
+//  function conjunction(node) { }
+//  return { pattern, conjunction }  
+// }
+
+// I may as well just use class syntax then
+
 import { CurlyDataSet } from '../collections/data-set.js'
 import { VTQuadSet, VTSet } from '../collections/var-tracking.js'
 import { Prefixers, variable } from '../data-factory.js'

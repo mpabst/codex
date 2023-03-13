@@ -35,15 +35,6 @@ export const operations: { [k: string]: Operation } = {
     proc.programP = programP as number
   },
 
-  skipIfDirection(
-    proc: Processor,
-    programP: Argument,
-    direction: Argument,
-  ): void {
-    if (proc.direction === (direction as Direction))
-      proc.programP = programP as number
-  },
-
   // todo: external calls? JS or WASM? math, findall, etc
   // can just be another clause with a special body that has one instruction
   doCalls(proc: Processor, _: Argument, __: Argument): void {

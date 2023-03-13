@@ -13,7 +13,6 @@ export type Bindings<T = Term> = Map<Variable, T>
 export type Argument =
   | Term
   | CurlyDataSet
-  | Direction
   | keyof Triple
   | number
   | null
@@ -22,7 +21,6 @@ export type InstructionSet = { [k: string]: Operation }
 export type Instruction = [Operation, Argument, Argument]
 export type Program = Instruction[]
 export type DBNode = Leaf | Branch
-export type Direction = 'up' | 'down'
 
 export class Environment {
   query: Query
@@ -138,7 +136,6 @@ export class Processor {
   // check for negation?
 
   //-- Global stuff
-  direction: Direction | null = null
   stack: Environment[] = []
   andP: number = -1
   orP: number = -1
@@ -215,9 +212,7 @@ export class Processor {
     query: TopLevel,
     emit: (b: Bindings) => void = console.log,
     args: Bindings = new Map(),
-    dir: Direction = 'down',
   ): void {
-    this.direction = dir
     this.query = query
     this.callStack.push([0, query])
     this.initArgs(args)

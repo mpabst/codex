@@ -148,11 +148,7 @@ export function compile(
   module: Module,
   query: Name,
   vars: Variable[] = [],
-  doMemos: boolean = false,
 ): [Program, Scope, number] {
-  type Type = 'edb' | 'call' | 'memo'
-  type Choice = [PreProgram, Type]
-
   const proc = new Processor()
   const scope = new Scope(module, vars)
   const out: PreProgram = []
@@ -180,14 +176,14 @@ export function compile(
 
   // this should throw a compile error if there are no matches
   function doPattern(pattern: Name): void {
-    const choices: Choice[] = []
+    const choices: PreProgram[] = []
 
     function addChoices(er: Triple, ee: Quad): void {
       const listener = { graph: query, ...er }
       const edb = module.modules.get(ee.graph)
 
       if (edb) {
-        choices.push([scope.buildPattern(edb.facts, er), 'edb'])
+        choices.push(scope.buildPattern(edb.facts, er))
         edb.listeners.add(listener)
 
       } else {
@@ -198,10 +194,7 @@ export function compile(
         // > 1, because buildPattern() always produces a scheduleCall instr,
         // even if that's the only one (ie all three pattern terms are matching
         // consts)
-        if (call.length > 1) choices.push([call, 'call'])
-
-        if (doMemos && callee.target.memo)
-          choices.push([scope.buildPattern(callee.target.memo, er), 'memo'])
+        if (call.length > 1) choices.push(call)
       }
     }
 
@@ -215,61 +208,26 @@ export function compile(
     pushDisjunction(choices)
   }
 
-  function pushDisjunction(choices: Choice[]): void {
+  function pushDisjunction(choices: PreProgram[]): void {
     if (choices.length < 2) {
-      if (choices.length > 0) out.push(...choices[0][0])
+      if (choices.length > 0) out.push(...choices[0])
       return
     }
 
-    const order: Type[] = ['edb', 'call', 'memo']
-    choices.sort(([, a], [, b]) => order.indexOf(a) - order.indexOf(b))
-
-    let startedCalls = false
-    let startedMemos = false
     const start = out.length
 
-    // todo: i think we can avoid this rewriting by pushing skip instructions
-    // with the following Choice, not the preceeding as we do now
-    let prevSkip: number
-
-    for (let i = 0; i < choices.length; i++) {
-      const [choice, type] = choices[i]
-
-      // FIXME: is all this skipIfDirection stuff right? bc top-down will still
-      // check memos, and bottom-up will still make calls. i should probs decide
-      // on what the memo structure is before designing the instruction set for
-      // it. and ideally it wouldn't be modal, either: in the process of setting
-      // up the call, i'd also check the memo, and then at the end of that:
-      // if no memo result
-      //    if memo is complete: fail
-      //    else: jump to body
-      // else: return memo result
-      if (doMemos) {
-        if (!startedCalls && type === 'call') {
-          startedCalls = true
-          prevSkip = out.length
-          out.push([ops.skipIfDirection, null, 'up'])
-        } else if (!startedMemos && type === 'memo') {
-          out[prevSkip!][1] = out.length
-          startedMemos = true
-          prevSkip = out.length
-          out.push([ops.skipIfDirection, null, 'down'])
-        }
-      }
-
+    for (let i = 0; i < choices.length; i++) 
       out.push(
         [
           i === 0 ? ops.tryMeElse : ops.retryMeElse,
           // ie the number of instrs passed to this push() call
-          out.length + choice.length + 2,
+          out.length + choices[i].length + 2,
           null,
         ],
-        ...choice,
+        ...choices[i],
         [ops.skip, null, null],
       )
-    }
 
-    if (startedMemos) out[prevSkip!][1] = out.length - 1
     out.push([ops.popCP, null, null])
 
     for (let i = start; i < out.length; i++) {

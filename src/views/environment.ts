@@ -2,7 +2,7 @@ import { customElement, state } from 'lit/decorators.js'
 import { css, html } from 'lit/index.js'
 import { prefix, unprefix } from '../debug.js'
 import { Environment } from '../environment.js'
-import { BlankNode, Graph, Subject } from '../term.js'
+import { BlankNode, Graph, Name, Subject } from '../term.js'
 import './subject.js'
 import { View } from './view.js'
 
@@ -43,6 +43,10 @@ export class EnvironmentView extends View {
       margin-block-start: 0;
       margin-block-end: 0;
       padding-inline-start: 0;
+
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
     }
 
     li {
@@ -70,7 +74,7 @@ export class EnvironmentView extends View {
       ) as HTMLInputElement
     ).value
     if (!qname) return
-    this.moduleName = unprefix(qname)!;
+    this.moduleName = unprefix(qname)!
     await env.load(this.moduleName)
     this.refresh()
   }
@@ -120,6 +124,8 @@ export class EnvironmentView extends View {
 
   renderSubjectList() {
     if (!this.module) return
+    const modPrefix = prefix(this.moduleName!)
+    const formatNode = (name: Name) => prefix(name).replace(modPrefix, '')
     return html`
       <ul>
         ${[...this.module.facts.getRoot('SPO').keys()].map(k => {
@@ -131,7 +137,7 @@ export class EnvironmentView extends View {
                 this.refresh()
               }}
             >
-              ${prefix(k)}
+              ${formatNode(k)}
             </li>
           `
         })}

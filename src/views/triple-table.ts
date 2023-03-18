@@ -59,7 +59,7 @@ export class TripleTable extends View {
   }
 
   render() {
-    if (!this.triples) return html`no data`
+    if (!this.triples) return 'no data'
     return html`
       <table>
         <thead>

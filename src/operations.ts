@@ -3,7 +3,6 @@ import { randomBlankNode } from './data-factory.js'
 import {
   Argument,
   Bindings,
-  Direction,
   Environment,
   MutableChoicePoint,
   Operation,
@@ -74,9 +73,9 @@ export const operations: { [k: string]: Operation } = {
 
   emitResult(proc: Processor, _: Argument, __: Argument): void {
     const binds: Bindings = new Map()
+    // scopeP isn't necessary in the index to proc.heap since we're at
+    // top-level
     for (const i in proc.query!.scope)
-      // scopeP isn't necessary in the index to proc.heap since we're at
-      // top-level
       binds.set(proc.query!.scope[i], proc.heap[i] as Term)
     proc.emit!(binds)
     proc.fail = true

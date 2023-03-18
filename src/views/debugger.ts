@@ -50,7 +50,8 @@ export class Debugger extends View {
   }
 
   render() {
-    return html`<fp-processor .proc=${this.store.proc} />`
+    // return html`<fp-processor .proc=${this.store.proc} />`
+    return this.renderFacts()
   }
 
   renderFacts() {

@@ -39,7 +39,7 @@ export class SubjectView extends View {
       .get(this.graph!)
       ?.facts.getRoot('SPO')
       .get(this.subject!) as Map<Term, Set<Term>>
-    if (!props) return html`not found`
+    if (!props) return 'not found'
 
     return html`
       <section>

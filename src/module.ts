@@ -57,6 +57,7 @@ export class Module implements Callable {
   // @view
   // formats a name in this context of this module
   formatName(name: Name): string {
+    if (name === A) return 'a'
     return prefix(name).replace(this.prefix!, '')
   }
 

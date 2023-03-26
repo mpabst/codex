@@ -7,6 +7,7 @@ import { Parser } from './parser/parser.js'
 import { Rule } from './rule.js'
 import { Environment } from './environment.js'
 import { A, ANON, Name, NamedNode, Quad } from './term.js'
+import { prefix } from './debug.js'
 
 const { fpc } = Prefixers
 
@@ -36,6 +37,8 @@ export class Module implements Callable {
   signature = new VTQuadSet()
   listeners = new VTQuadSet('SPOG')
 
+  prefix?: string
+
   constructor(
     public store: Environment,
     public name: NamedNode,
@@ -43,6 +46,18 @@ export class Module implements Callable {
   ) {
     store.modules.set(name, this)
     this.modules.set(name, this)
+    this.prefix = prefix(this.name)
+  }
+
+  // @view
+  get subjects() {
+    return this.facts.getRoot('SPO')
+  }
+
+  // @view
+  // formats a name in this context of this module
+  formatName(name: Name): string {
+    return prefix(name).replace(this.prefix!, '')
   }
 
   // todo: all these load() methods should be listeners

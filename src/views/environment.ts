@@ -2,8 +2,8 @@ import { customElement, state } from 'lit/decorators.js'
 import { css, html } from 'lit/index.js'
 import { prefix, unprefix } from '../debug.js'
 import { Environment } from '../environment.js'
-import { BlankNode, Graph, Name, Subject } from '../term.js'
-import './subject.js'
+import { BlankNode, Graph, Subject } from '../term.js'
+import './resource.js'
 import { View } from './view.js'
 
 export const env = new Environment()
@@ -32,10 +32,14 @@ export class EnvironmentView extends View {
       gap: 1rem;
     }
 
-    header {
+    form {
       min-height: 2rem;
       display: flex;
       gap: 0.25rem;
+    }
+
+    header {
+      border-bottom: 1px solid black;
     }
 
     ul {
@@ -59,20 +63,17 @@ export class EnvironmentView extends View {
   @state()
   moduleName?: Graph
   @state()
-  subjectName?: Subject
+  resource?: Subject
 
-  protected toRefresh = ['fp-subject']
+  protected toRefresh = ['fp-resource']
 
   get module() {
     return env.modules.get(this.moduleName!)
   }
 
-  async loadModule(ev: MouseEvent) {
-    const qname = (
-      (ev.target as HTMLButtonElement).parentElement?.querySelector(
-        '[name=module]',
-      ) as HTMLInputElement
-    ).value
+  async loadModule(ev: SubmitEvent) {
+    ev.preventDefault()
+    const qname = (ev.target as HTMLFormElement).module.value
     if (!qname) return
     this.moduleName = unprefix(qname)!
     await env.load(this.moduleName)
@@ -80,21 +81,21 @@ export class EnvironmentView extends View {
   }
 
   render() {
+    // prettier-ignore
     return html`
       <main>
-        ${this.renderModuleList()} ${this.module && this.renderModule()}
-        ${this.subjectName &&
-        html`<fp-subject
-          graph="${this.moduleName!.value}"
-          subject="${this.subjectName!.value}"
-        />`}
+        ${this.renderModuleList()}
+        ${this.renderModule()}
+        ${this.resource &&
+          html`<fp-resource .module=${this.module} resource=${this.resource.value} />`}
       </main>
     `
   }
 
   renderModule() {
+    if (!this.moduleName) return
     return html`
-      <section class="module">
+      <section>
         <header>${prefix(this.moduleName!)}</header>
         ${this.renderSubjectList()}
       </section>
@@ -102,21 +103,22 @@ export class EnvironmentView extends View {
   }
 
   renderModuleList() {
+    const items = []
+    for (const k of env.modules.keys())
+      if (!this.showAnon && k instanceof BlankNode) return
+      else
+        items.push(html`<li @click=${() => (this.moduleName = k)}>
+          ${prefix(k)}
+        </li>`)
+
     return html`
-      <section class="module-list">
-        <header>
-          <input name="module" type="text" placeholder="load module&hellip;" />
-          <button @click=${(ev: MouseEvent) => this.loadModule(ev)}>
-            load
-          </button>
-        </header>
+      <section>
+        <form @submit=${(ev: SubmitEvent) => this.loadModule(ev)}>
+          <input name="module" type="text" placeholder="load module…" />
+          <button>load</button>
+        </form>
         <ul>
-          ${[...env.modules.keys()].map(k => {
-            if (!this.showAnon && k instanceof BlankNode) return
-            return html`<li @click=${() => (this.moduleName = k)}>
-              ${prefix(k)}
-            </li>`
-          })}
+          ${items}
         </ul>
       </section>
     `
@@ -124,25 +126,20 @@ export class EnvironmentView extends View {
 
   renderSubjectList() {
     if (!this.module) return
-    const modPrefix = prefix(this.moduleName!)
-    const formatNode = (name: Name) => prefix(name).replace(modPrefix, '')
-    return html`
-      <ul>
-        ${[...this.module.facts.getRoot('SPO').keys()].map(k => {
-          if (!this.showAnon && k instanceof BlankNode) return
-          return html`
-            <li
-              @click=${() => {
-                this.subjectName = k
-                this.refresh()
-              }}
-            >
-              ${formatNode(k)}
-            </li>
-          `
-        })}
-      </ul>
-    `
+    const items = []
+    for (const k of this.module.subjects.keys())
+      if (!this.showAnon && k instanceof BlankNode) continue
+      else {
+        const click = () => {
+          this.resource = k
+          this.refresh()
+        }
+        items.push(html`<li @click=${click}>${this.module!.formatName(k)}</li>`)
+      }
+
+    return html`<ul>
+      ${items}
+    </ul>`
   }
 
   toggleAnon(ev: InputEvent) {}

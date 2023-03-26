@@ -19,7 +19,7 @@ export const PREFIXES = {
   html: 'https://fingerpaint.systems/core/html/',
   rdf: RDF,
   rdfs: 'http://www.w3.org/2000/01/rdf-schema#',
-  test: 'http://127.0.0.1:8080/test/',
+  test: 'http://localhost:8080/test/',
   xsd: 'http://www.w3.org/2001/XMLSchema#',
 }
 

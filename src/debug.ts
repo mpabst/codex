@@ -49,6 +49,7 @@ export function formatInstruction([op, left, right]: Instruction): string {
 //   }
 // }
 
+// tries to convert arg to a qname
 export function prefix(arg: Argument, extraPrefixes = {}): string {
   if (arg === null) return ''
   if (!(arg instanceof NamedNode)) return arg.toString()

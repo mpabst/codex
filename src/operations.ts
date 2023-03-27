@@ -10,6 +10,7 @@ import {
 } from './processor.js'
 import { Term, Triple } from './term.js'
 
+// do I use the right side of Leaf at all? what's it for?
 export type Leaf = Set<Term> | Map<Term, number>
 export type Branch = Map<Term, Leaf> | Map<Term, Map<Term, Leaf>>
 

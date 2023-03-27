@@ -1,5 +1,5 @@
 import { Clause } from './clause.js'
-import { TripleSet } from './collections/data-set.js'
+import { Branch, TripleSet } from './collections/data-set.js'
 import { Index } from './collections/index.js'
 import { VTQuadSet } from './collections/var-tracking.js'
 import { namedNode, Prefixers } from './data-factory.js'
@@ -51,7 +51,7 @@ export class Module implements Callable {
 
   // @view
   get subjects() {
-    return this.facts.getRoot('SPO')
+    return this.facts.getRoot('SPO') as Branch
   }
 
   // @view

@@ -9,9 +9,9 @@ const PLACES: { [k: string]: keyof Quad } = {
 }
 
 export type Order = string
-type Twig = Set<Term>
-type Branch = Map<Term, any>
-type Node = Set<Term> | Map<Term, any>
+export type Twig = Set<Term>
+export type Node = Branch | Twig
+export type Branch = Map<Term, Node>
 
 const TRIPLE_LENGTH = 3
 const QUAD_LENGTH = 4
@@ -23,7 +23,7 @@ export abstract class DataSet {
   protected abstract readonly pathLength: number
   protected _size: number = 0
 
-  abstract root: Map<Term, any>
+  abstract root: Node
 
   get size(): number {
     return this._size
@@ -33,14 +33,14 @@ export abstract class DataSet {
     let prev = this.root
     let next
     for (let i = 0; i < this.pathLength - 1; i++) {
-      next = prev.get(path[i])
+      next = (prev as Branch).get(path[i])
       if (next) prev = next
       else {
-        prev.set(path[i], this.buildTail(path, i + 1))
+        ;(prev as Branch).set(path[i], this.buildTail(path, i + 1))
         return
       }
     }
-    next.add(path[this.pathLength - 1])
+    ;(next as Twig).add(path[this.pathLength - 1])
     this._size++
   }
 
@@ -83,11 +83,11 @@ export abstract class DataSet {
 
   protected mapPath(path: Term[]): Node[] {
     const out: Node[] = []
-    let next: Branch = this.root
+    let next: Node = this.root
     for (const term of path) {
       out.push(next)
       if (next instanceof this.Twig) break
-      next = next.get(term)
+      next = next.get(term) as Branch
       if (!next) break
     }
     return out

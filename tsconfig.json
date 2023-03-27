@@ -9,7 +9,9 @@
     "removeComments": false,
     "moduleResolution": "node",
     "allowSyntheticDefaultImports": true,
-    "experimentalDecorators": true
+    "experimentalDecorators": true,
+    // https://lit.dev/docs/components/properties/#avoiding-issues-with-class-fields
+    "useDefineForClassFields": false
   },
   "include": ["src"]
 }

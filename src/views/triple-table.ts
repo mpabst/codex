@@ -37,7 +37,12 @@ export class TripleTable extends View {
 
   private _graph?: Name
 
-  @property({ converter: { fromAttribute: unprefix, toAttribute: prefix } })
+  @property({
+    converter: {
+      fromAttribute: (s: string) => s && unprefix(s),
+      toAttribute: prefix,
+    },
+  })
   get graph(): Name | undefined {
     return this._graph
   }

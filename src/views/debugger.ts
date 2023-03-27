@@ -2,7 +2,6 @@ import { customElement, property, state } from 'lit/decorators.js'
 import { css, html, PropertyValues } from 'lit/index.js'
 import { TripleSet } from '../collections/data-set.js'
 import { Index } from '../collections/index.js'
-
 import { Prefixers } from '../data-factory.js'
 import { TopLevel } from '../query.js'
 import { Environment } from '../environment.js'
@@ -43,7 +42,7 @@ export class Debugger extends View {
     this.store.proc.query = new TopLevel(mod, body)
     this.store.proc.initArgs(new Map())
 
-    this.refresh()
+    // this.refresh()
   }
 
   render() {

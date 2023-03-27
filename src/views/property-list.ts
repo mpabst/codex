@@ -1,8 +1,9 @@
-import { customElement, property } from 'lit/decorators.js'
+import { consume } from '@lit-labs/context'
+import { customElement, property, state } from 'lit/decorators.js'
 import { html } from 'lit/index.js'
-import { Module } from '../module.js'
-import { Subject } from '../term.js'
 import { getProps } from '../helpers.js'
+import { Subject } from '../term.js'
+import { envContext, EnvironmentView } from './environment.js'
 import './property.js'
 import { View } from './view.js'
 
@@ -11,21 +12,19 @@ class PropertyListView extends View {
   static styles = View.styles
 
   @property()
-  module!: Module
-  @property()
-  resource!: Subject
+  declare resource: Subject
+
+  @consume({ context: envContext() })
+  @state()
+  declare env: EnvironmentView
 
   render() {
-    const props = getProps(this.module, this.resource)
+    const props = getProps(this.env.module!, this.resource)
 
     const items = []
     for (const p of props.data.keys())
       items.push(html`<li>
-        <fp-property
-          .module=${this.module}
-          .resource=${this.resource}
-          .property=${p}
-        />
+        <fp-property .resource=${this.resource} .property=${p} />
       </li>`)
 
     return items.length > 0

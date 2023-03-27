@@ -1,13 +1,19 @@
+import { createContext, provide } from '@lit-labs/context'
 import { customElement, state } from 'lit/decorators.js'
 import { css, html } from 'lit/index.js'
 import { prefix, unprefix } from '../debug.js'
 import { Environment } from '../environment.js'
-import { BlankNode, Graph, Subject } from '../term.js'
-import { formatName } from './helpers.js'
+import { Module } from '../module.js'
+import { A, BlankNode, Name, Subject } from '../term.js'
 import './resource.js'
+import './term.js'
 import { View } from './view.js'
 
 export const env = new Environment()
+
+export function envContext() {
+  return createContext<EnvironmentView>('env')
+}
 
 // showAnon toggle:
 // <input
@@ -20,65 +26,84 @@ export const env = new Environment()
 
 @customElement('fp-environment')
 export class EnvironmentView extends View {
-  static styles = css`
-    main {
-      display: flex;
-      gap: 1rem;
-      padding: 1rem;
-    }
+  static styles = [
+    View.styles,
+    css`
+      main {
+        display: flex;
+        gap: 1rem;
+        padding: 1rem;
+      }
 
-    section {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
+      section {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
 
-    form {
-      min-height: 2rem;
-      display: flex;
-      gap: 0.25rem;
-    }
+      form {
+        min-height: 2rem;
+        display: flex;
+        gap: 0.25rem;
+      }
 
-    header {
-      border-bottom: 1px solid black;
-    }
+      ul {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
 
-    ul {
-      list-style-type: none;
-      margin-block-start: 0;
-      margin-block-end: 0;
-      padding-inline-start: 0;
-
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-
-    li {
-      cursor: pointer;
-    }
-  `
+      li {
+        cursor: pointer;
+      }
+    `,
+  ]
 
   @state()
-  showAnon = false
-  @state()
-  moduleName?: Graph
-  @state()
-  resource?: Subject
+  declare module: Module | null
 
-  protected toRefresh = ['fp-resource']
+  @state()
+  declare moduleName?: Name
 
-  get module() {
-    return env.modules.get(this.moduleName!)
+  @state()
+  declare resource?: Subject
+
+  @state()
+  declare showAnon: boolean
+
+  @provide({ context: envContext() })
+  declare _this: typeof this
+
+  constructor() {
+    super()
+    this.module = null
+    this.showAnon = false
+    this._this = this
   }
 
-  async loadModule(ev: SubmitEvent) {
+  loadModule = async (ev: SubmitEvent) => {
     ev.preventDefault()
     const qname = (ev.target as HTMLFormElement).module.value
     if (!qname) return
-    this.moduleName = unprefix(qname)!
-    await env.load(this.moduleName)
-    this.refresh()
+    this.moduleName = unprefix(qname)
+    this.module = await env.load(this.moduleName)
+  }
+
+  setModuleName = (s: Subject) => (ev: MouseEvent) => {
+    ev.preventDefault()
+    this.moduleName = s
+  }
+
+  setResource = (s: Subject) => (ev: MouseEvent) => {
+    ev.preventDefault()
+    this.resource = s
+  }
+
+  formatName(name: Name): string {
+    if (name === A) return 'a'
+    const prefixed = prefix(name)
+    const replaced = prefixed.replace(this.module?.prefix ?? '', '')
+    return replaced.length ? replaced : prefixed
   }
 
   render() {
@@ -88,7 +113,7 @@ export class EnvironmentView extends View {
         ${this.renderModuleList()}
         ${this.renderModule()}
         ${this.resource &&
-          html`<fp-resource .module=${this.module} resource=${this.resource.value} />`}
+          html`<fp-resource resource=${this.resource.value}></fp-resource>`}
       </main>
     `
   }
@@ -97,7 +122,7 @@ export class EnvironmentView extends View {
     if (!this.moduleName) return
     return html`
       <section>
-        <header>${prefix(this.moduleName!)}</header>
+        <header>${prefix(this.moduleName)}</header>
         ${this.renderSubjectList()}
       </section>
     `
@@ -108,13 +133,13 @@ export class EnvironmentView extends View {
     for (const k of env.modules.keys())
       if (!this.showAnon && k instanceof BlankNode) return
       else
-        items.push(html`<li @click=${() => (this.moduleName = k)}>
-          ${prefix(k)}
+        items.push(html`<li>
+          <fp-term .term=${k} .linkHandler=${this.setModuleName}></fp-term>
         </li>`)
 
     return html`
       <section>
-        <form @submit=${(ev: SubmitEvent) => this.loadModule(ev)}>
+        <form @submit=${this.loadModule}>
           <input name="module" type="text" placeholder="load module…" />
           <button>load</button>
         </form>
@@ -129,15 +154,8 @@ export class EnvironmentView extends View {
     if (!this.module) return
     const items = []
     for (const k of this.module.subjects.keys())
-      if (!this.showAnon && k instanceof BlankNode) continue
-      else {
-        const click = () => {
-          this.resource = k
-          this.refresh()
-        }
-        items.push(html`<li @click=${click}>${formatName(this.module, k)}</li>`)
-      }
-
+      if (this.showAnon || !(k instanceof BlankNode))
+        items.push(html`<li><fp-term .term=${k}></fp-term></li>`)
     return html`<ul>
       ${items}
     </ul>`

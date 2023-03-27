@@ -59,8 +59,7 @@ export function prefix(arg: Argument, extraPrefixes = {}): string {
   return value
 }
 
-export function unprefix(qname: string | null): NamedNode | null {
-  if (!qname) return null
+export function unprefix(qname: string): NamedNode {
   const [prefix, suffix] = qname.split(':')
   if (!(prefix in Prefixers)) throw new Error(`unknown prefix: ${prefix}:`)
   return Prefixers[prefix](suffix)

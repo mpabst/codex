@@ -1,6 +1,5 @@
-import { CurlyDataSet } from './collections/data-set.js'
+import { CurlyDataSet, Node } from './collections/data-set.js'
 import { Index } from './collections/index.js'
-import { Branch, Leaf } from './operations.js'
 import { Query, TopLevel } from './query.js'
 import { Term, Triple, Variable } from './term.js'
 
@@ -20,7 +19,11 @@ export type Operation = (m: Processor, l: Argument, r: Argument) => void
 export type InstructionSet = { [k: string]: Operation }
 export type Instruction = [Operation, Argument, Argument]
 export type Program = Instruction[]
-export type DBNode = Leaf | Branch
+
+// Map<Term, number> because dbNode can also be a VTSet?
+// export type Twig = Set<Term> | Map<Term, number>
+// export type Branch = Map<Term, Twig> | Map<Term, Map<Term, Twig>>
+// export type DBNode = Node
 
 export class Environment {
   query: Query
@@ -85,7 +88,7 @@ abstract class ChoicePoint extends Environment {
 }
 
 export class IteratingChoicePoint<T = Term> extends ChoicePoint {
-  dbNode: DBNode | null
+  dbNode: Node | null
   // fixme: iterate over entries rather than keys, so we
   // don't have to refetch the value
   protected iterator: Iterator<T>
@@ -146,7 +149,7 @@ export class Processor {
   query: Query | null = null
   programP: number = 0
 
-  dbNode: DBNode | null = null
+  dbNode: Node | null = null
 
   // abuse of terminology: not really a heap, just sorta
   // like the WAM's heap

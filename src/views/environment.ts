@@ -3,6 +3,7 @@ import { css, html } from 'lit/index.js'
 import { prefix, unprefix } from '../debug.js'
 import { Environment } from '../environment.js'
 import { BlankNode, Graph, Subject } from '../term.js'
+import { formatName } from './helpers.js'
 import './resource.js'
 import { View } from './view.js'
 
@@ -134,7 +135,7 @@ export class EnvironmentView extends View {
           this.resource = k
           this.refresh()
         }
-        items.push(html`<li @click=${click}>${this.module!.formatName(k)}</li>`)
+        items.push(html`<li @click=${click}>${formatName(this.module, k)}</li>`)
       }
 
     return html`<ul>

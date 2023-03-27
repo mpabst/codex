@@ -1,6 +1,6 @@
 import { stringifyTriple } from '../debug.js'
 import { Name, Triple } from '../term.js'
-import { CurlyDataSet, Order, TripleSet } from './data-set.js'
+import { Branch, CurlyDataSet, Order, TripleSet } from './data-set.js'
 
 export class Index<D extends CurlyDataSet = TripleSet> {
   data = new Map<Order, D>()
@@ -21,8 +21,8 @@ export class Index<D extends CurlyDataSet = TripleSet> {
     for (const ts of this.data.values()) ts.delete(triple)
   }
 
-  getRoot(order: Order) {
-    return this.data.get(order)!.root
+  getRoot(order: Order): Branch {
+    return this.data.get(order)!.root as Branch
   }
 
   get size(): number {

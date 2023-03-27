@@ -2,7 +2,7 @@ import { customElement, property } from 'lit/decorators.js'
 import { html } from 'lit/index.js'
 import { Module } from '../module.js'
 import { Subject } from '../term.js'
-import { getProps } from './helpers.js'
+import { getProps } from '../helpers.js'
 import './property.js'
 import { View } from './view.js'
 
@@ -11,16 +11,15 @@ class PropertyListView extends View {
   static styles = View.styles
 
   @property()
-  module?: Module
+  module!: Module
   @property()
-  resource?: Subject
+  resource!: Subject
 
   render() {
-    if (!this.module || !this.resource) return
-    const props = getProps(this.module, this.resource) ?? new Map()
+    const props = getProps(this.module, this.resource)
 
     const items = []
-    for (const p of props.keys())
+    for (const p of props.data.keys())
       items.push(html`<li>
         <fp-property
           .module=${this.module}

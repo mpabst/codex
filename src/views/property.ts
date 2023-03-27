@@ -1,8 +1,8 @@
 import { customElement, property } from 'lit/decorators.js'
 import { html } from 'lit/index.js'
+import { getProps } from '../helpers.js'
 import { Module } from '../module.js'
 import { BlankNode, Object, Predicate, Subject } from '../term.js'
-import { getProp } from './helpers.js'
 import './term.js'
 import { View } from './view.js'
 
@@ -11,23 +11,19 @@ class PropertyView extends View {
   static styles = View.styles
 
   @property()
-  module?: Module
+  module!: Module
   @property()
-  resource?: Subject
+  resource!: Subject
   @property()
-  property?: Predicate
+  property!: Predicate
 
   render() {
-    if (!this.module || !this.resource || !this.property) return
-    const objs = [
-      ...(getProp(this.module, this.resource, this.property) ?? new Set()),
-    ]
-
+    const objs = [...getProps(this.module, this.resource).get(this.property)]
     let contents
     if (!objs.length) contents = html`<span class="none">(none)</span>`
     else if (objs.length === 1 && !(objs[0] instanceof BlankNode))
       contents = html`<fp-term
-        property=${this.property!.value}
+        property=${this.property.value}
         .module=${this.module}
         .term=${objs[0]}
       />`
@@ -43,7 +39,7 @@ class PropertyView extends View {
     const items = []
     for (const o of objs)
       items.push(html`<li><fp-term .module=${this.module} .term=${o} /></li>`)
-    return html`<ul rel=${this.property!.value}>
+    return html`<ul rel=${this.property.value}>
       ${items}
     </ul>`
   }

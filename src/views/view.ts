@@ -12,10 +12,6 @@ export abstract class View extends LitElement {
 
   protected toRefresh: string[] = []
 
-  // protected createRenderRoot(): Element | ShadowRoot {
-  //   return this
-  // }
-
   refresh() {
     this.requestUpdate()
     for (const s of this.toRefresh) {

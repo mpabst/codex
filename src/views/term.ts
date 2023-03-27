@@ -4,23 +4,23 @@ import { prefix } from '../debug.js'
 import { Module } from '../module.js'
 import { BlankNode, Literal, NamedNode, Term } from '../term.js'
 import './blank-node.js'
+import { formatName } from './helpers.js'
 import { View } from './view.js'
 
 @customElement('fp-term')
 class TermView extends View {
   @property()
-  module?: Module
+  module!: Module
   @property()
-  term?: Term
+  term!: Term
 
   render() {
-    if (!this.term) return
     switch (this.term.constructor) {
       case Literal:
         return this.term.value
       case NamedNode:
         return this.module
-          ? this.module.formatName(this.term)
+          ? formatName(this.module, this.term)
           : prefix(this.term)
       case BlankNode:
         return html`<fp-blank-node

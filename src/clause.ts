@@ -1,4 +1,4 @@
-import { TripleSet } from './collections/data-set.js'
+import { TripleSet, Twig } from './collections/data-set.js'
 import { Index } from './collections/index.js'
 import { VTQuadSet, VTTripleSet } from './collections/var-tracking.js'
 import { namedNode, Prefixers } from './data-factory.js'
@@ -7,7 +7,7 @@ import { Body } from './query.js'
 import { Rule } from './rule.js'
 import { traverse } from './syntax.js'
 import { Name, Quad, TRIPLE_PLACES, Variable } from './term.js'
-import { getReifiedTriple, VarMap } from './util.js'
+import { getProps, getReifiedTriple, UndefinedError, VarMap } from './helpers.js'
 
 const { fpc } = Prefixers
 
@@ -22,7 +22,7 @@ export class Clause {
     module.clauses.set(name, this)
     rule.clauses.set(name, this)
 
-    const po = module.facts.getRoot('SPO').get(name)!
+    const po = getProps(module, name)
     const [head] = po.get(fpc('head'))!
     this.vars = this.initSignature(head)
 

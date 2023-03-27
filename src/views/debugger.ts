@@ -9,6 +9,7 @@ import { Environment } from '../environment.js'
 import './processor.js'
 import './triple-table.js'
 import { View } from './view.js'
+import { getProps } from '../helpers.js'
 
 const { fpc, test } = Prefixers
 
@@ -38,11 +39,7 @@ export class Debugger extends View {
     this.facts = mod.facts
 
     // FIXME: just hardcode which query for now
-    const [body] = mod.facts
-      .getRoot('SPO')
-      .get(test('append#query'))!
-      .get(fpc('body'))
-
+    const body = getProps(mod, test('append#query')).getUValue(fpc('body'))
     this.store.proc.query = new TopLevel(mod, body)
     this.store.proc.initArgs(new Map())
 

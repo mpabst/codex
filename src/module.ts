@@ -1,13 +1,14 @@
 import { Clause } from './clause.js'
-import { Branch, TripleSet } from './collections/data-set.js'
+import { Branch, TripleSet, Twig } from './collections/data-set.js'
 import { Index } from './collections/index.js'
 import { VTQuadSet } from './collections/var-tracking.js'
-import { namedNode, Prefixers } from './data-factory.js'
+import { Prefixers } from './data-factory.js'
+import { prefix } from './debug.js'
+import { Environment } from './environment.js'
 import { Parser } from './parser/parser.js'
 import { Rule } from './rule.js'
-import { Environment } from './environment.js'
 import { A, ANON, Name, NamedNode, Quad } from './term.js'
-import { prefix } from './debug.js'
+import { getProps } from './helpers.js'
 
 const { fpc } = Prefixers
 
@@ -49,16 +50,8 @@ export class Module implements Callable {
     this.prefix = prefix(this.name)
   }
 
-  // @view
   get subjects() {
     return this.facts.getRoot('SPO') as Branch
-  }
-
-  // @view
-  // formats a name in this context of this module
-  formatName(name: Name): string {
-    if (name === A) return 'a'
-    return prefix(name).replace(this.prefix!, '')
   }
 
   // todo: all these load() methods should be listeners
@@ -74,10 +67,7 @@ export class Module implements Callable {
       object: ANON,
     })
 
-    const imports = this.facts
-      .getRoot('SPO')
-      .get(this.name)
-      ?.get(fpc('imports'))
+    const imports = getProps(this, this.name).get(fpc('imports'))
     if (imports) {
       const pending: Name[] = []
       for (const i of imports) {
@@ -98,7 +88,9 @@ export class Module implements Callable {
 
     // todo: needs some OWL
     for (const klass of ['Rule', 'Writer', 'View']) {
-      const rules = this.facts.getRoot('POS').get(A)?.get(fpc(klass))
+      const rules = (
+        (this.facts.getRoot('POS') as Branch).get(A) as Branch
+      )?.get(fpc(klass)) as Twig
       if (rules) for (const r of rules) new Rule(this, r)
     }
   }

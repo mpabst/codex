@@ -1,8 +1,8 @@
 import { Prefixers } from '../data-factory.js'
-import { Bindings, Processor } from '../processor.js'
-import { TopLevel } from '../query.js'
 import { Environment } from '../environment.js'
-import { printBindings } from '../debug.js'
+import { getProps } from '../helpers.js'
+import { Processor } from '../processor.js'
+import { TopLevel } from '../query.js'
 
 const { fpc, test } = Prefixers
 
@@ -15,15 +15,13 @@ describe('Query', () => {
     console.log(`loaded: ${node}`)
 
     const mod = store.modules.get(node)!
-    const [body] = mod.facts
-      .getRoot('SPO')
-      .get(test('append#query'))!
-      .get(fpc('body'))
-
+    const body = getProps(mod, test('append#query')).getUValue(fpc('body'))
     const query = new TopLevel(mod, body)
     for (let i = 0; i < 1; i++) {
       if (i % 10 === 0) console.log(new Date().toISOString())
-      new Processor().evaluate(query, () => { debugger })
+      new Processor().evaluate(query, () => {
+        debugger
+      })
     }
   })
 
@@ -35,10 +33,7 @@ describe('Query', () => {
     console.log(`loaded: ${node}`)
 
     const mod = store.modules.get(node)!
-    const [body] = mod.facts
-      .getRoot('SPO')
-      .get(test('who-is-mortal#'))!
-      .get(fpc('body'))
+    const body = getProps(mod, test('who-is-mortal#')).getUValue(fpc('body'))
 
     const query = new TopLevel(mod, body)
     for (let i = 0; i < 100; i++) {

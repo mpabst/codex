@@ -1,4 +1,4 @@
-import { CurlyDataSet } from './collections/data-set.js'
+import { Branch, CurlyDataSet, Twig } from './collections/data-set.js'
 import { randomBlankNode } from './data-factory.js'
 import {
   Argument,
@@ -9,10 +9,6 @@ import {
   Processor,
 } from './processor.js'
 import { Term, Triple } from './term.js'
-
-// do I use the right side of Leaf at all? what's it for?
-export type Leaf = Set<Term> | Map<Term, number>
-export type Branch = Map<Term, Leaf> | Map<Term, Map<Term, Leaf>>
 
 export const operations: { [k: string]: Operation } = {
   tryMeElse(proc: Processor, nextProgramP: Argument, _: Argument): void {
@@ -138,7 +134,7 @@ export const operations: { [k: string]: Operation } = {
   },
 
   eFinalConst(proc: Processor, caller: Argument, _: Argument): void {
-    if (!(proc.dbNode as Leaf).has(caller as Term)) proc.fail = true
+    if (!(proc.dbNode as Twig).has(caller as Term)) proc.fail = true
   },
 
   // no need for eFinalAnonVar

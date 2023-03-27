@@ -6,6 +6,7 @@ import { operations } from './operations.js'
 import { Instruction, Program } from './processor.js'
 import { Name, Term, Triple, TRIPLE_PLACES, Variable } from './term.js'
 import { printProgram } from './debug.js'
+import { getProps } from './helpers.js'
 
 const { fpc } = Prefixers
 
@@ -38,8 +39,7 @@ export abstract class Query {
 
 export class Body extends Query {
   constructor(module: Module, public clause: Clause, name?: Name) {
-    if (!name)
-      [name] = module.facts.getRoot('SPO').get(clause.name).get(fpc('body'))!
+    if (!name) name = getProps(module, clause.name).getUValue(fpc('body'))
     super(module, name!, clause.vars)
 
     // TODO: Support unmemo'd rules

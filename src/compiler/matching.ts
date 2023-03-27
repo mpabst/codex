@@ -116,11 +116,10 @@
 
 // I may as well just use class syntax then
 
-import { CurlyDataSet } from '../collections/data-set.js'
+import { Branch, CurlyDataSet, Twig } from '../collections/data-set.js'
 import { VTQuadSet, VTSet } from '../collections/var-tracking.js'
 import { Prefixers, variable } from '../data-factory.js'
 import { Callable, Module } from '../module.js'
-import { Branch } from '../operations.js'
 import {
   Argument,
   Bindings,
@@ -130,7 +129,7 @@ import {
 } from '../processor.js'
 import { Matcher, Query } from '../query.js'
 import { ANON, DEFAULT_GRAPH, Name, Quad, Term, Variable } from '../term.js'
-import { getReifiedTriple, VarMap } from '../util.js'
+import { getProps, getReifiedTriple, VarMap } from '../helpers.js'
 
 const { rdf } = Prefixers
 
@@ -182,7 +181,7 @@ export function compile(module: Module, name: Name): Query {
 // looks for pattern in module, and maps its graph term to some
 // signature object
 function getSignature(module: Module, pattern: Name): VTQuadSet {
-  const po = module.facts.getRoot('SPO').get(pattern)
+  const po = getProps(module, pattern)
   const graphs = po.get(rdf('graph'))
   let callable: Callable | undefined
   if (graphs) {
@@ -235,7 +234,7 @@ function operations(): InstructionSet {
     proc: Processor,
     { done, value }: IteratorResult<Term>,
   ): void {
-    if (!done) proc.dbNode = (proc.dbNode as Branch).get(value)!
+    if (!done) proc.dbNode = (proc.dbNode as Branch).get(value) as Twig
   }
 
   function anonVar(proc: Processor, place: Variable): IteratorResult<Term> {
@@ -305,7 +304,7 @@ function operations(): InstructionSet {
       proc.dbNode = (data as CurlyDataSet).root
       const { value, done } = proc.nextChoice()
       if (done) return
-      proc.dbNode = proc.dbNode.get(value) as Branch
+      proc.dbNode = (proc.dbNode as Branch).get(value) as Branch
       result.set(variable('graph'), value)
       calleeVars.clear()
       // this last line only needs to be run once per matching query:

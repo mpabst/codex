@@ -42,7 +42,7 @@ import {
   TRIPLE_PLACES,
   Variable,
 } from '../term.js'
-import { getReifiedTriple, VarMap } from '../util.js'
+import { getReifiedTriple, VarMap } from '../helpers.js'
 import { bindingsToQuad, compile as compileMatcher } from './matching.js'
 
 type Thunkable = [Operation, Argument, Argument | (() => Argument)]

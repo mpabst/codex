@@ -1,6 +1,6 @@
 import { consume } from '@lit-labs/context'
 import { customElement, property, state } from 'lit/decorators.js'
-import { html } from 'lit/index.js'
+import { css, html } from 'lit/index.js'
 import { getProps } from '../helpers.js'
 import { Subject } from '../term.js'
 import { envContext, EnvironmentView } from './environment.js'
@@ -9,7 +9,19 @@ import { View } from './view.js'
 
 @customElement('fp-property-list')
 class PropertyListView extends View {
-  static styles = View.styles
+  static styles = [
+    View.styles,
+    css`
+      fp-property {
+        display: block;
+      }
+
+      fp-property::part(prop-name) {
+        display: inline-block;
+        width: 50%;
+      }
+    `,
+  ]
 
   @property()
   declare resource: Subject

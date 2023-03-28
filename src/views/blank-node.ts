@@ -25,8 +25,8 @@ class BlankNodeView extends View {
 
     if (types.has(rdf('List'))) return this.renderList()
 
-    if ([rdf('Statement'), fpc('Pattern')].some(t => types.has(t)))
-      return this.renderStatement()
+    // if ([rdf('Statement'), fpc('Pattern')].some(t => types.has(t)))
+    //   return this.renderStatement()
 
     return html`<fp-property-list .resource=${this.resource} />`
   }

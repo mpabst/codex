@@ -1,6 +1,6 @@
 import { consume } from '@lit-labs/context'
 import { customElement, property, state } from 'lit/decorators.js'
-import { html } from 'lit/index.js'
+import { css, html } from 'lit/index.js'
 import { getProps } from '../helpers.js'
 import { BlankNode, Object, Predicate, Subject } from '../term.js'
 import { envContext, EnvironmentView } from './environment.js'
@@ -35,7 +35,7 @@ class PropertyView extends View {
     else contents = this.renderMultiple(objs)
     // prettier-ignore
     return html`
-      <fp-term .term=${this.property}></fp-term>
+      <fp-term .term=${this.property} part="prop-name"></fp-term>
       ${contents}
     `
   }

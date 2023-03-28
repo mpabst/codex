@@ -39,6 +39,11 @@ export class EnvironmentView extends View {
         display: flex;
         flex-direction: column;
         gap: 1rem;
+        min-width: 10rem;
+      }
+
+      fp-resource {
+        min-width: 15rem;
       }
 
       form {

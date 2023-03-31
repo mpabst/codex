@@ -1,11 +1,11 @@
 import { consume } from '@lit-labs/context'
-import { html, PropertyValues } from 'lit'
-import { customElement, property, state } from 'lit/decorators'
+import { html, PropertyValues } from 'lit/index.js'
+import { customElement, property, state } from 'lit/decorators.js'
 import { Branch, QuadSet } from '../collections/data-set.js'
 import { Prefixers } from '../data-factory.js'
 import { getProps, getReifiedQuad } from '../helpers.js'
 import { Graph, Subject } from '../term.js'
-import { envContext, EnvironmentView, spoContext } from './environment'
+import { envContext, EnvironmentView, spoContext } from './environment.js'
 import { termConverter } from './helpers.js'
 import { View } from './view.js'
 
@@ -45,12 +45,12 @@ class ConjunctionView extends View {
     return [...this.patterns.root].map(pair => this.renderGraph(...pair))
   }
 
-  renderGraph(g: Graph, ss: Branch) {
+  renderGraph(g: Graph, spo: Branch) {
     const subs = []
-    for (const s of ss)
-      subs.push(html`<fp-resource .resource=${s}></fp-resource>`)
+    for (const s of spo.keys())
+      subs.push(html`<fp-resource .spo=${spo} .resource=${s}></fp-resource>`)
     return html`<h6>${this.env.formatName(g)}</h6>
-      <fp-triple-context .spo=${ss}><div>${subs}</div></fp-triple-context>`
+      <div>${subs}</div>`
   }
 
   willUpdate(changed: PropertyValues<this>) {

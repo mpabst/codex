@@ -1,16 +1,40 @@
 import { consume } from '@lit-labs/context'
 import { customElement, property, state } from 'lit/decorators.js'
-import { html } from 'lit/index.js'
+import { css, html, nothing } from 'lit/index.js'
 import { Branch } from '../collections/data-set.js'
 import { getProps } from '../helpers.js'
-import { BlankNode, Object, Predicate, Subject } from '../term.js'
+import {
+  Literal,
+  NamedNode,
+  Object,
+  Predicate,
+  Subject,
+  Variable,
+} from '../term.js'
 import { spoContext } from './environment.js'
 import './term.js'
 import { View } from './view.js'
 
 @customElement('fp-property')
 class PropertyView extends View {
-  static styles = View.styles
+  static styles = [
+    View.styles,
+    css`
+      ul {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      .indent {
+        margin: 0.5rem 0 0.5rem 0.5rem;
+      }
+
+      .inline {
+        display: inline;
+      }
+    `,
+  ]
 
   @property()
   resource!: Subject
@@ -25,17 +49,23 @@ class PropertyView extends View {
   render() {
     const objs = [...getProps(this.spo, this.resource).get(this.property)]
     let contents
-    if (!objs.length) contents = html`<span class="none">(none)</span>`
-    else if (objs.length === 1 && !(objs[0] instanceof BlankNode))
+    let inline = false
+
+    if (!objs.length) {
+      contents = html`<span class="none">(none)</span>`
+      inline = true
+    } else if (objs.length === 1) {
       contents = html`<fp-term
         property=${this.property.value}
         .term=${objs[0]}
       ></fp-term>`
-    else contents = this.renderMultiple(objs)
-    // prettier-ignore
+      if ([Literal, NamedNode, Variable].some(k => objs[0] instanceof k))
+        inline = true
+    } else contents = this.renderMultiple(objs)
+
     return html`
       <fp-term .term=${this.property} part="prop-name"></fp-term>
-      ${contents}
+      <div class=${inline ? 'inline' : 'indent'}>${contents}</div>
     `
   }
 

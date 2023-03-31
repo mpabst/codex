@@ -125,9 +125,10 @@ export class EnvironmentView extends View {
         ${this.renderModuleList()}
         ${this.renderModule()}
         ${this.resource &&
-        html` <fp-triple-context .spo=${this.spo}>
-          <fp-resource resource=${this.resource.value}></fp-resource>
-        </fp-triple-context>`}
+        html`<fp-resource
+          .spo=${this.spo}
+          resource=${this.resource.value}
+        ></fp-resource>`}
       </main>
     `
   }

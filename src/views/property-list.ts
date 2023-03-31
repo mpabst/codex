@@ -37,7 +37,7 @@ class PropertyListView extends View {
     const items = []
     for (const p of props.data.keys())
       items.push(html`<li>
-        <fp-property .resource=${this.resource} .property=${p} />
+        <fp-property .resource=${this.resource} .property=${p}></fp-property>
       </li>`)
 
     return items.length > 0

@@ -8,7 +8,7 @@ import { View } from './view.js'
 
 @customElement('fp-term')
 class TermView extends View {
-  @property({ attribute: false })
+  @property()
   declare linkHandler: (t: Term) => (ev: Event) => void
 
   @property()

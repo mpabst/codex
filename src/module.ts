@@ -3,12 +3,11 @@ import { Branch, TripleSet, Twig } from './collections/data-set.js'
 import { Index } from './collections/index.js'
 import { VTQuadSet } from './collections/var-tracking.js'
 import { Prefixers } from './data-factory.js'
-import { prefix } from './debug.js'
 import { Environment } from './environment.js'
+import { getProps } from './helpers.js'
 import { Parser } from './parser/parser.js'
 import { Rule } from './rule.js'
 import { A, ANON, Name, NamedNode, Quad } from './term.js'
-import { getProps } from './helpers.js'
 
 const { fpc } = Prefixers
 
@@ -38,8 +37,6 @@ export class Module implements Callable {
   signature = new VTQuadSet()
   listeners = new VTQuadSet('SPOG')
 
-  prefix?: string
-
   constructor(
     public store: Environment,
     public name: NamedNode,
@@ -47,10 +44,9 @@ export class Module implements Callable {
   ) {
     store.modules.set(name, this)
     this.modules.set(name, this)
-    this.prefix = prefix(this.name)
   }
 
-  get subjects() {
+  get spo() {
     return this.facts.getRoot('SPO') as Branch
   }
 

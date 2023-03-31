@@ -1,0 +1,16 @@
+a {
+  color: inherit;
+  text-decoration: inherit;
+}
+
+header {
+  border-bottom: 1px solid black;
+  text-align: center;
+}
+
+ul {
+  list-style-type: none;
+  margin-block-start: 0;
+  margin-block-end: 0;
+  padding-inline-start: 0;
+}

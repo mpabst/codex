@@ -1,9 +1,9 @@
 import { createContext, provide } from '@lit-labs/context'
 import { customElement, state } from 'lit/decorators.js'
 import { css, html } from 'lit/index.js'
+import { Branch } from '../collections/data-set.js'
 import { prefix, unprefix } from '../debug.js'
 import { Environment } from '../environment.js'
-import { Module } from '../module.js'
 import { A, BlankNode, Name, Subject } from '../term.js'
 import './resource.js'
 import './term.js'
@@ -13,6 +13,10 @@ export const env = new Environment()
 
 export function envContext() {
   return createContext<EnvironmentView>('env')
+}
+
+export function spoContext() {
+  return createContext<Branch | null>('spo')
 }
 
 // showAnon toggle:
@@ -65,9 +69,6 @@ export class EnvironmentView extends View {
   ]
 
   @state()
-  declare module: Module | null
-
-  @state()
   declare moduleName?: Name
 
   @state()
@@ -76,22 +77,35 @@ export class EnvironmentView extends View {
   @state()
   declare showAnon: boolean
 
+  @state()
+  declare spo: Branch | null
+
   @provide({ context: envContext() })
   declare _this: typeof this
 
   constructor() {
     super()
-    this.module = null
     this.showAnon = false
+    this.spo = null
     this._this = this
+  }
+
+  formatName(name: Name): string {
+    if (name === A) return 'a'
+    if (
+      name.value.startsWith(this.moduleName?.value!) &&
+      name.value !== this.moduleName!.value
+    )
+      return name.value.replace(this.moduleName!.value, '')
+    return prefix(name)
   }
 
   loadModule = async (ev: SubmitEvent) => {
     ev.preventDefault()
-    const qname = (ev.target as HTMLFormElement).module.value
-    if (!qname) return
-    this.moduleName = unprefix(qname)
-    this.module = await env.load(this.moduleName)
+    const curie = (ev.target as HTMLFormElement).module.value
+    if (!curie) return
+    this.moduleName = unprefix(curie)
+    this.spo = (await env.load(this.moduleName)).spo
   }
 
   setModuleName = (s: Subject) => (ev: MouseEvent) => {
@@ -104,13 +118,6 @@ export class EnvironmentView extends View {
     this.resource = s
   }
 
-  formatName(name: Name): string {
-    if (name === A) return 'a'
-    const prefixed = prefix(name)
-    const replaced = prefixed.replace(this.module?.prefix ?? '', '')
-    return replaced.length ? replaced : prefixed
-  }
-
   render() {
     // prettier-ignore
     return html`
@@ -118,7 +125,9 @@ export class EnvironmentView extends View {
         ${this.renderModuleList()}
         ${this.renderModule()}
         ${this.resource &&
-          html`<fp-resource resource=${this.resource.value}></fp-resource>`}
+        html` <fp-triple-context .spo=${this.spo}>
+          <fp-resource resource=${this.resource.value}></fp-resource>
+        </fp-triple-context>`}
       </main>
     `
   }
@@ -156,9 +165,9 @@ export class EnvironmentView extends View {
   }
 
   renderSubjectList() {
-    if (!this.module) return
+    if (!this.spo) return
     const items = []
-    for (const k of this.module.subjects.keys())
+    for (const k of this.spo.keys())
       if (this.showAnon || !(k instanceof BlankNode))
         items.push(html`<li><fp-term .term=${k}></fp-term></li>`)
     return html`<ul>

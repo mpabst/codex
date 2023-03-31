@@ -23,6 +23,7 @@ export class Environment {
     let loading = this.loading.get(name)
     if (loading) return loading
     loading = new Promise(async (resolve, reject) => {
+      if (this.modules.has(name)) return resolve(this.modules.get(name)!)
       // todo: normalize path, query string, etc?
       // maybe fetch whatever, have server specify canonical, use that?
       // where would non-normal iris be coming from tho?

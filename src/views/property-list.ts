@@ -1,9 +1,10 @@
 import { consume } from '@lit-labs/context'
 import { customElement, property, state } from 'lit/decorators.js'
 import { css, html } from 'lit/index.js'
+import { Branch } from '../collections/data-set.js'
 import { getProps } from '../helpers.js'
 import { Subject } from '../term.js'
-import { envContext, EnvironmentView } from './environment.js'
+import { spoContext } from './environment.js'
 import './property.js'
 import { View } from './view.js'
 
@@ -26,12 +27,12 @@ class PropertyListView extends View {
   @property()
   declare resource: Subject
 
-  @consume({ context: envContext() })
+  @consume({ context: spoContext() })
   @state()
-  declare env: EnvironmentView
+  declare spo: Branch
 
   render() {
-    const props = getProps(this.env.module!, this.resource)
+    const props = getProps(this.spo, this.resource)
 
     const items = []
     for (const p of props.data.keys())

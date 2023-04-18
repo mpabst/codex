@@ -96,7 +96,8 @@ export function getProps(
   resource: Subject,
 ): Properties {
   let props: Branch | undefined
-  if (data instanceof Map) props = data.get(resource) as Branch
+  if (!data) props = new Map()
+  else if (data instanceof Map) props = data.get(resource) as Branch
   else if (data instanceof Module) props = data.spo.get(resource) as Branch
   else props = (data.root as Branch).get(resource) as Branch
   return new Properties(props as Map<Term, Set<Term>>)

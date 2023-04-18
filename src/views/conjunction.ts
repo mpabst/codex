@@ -1,5 +1,8 @@
+// todo: we want to extract the root nodes, so only patterns with subjects that
+// are either named, or don't appear as objects of another pattern
+
 import { consume } from '@lit-labs/context'
-import { html, PropertyValues } from 'lit/index.js'
+import { css, html, PropertyValues } from 'lit/index.js'
 import { customElement, property, state } from 'lit/decorators.js'
 import { Branch, QuadSet } from '../collections/data-set.js'
 import { Prefixers } from '../data-factory.js'
@@ -13,6 +16,17 @@ const { fpc } = Prefixers
 
 @customElement('fp-conjunction')
 class ConjunctionView extends View {
+  static styles = [
+    View.styles,
+    css`
+      .resources {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+    `,
+  ]
+
   @property({ converter: termConverter })
   declare resource?: Subject
 
@@ -50,7 +64,7 @@ class ConjunctionView extends View {
     for (const s of spo.keys())
       subs.push(html`<fp-resource .spo=${spo} .resource=${s}></fp-resource>`)
     return html`<h6>${this.env.formatName(g)}</h6>
-      <div>${subs}</div>`
+      <div class="resources">${subs}</div>`
   }
 
   willUpdate(changed: PropertyValues<this>) {

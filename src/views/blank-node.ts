@@ -6,6 +6,7 @@ import { Prefixers } from '../data-factory.js'
 import { getProps, mapList } from '../helpers.js'
 import { A, BlankNode, Term } from '../term.js'
 import { spoContext } from './environment.js'
+import './clause.js'
 import './conjunction.js'
 import './property-list.js'
 import './term.js'
@@ -26,10 +27,13 @@ class BlankNodeView extends View {
     const types = getProps(this.spo, this.resource).get(A)
     const perType = []
 
+    if (types.has(fpc('Clause')))
+      perType.push(html`<fp-clause .resource=${this.resource}></fp-clause>`)
     if (types.has(fpc('Conjunction')))
       perType.push(
         html`<fp-conjunction .resource=${this.resource}></fp-conjunction>`,
       )
+
     if (types.has(rdf('List'))) perType.push(this.renderList())
 
     // if ([rdf('Statement'), fpc('Pattern')].some(t => types.has(t)))

@@ -55,11 +55,16 @@ class PropertyView extends View {
       contents = html`<span class="none">(none)</span>`
       inline = true
     } else if (objs.length === 1) {
+      const [o] = objs
       contents = html`<fp-term
         property=${this.property.value}
-        .term=${objs[0]}
+        .term=${o}
       ></fp-term>`
-      if ([Literal, NamedNode, Variable].some(k => objs[0] instanceof k))
+      if (
+        o instanceof Literal ||
+        o instanceof NamedNode ||
+        (o instanceof Variable && o.value[0] !== '_')
+      )
         inline = true
     } else contents = this.renderMultiple(objs)
 

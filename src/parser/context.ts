@@ -17,6 +17,7 @@ export class Context {
   quad: Partial<Quad>
   token: string
 
+  // @todo instead of passing null as a special case, subclass
   constructor(parser: Parser | null) {
     if (!parser) {
       this.place = 'subject'
@@ -25,6 +26,8 @@ export class Context {
       return
     } else {
       this.place = parser.context.place
+      // @todo: only copy quad up to current place; just to avoid confusion
+      // while debugging
       this.quad = { ...parser.context.quad }
       this.token = parser.token
     }
@@ -33,7 +36,7 @@ export class Context {
   // I think these can move to Parser, because I don't think I ever need to
   // resume building a quad: as I open a new context, be it a list, an expr,
   // or a reification, I always finish the quad that introduces it? I think
-  // so...
+  // so... no: not blank subjects
   get graph() {
     return this.quad.graph
   }

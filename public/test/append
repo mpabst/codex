@@ -4,6 +4,7 @@ prefix fpc: <https://fingerpaint.systems/core/> .
 
 <#> a fpc:Rule ;
   fpc:clause [
+    a fpc:Clause ;
     fpc:head { [
       a :Appending ;
       :left rdf:nil ;
@@ -11,6 +12,7 @@ prefix fpc: <https://fingerpaint.systems/core/> .
       :both ?right
     ] }
   ] , [
+    a fpc:Clause ;
     fpc:head { [
       a :Appending ;
       :left [ rdf:first ?lf ; rdf:rest ?lr ] ;

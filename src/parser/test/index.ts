@@ -1,9 +1,29 @@
 import { TripleSet } from '../../collections/data-set.js'
 import { Index } from '../../collections/index.js'
-import { namedNode } from '../../data-factory.js'
+import { namedNode, Prefixers } from '../../data-factory.js'
 import { Parser } from '../parser.js'
 
+const { test } = Prefixers
+
 describe('parser', () => {
+  it.only('rules', () => {
+    const append = test('append')
+    const src = `
+      prefix : <#> .
+      prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+      prefix fpc: <https://fingerpaint.systems/core/> .
+
+      <#> a fpc:Rule ;
+        fpc:clause [
+          fpc:head { [ a :Appending ] } ;
+          fpc:body { [ a :Appending ] }
+        ] .
+    `
+    const parser = new Parser(append, src)
+    parser.parse(new Index(append, TripleSet))
+    console.log(parser.namespace.prettyPrint(parser.resultAry))
+  })
+
   it('parses', () => {
     const todo = namedNode('https://fingerpaint.systems/apps/todo')
     const parser = new Parser(

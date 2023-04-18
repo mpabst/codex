@@ -1,6 +1,8 @@
-// todo:
+// @todo:
 // move add, pop/push logic into Context
-// ListContext
+// ListContext?
+// debug flag in Parser ctor, which swaps out random{BlankNode,Variable}() for
+// sequential generators, so I can actually test the output
 
 import { Index } from '../collections/index.js'
 import {
@@ -47,8 +49,12 @@ export class Parser {
   token: string = ''
 
   stack = [new Context(null)]
+  // stays - Context will refer to it. we have exactly one per stack, so
   firstExpr: number | null = null
 
+  // @todo to Context: in ctor, if we're reifying, set to this, otherwise,
+  // parent.rContext; we always just use the rContext of the current Context,
+  // no need to adjust and rewrite this
   rContext: Context | null = null
 
   output: Index | null = null
@@ -59,6 +65,8 @@ export class Parser {
     this.namespace = new Namespace(name.value)
   }
 
+  // @todo stays, unless I want to do ListContext
+  // @todo doesn't work with lists as subjects
   protected addListNode(first: Object): void {
     const node = this.blankNode()
     this.addResult({ object: node })
@@ -72,6 +80,7 @@ export class Parser {
     this.context.place = 'list'
   }
 
+  // @todo to Context
   protected addPattern(): void {
     const expr = this.nearest(c => c instanceof Conjunction) as Conjunction
     this.addQuad({
@@ -82,13 +91,17 @@ export class Parser {
     })
   }
 
+  // @todo this one stays here and doesn't go to Context
   protected addQuad(q: Quad) {
     this.output!.add(q as Triple)
     this.resultAry.push({ ...q })
   }
 
+  // @todo to Context
   // TODO: move this into Context et al, have a TopLevel context which just
-  // does addQuad()
+  // does addQuad(); keep a pass-through addResult() on Parser
+  // @todo: have the base context translate the default graph to the name of the
+  // current module
   protected addResult(quad: Partial<Quad>): void {
     this.context.quad = { ...this.context.quad, ...quad }
     if (this.isInExpression()) this.addPattern()
@@ -100,6 +113,7 @@ export class Parser {
     else this.addQuad(this.context.quad as Quad)
   }
 
+  // @todo to Context
   protected addReification(bnode: BlankNode = randomBlankNode()): BlankNode {
     const add = (q: Partial<Quad>) =>
       this.addQuad({
@@ -126,6 +140,9 @@ export class Parser {
     this.token = this.lexer.token
   }
 
+  // @todo to Context
+  // @todo: allow use of sequential generator; have vars and bnodes use same
+  // sequence, just to avoid confusion
   protected blankNode(): BlankNode | Variable {
     return this.isInExpression() ? randomVariable() : randomBlankNode()
   }
@@ -134,6 +151,7 @@ export class Parser {
     return this.stack[this.stack.length - 1]
   }
 
+  // stays
   protected isInExpression(): boolean {
     return this.firstExpr !== null
   }
@@ -156,6 +174,7 @@ export class Parser {
     return isLiteral(this.token) ? this.literal() : this.makeSubject()
   }
 
+  // @todo to Context
   protected nearest<C extends Context>(
     test: (c: Context) => boolean,
   ): C | null {
@@ -164,6 +183,7 @@ export class Parser {
     return null
   }
 
+  // @todo to Context
   protected push(ctor: new (p: Parser) => Context = Context): void {
     const newContext = new ctor(this)
     if (newContext instanceof Conjunction) {
@@ -175,10 +195,11 @@ export class Parser {
       })
       if (!this.firstExpr) this.firstExpr = this.stack.length
     }
-    if (newContext.isReifying()) this.rContext = this.context
     this.stack.push(newContext)
+    if (newContext.isReifying()) this.rContext = this.context
   }
 
+  // @todo to Context
   // probably want to move most of this logic into Context et al;
   // ditto push()
   protected pop(): void {
@@ -197,6 +218,7 @@ export class Parser {
     this.context.place = this.context.place === 'list' ? 'list' : 'done'
   }
 
+  // @todo: get line, col from Lexer
   protected unexpected(): ParseError {
     return new ParseError(`unexpected: ${this.token} @ ${this.context.place}`)
   }
@@ -206,6 +228,10 @@ export class Parser {
     try {
       while (true) {
         this.advance()
+        // @todo: if I make ListContext:
+        // if (this.context instanceof ListContext) ...
+        // else switch (this.context.place) ...
+        // ? nah...
         switch (this.context.place) {
           case 'subject':
             this.parseSubject()
@@ -252,18 +278,21 @@ export class Parser {
       case '[]':
         this.context.subject = this.blankNode()
         break
+      // @todo: this is legal, but doesn't work with current impl of
+      // addListNode()
       case '(':
         throw this.unexpected()
-      case '()':
+      case '()': // not sure who'd use nil as a subject, but it seems legal
         this.context.subject = rdf('nil')
         break
       case '{':
-      // TODO: << seems fine?
+      // @todo: all three of the below I want, and just haven't implemented
       case '<<':
       case '+':
       case '-':
         throw this.unexpected()
       default:
+        // no literal subjects!
         if (isLiteral(this.token)) throw this.unexpected()
         this.context.subject = this.makeSubject()
     }
@@ -295,6 +324,9 @@ export class Parser {
         this.push()
         this.context.place = 'list'
         break
+      case '()':
+        this.context.object = rdf('nil')
+        break
       case '<<':
         this.push()
         this.context.place = 'subject'
@@ -311,6 +343,7 @@ export class Parser {
     }
   }
 
+  // keep this here, even with ListContext?
   protected parseList(): void {
     switch (this.token) {
       case ')':

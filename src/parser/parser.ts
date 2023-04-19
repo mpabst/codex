@@ -1,11 +1,14 @@
-// @todo:
-// move add, pop/push logic into Context
-// ListContext?
-// debug flag in Parser ctor, which swaps out random{BlankNode,Variable}() for
-// sequential generators, so I can actually test the output
+// @todo: sort out quads (in Context, addQuad()) vs triples (output is just
+// triples)
 
 import { Index } from '../collections/index.js'
-import { namedNode, Prefixers, variable } from '../data-factory.js'
+import {
+  namedNode,
+  Prefixers,
+  randomBlankNode,
+  randomVariable,
+  variable,
+} from '../data-factory.js'
 import {
   A,
   BlankNode,
@@ -28,6 +31,7 @@ import { Conjunction, Context, List } from './context.js'
 import { Lexer, NoMoreTokens } from './lexer.js'
 import { Namespace } from './namespace.js'
 
+export type Anon = BlankNode | Variable
 export type Place = keyof Triple | 'list' | 'done'
 
 const { fpc } = Prefixers
@@ -51,9 +55,6 @@ export class Parser {
 
   output: Index | null = null
   resultAry: Quad[] = []
-
-  // @debug
-  bnodeIndex = 0
 
   constructor(
     name: Name,
@@ -108,6 +109,11 @@ export class Parser {
     ;(this.context as List).addItem(o)
   }
 
+  addQuad(q: Quad) {
+    this.output!.add(q as Triple)
+    this.resultAry.push({ ...q })
+  }
+
   protected addResult(q: Partial<Quad>): void {
     this.context.addResult(q)
   }
@@ -117,8 +123,12 @@ export class Parser {
     this.token = this.lexer.token
   }
 
-  protected anonEntity(): BlankNode | Variable {
+  protected anonEntity(): Anon {
     return this.context.anonEntity()
+  }
+
+  blankNode(): BlankNode {
+    return randomBlankNode()
   }
 
   protected literal(): Literal {
@@ -147,7 +157,6 @@ export class Parser {
     this.context.pop()
   }
 
-  // @todo: get line, col from Lexer
   protected unexpected(): ParseError {
     return new ParseError(
       `unexpected: ${this.token} as ${
@@ -156,15 +165,15 @@ export class Parser {
     )
   }
 
+  variable(): Variable {
+    return randomVariable()
+  }
+
   parse(output: Index): Index {
     this.output = output
     try {
       while (true) {
         this.advance()
-        // @todo: if I make ListContext:
-        // if (this.context instanceof ListContext) ...
-        // else switch (this.context.place) ...
-        // ? nah...
         switch (this.place) {
           case 'subject':
             this.parseSubject()
@@ -224,9 +233,9 @@ export class Parser {
       case '-':
         throw this.unexpected()
       default:
-        // RDF doesn't allow literal subjects, no?
+        // RDF doesn't allow literal subjects
         if (isLiteral(this.token)) throw this.unexpected()
-        this.subject = this.makeSubject()
+        else this.subject = this.makeSubject()
     }
   }
 
@@ -289,8 +298,8 @@ export class Parser {
       case '{':
       case '}':
       case '<<':
-        // @todo: all of the above: lists, reifications, and graphs and
-        // expressions nested in lists
+      // @todo: all of the above: lists, reifications, and graphs and
+      // expressions nested in lists
       case '|': // @todo: cons destructuring
         throw this.unexpected()
       default:

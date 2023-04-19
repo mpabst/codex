@@ -1,9 +1,5 @@
 import {
-  Prefixers,
-  blankNode,
-  randomBlankNode,
-  randomVariable,
-  variable,
+  Prefixers
 } from '../data-factory.js'
 import {
   A,
@@ -14,19 +10,14 @@ import {
   Object,
   Predicate,
   Quad,
-  Subject,
-  TRIPLE_PLACES,
-  Triple,
-  Variable,
+  Subject
 } from '../term.js'
-import { Parser, Place } from './parser.js'
+import { Anon, Parser, Place } from './parser.js'
 
 const { fpc, rdf } = Prefixers
 
-export type Anon = BlankNode | Variable
-
 export class Context {
-  expr: Conjunction | null
+  expr: Context | null
   readonly parent: Context | null
   place: Place
   readonly quad: Partial<Quad>
@@ -38,21 +29,21 @@ export class Context {
 
     const { context: parent } = parser
     if (parent) {
-      this.expr = parent.expr
+      this.expr = this.isExpr() ? this : parent.expr
       this.parent = parent
       this.place = parent.place
-      this.quad = { graph: parent.graph }
+      this.quad = { ...parent.quad }
 
       // only copies prev.quad up to the current place - worth the trouble?
       // quad will still have old data so long as the context lasts past a
       // single statement
-      const placeIndex = TRIPLE_PLACES.indexOf(this.place)
-      for (let i = 0; i <= placeIndex; i++) {
-        const place = TRIPLE_PLACES[i]
-        this.quad[place] = parent.quad[place]
-      }
+      // const placeIndex = TRIPLE_PLACES.indexOf(this.place)
+      // for (let i = 0; i <= placeIndex; i++) {
+      //   const place = TRIPLE_PLACES[i]
+      //   this.quad[place] = parent.quad[place]
+      // }
 
-      this.reifier = this.token === '<<' ? this : parent.reifier
+      this.reifier = this.isReifier() ? this : parent.reifier
     } else {
       this.expr = null
       this.parent = null
@@ -99,18 +90,16 @@ export class Context {
   }
 
   protected addPattern(quad: Quad): void {
-    const expr = this.nearest(c => c instanceof Conjunction) as Conjunction
     this.addQuad({
       graph: this.reifier!.graph!,
-      subject: expr.node,
+      subject: (this.expr as Conjunction).node,
       predicate: fpc('conjunct'),
       object: this.addReification(quad),
     })
   }
 
-  protected addQuad(q: Quad) {
-    this.parser.output!.add(q as Triple)
-    this.parser.resultAry.push({ ...q })
+  protected addQuad(q: Quad): void {
+    this.parser.addQuad(q)
   }
 
   // @todo: have the base context translate the default graph to the name of the
@@ -152,49 +141,42 @@ export class Context {
   }
 
   anonEntity(): Anon {
-    if (this.expr) return this.variable()
-    else return this.blankNode()
+    if (this.expr) return this.parser.variable()
+    else return this.parser.blankNode()
   }
 
-  protected blankNode(): BlankNode {
-    if (this.parser.debug) {
-      this.parser.bnodeIndex++
-      return blankNode(this.parser.bnodeIndex.toString())
-    } else return randomBlankNode()
+  isExpr(): boolean {
+    return false
+  }
+
+  isReifier(): boolean {
+    return this.token === '<<'
   }
 
   pop(): void {
     this.parser.context = this.parent!
   }
-
-  protected nearest(test: (c: Context) => boolean): Context | null {
-    if (test(this)) return this
-    else if (this.parent) return this.parent.nearest(test)
-    else return null
-  }
-
-  protected variable(): Variable {
-    if (this.parser.debug) {
-      this.parser.bnodeIndex++
-      return variable(this.parser.bnodeIndex.toString())
-    } else return randomVariable()
-  }
 }
 
 export class Conjunction extends Context {
-  node: Subject = this.blankNode()
+  node: Subject = this.parser.blankNode()
 
   constructor(parser: Parser) {
     super(parser)
-    this.addResult({ object: this.node })
-    this.addResult({
+    this.parent!.addResult({ object: this.node })
+    this.parent!.addResult({
       subject: this.node,
       predicate: A,
       object: fpc('Conjunction'),
     })
-    // these come after the addResult()s above
-    this.expr = this
-    this.reifier = this
+  }
+
+  isExpr(): boolean {
+    return true
+  }
+
+  isReifier(): boolean {
+    return true
   }
 }
 

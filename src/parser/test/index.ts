@@ -1,11 +1,20 @@
 import { TripleSet } from '../../collections/data-set.js'
 import { Index } from '../../collections/index.js'
 import { namedNode, Prefixers } from '../../data-factory.js'
+import { DebugParser } from '../debug.js'
 import { Parser } from '../parser.js'
 
 const { test } = Prefixers
 
 describe('parser', () => {
+  it('basic', () => {
+    const mod = test('basic')
+    const src = `
+    
+    
+    `
+  })
+
   it.only('rules', () => {
     const append = test('append')
     const src = `
@@ -19,7 +28,7 @@ describe('parser', () => {
           fpc:body { [ a :Appending ] }
         ] .
     `
-    const parser = new Parser(append, src, true)
+    const parser = new DebugParser(append, src)
     parser.parse(new Index(append, TripleSet))
     console.log(parser.namespace.prettyPrint(parser.resultAry))
   })

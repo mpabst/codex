@@ -19,7 +19,7 @@ describe('parser', () => {
           fpc:body { [ a :Appending ] }
         ] .
     `
-    const parser = new Parser(append, src)
+    const parser = new Parser(append, src, true)
     parser.parse(new Index(append, TripleSet))
     console.log(parser.namespace.prettyPrint(parser.resultAry))
   })

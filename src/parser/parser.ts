@@ -5,33 +5,32 @@
 // sequential generators, so I can actually test the output
 
 import { Index } from '../collections/index.js'
-import {
-  namedNode,
-  Prefixers,
-  randomBlankNode,
-  randomVariable,
-  variable,
-} from '../data-factory.js'
+import { namedNode, Prefixers, variable } from '../data-factory.js'
 import {
   A,
   BlankNode,
-  DefaultGraph,
   DEFAULT_GRAPH,
+  DefaultGraph,
+  Graph,
   Literal,
   Name,
   NamedNode,
+  NIL,
   Object,
+  Predicate,
   Quad,
   Subject,
   Triple,
   Variable,
 } from '../term.js'
 import { isLiteral, ParseError, unwrap } from './common.js'
-import { Context, Conjunction } from './context.js'
+import { Conjunction, Context, List } from './context.js'
 import { Lexer, NoMoreTokens } from './lexer.js'
 import { Namespace } from './namespace.js'
 
-const { fpc, rdf } = Prefixers
+export type Place = keyof Triple | 'list' | 'done'
+
+const { fpc } = Prefixers
 
 export class Parser {
   // not static or in module scope because tests clear the dictionary
@@ -40,99 +39,77 @@ export class Parser {
   // alternatively, i could store these as strings and pass to fpc()
   // in parseObject(), or have a standard dictionary of known terms
   // which are never cleared
-  expressions = ['assert', 'retract', 'head', 'body'].map(fpc)
+  readonly expressions = ['assert', 'retract', 'head', 'body'].map(fpc)
 
   namespace: Namespace
   base: NamedNode | DefaultGraph = DEFAULT_GRAPH
 
-  lexer: Lexer
+  protected lexer: Lexer
   token: string = ''
 
-  stack = [new Context(null)]
-  // stays - Context will refer to it. we have exactly one per stack, so
-  firstExpr: number | null = null
-
-  // @todo to Context: in ctor, if we're reifying, set to this, otherwise,
-  // parent.rContext; we always just use the rContext of the current Context,
-  // no need to adjust and rewrite this
-  rContext: Context | null = null
+  context = new Context(this)
 
   output: Index | null = null
   resultAry: Quad[] = []
 
-  constructor(name: Name, public source: string) {
+  // @debug
+  bnodeIndex = 0
+
+  constructor(
+    name: Name,
+    public source: string,
+    public debug: boolean = false,
+  ) {
     this.lexer = new Lexer(source)
     this.namespace = new Namespace(name.value)
   }
 
-  // @todo stays, unless I want to do ListContext
-  // @todo doesn't work with lists as subjects
-  protected addListNode(first: Object): void {
-    const node = this.blankNode()
-    this.addResult({ object: node })
-    this.addResult({
-      subject: node,
-      predicate: rdf('type'),
-      object: rdf('List'),
-    })
-    this.addResult({ predicate: rdf('first'), object: first })
-    this.context.predicate = rdf('rest')
-    this.context.place = 'list'
+  protected get place(): Place {
+    return this.context.place
   }
 
-  // @todo to Context
-  protected addPattern(): void {
-    const expr = this.nearest(c => c instanceof Conjunction) as Conjunction
-    this.addQuad({
-      graph: this.rContext!.graph!,
-      subject: expr.entity,
-      predicate: fpc('conjunct'),
-      object: this.addReification(),
-    })
+  protected set place(p: Place) {
+    this.context.place = p
   }
 
-  // @todo this one stays here and doesn't go to Context
-  protected addQuad(q: Quad) {
-    this.output!.add(q as Triple)
-    this.resultAry.push({ ...q })
+  protected get graph() {
+    return this.context.graph
   }
 
-  // @todo to Context
-  // TODO: move this into Context et al, have a TopLevel context which just
-  // does addQuad(); keep a pass-through addResult() on Parser
-  // @todo: have the base context translate the default graph to the name of the
-  // current module
-  protected addResult(quad: Partial<Quad>): void {
-    this.context.quad = { ...this.context.quad, ...quad }
-    if (this.isInExpression()) this.addPattern()
-    else if (this.rContext)
-      this.addQuad({
-        ...this.rContext!.quad,
-        object: this.addReification(),
-      } as Quad)
-    else this.addQuad(this.context.quad as Quad)
+  protected set graph(g: Graph | undefined) {
+    this.context.graph = g
   }
 
-  // @todo to Context
-  protected addReification(bnode: BlankNode = randomBlankNode()): BlankNode {
-    const add = (q: Partial<Quad>) =>
-      this.addQuad({
-        graph: this.rContext!.graph!,
-        subject: bnode,
-        ...q,
-      } as Quad)
+  protected get subject() {
+    return this.context.subject
+  }
 
-    let type = rdf('Statement')
-    if (this.isInExpression() || this.context.graph !== this.rContext!.graph) {
-      type = fpc('Pattern')
-      add({ predicate: fpc('graph'), object: this.context.graph! })
-    }
-    add({ predicate: rdf('type'), object: type })
+  protected set subject(s: Subject | undefined) {
+    this.context.subject = s
+  }
 
-    for (const p of ['subject', 'predicate', 'object'])
-      add({ predicate: rdf(p), object: this.context.quad[p]! })
+  protected get predicate() {
+    return this.context.predicate
+  }
 
-    return bnode
+  protected set predicate(p: Predicate | undefined) {
+    this.context.predicate = p
+  }
+
+  protected get object() {
+    return this.context.object
+  }
+
+  protected set object(o: Object | undefined) {
+    this.context.object = o
+  }
+
+  protected addListItem(o: Object): void {
+    ;(this.context as List).addItem(o)
+  }
+
+  protected addResult(q: Partial<Quad>): void {
+    this.context.addResult(q)
   }
 
   protected advance(): void {
@@ -140,20 +117,8 @@ export class Parser {
     this.token = this.lexer.token
   }
 
-  // @todo to Context
-  // @todo: allow use of sequential generator; have vars and bnodes use same
-  // sequence, just to avoid confusion
-  protected blankNode(): BlankNode | Variable {
-    return this.isInExpression() ? randomVariable() : randomBlankNode()
-  }
-
-  get context(): Context {
-    return this.stack[this.stack.length - 1]
-  }
-
-  // stays
-  protected isInExpression(): boolean {
-    return this.firstExpr !== null
+  protected anonEntity(): BlankNode | Variable {
+    return this.context.anonEntity()
   }
 
   protected literal(): Literal {
@@ -174,53 +139,21 @@ export class Parser {
     return isLiteral(this.token) ? this.literal() : this.makeSubject()
   }
 
-  // @todo to Context
-  protected nearest<C extends Context>(
-    test: (c: Context) => boolean,
-  ): C | null {
-    for (let i = this.stack.length - 1; i > -1; i--)
-      if (test(this.stack[i])) return this.stack[i] as C
-    return null
-  }
-
-  // @todo to Context
   protected push(ctor: new (p: Parser) => Context = Context): void {
-    const newContext = new ctor(this)
-    if (newContext instanceof Conjunction) {
-      this.addResult({ object: newContext.entity })
-      this.addResult({
-        subject: newContext.entity,
-        predicate: A,
-        object: fpc('Conjunction'),
-      })
-      if (!this.firstExpr) this.firstExpr = this.stack.length
-    }
-    this.stack.push(newContext)
-    if (newContext.isReifying()) this.rContext = this.context
+    this.context = new ctor(this)
   }
 
-  // @todo to Context
-  // probably want to move most of this logic into Context et al;
-  // ditto push()
   protected pop(): void {
-    if (this.context.isReifying()) {
-      // originally I had this branch set a dirty flag, which would
-      // then update rContext in a custom getter, but that didn't work
-      // for some reason and it doesn't seem worth debugging
-      for (let i = this.stack.length - 2; i > 0; i--)
-        // FIXME: expressions inside reifications?
-        if (this.stack[i].isReifying()) this.rContext = this.stack[i - 1]
-        else if (i === 1) this.rContext = null
-    }
-
-    this.stack.pop()!
-    if (this.firstExpr === this.stack.length) this.firstExpr = null
-    this.context.place = this.context.place === 'list' ? 'list' : 'done'
+    this.context.pop()
   }
 
   // @todo: get line, col from Lexer
   protected unexpected(): ParseError {
-    return new ParseError(`unexpected: ${this.token} @ ${this.context.place}`)
+    return new ParseError(
+      `unexpected: ${this.token} as ${
+        this.place
+      } @ ${this.lexer.tokenStart.join(':')}`,
+    )
   }
 
   parse(output: Index): Index {
@@ -232,7 +165,7 @@ export class Parser {
         // if (this.context instanceof ListContext) ...
         // else switch (this.context.place) ...
         // ? nah...
-        switch (this.context.place) {
+        switch (this.place) {
           case 'subject':
             this.parseSubject()
             break
@@ -262,28 +195,27 @@ export class Parser {
         this.advance()
         this.namespace.base = unwrap(this.token)
         this.base = namedNode(this.namespace.base)
-        this.context.place = 'done'
+        this.place = 'done'
         break
       case 'prefix':
         this.advance()
         const k = this.token.slice(0, -1)
         this.advance()
         this.namespace.prefixes[k] = this.namedNode().value
-        this.context.place = 'done'
+        this.place = 'done'
         break
       case '[':
         this.push()
-        this.context.subject = this.blankNode()
+        this.subject = this.anonEntity()
         break
       case '[]':
-        this.context.subject = this.blankNode()
+        this.subject = this.anonEntity()
         break
-      // @todo: this is legal, but doesn't work with current impl of
-      // addListNode()
       case '(':
-        throw this.unexpected()
+        this.push(List)
+        break
       case '()': // not sure who'd use nil as a subject, but it seems legal
-        this.context.subject = rdf('nil')
+        this.subject = NIL
         break
       case '{':
       // @todo: all three of the below I want, and just haven't implemented
@@ -292,9 +224,9 @@ export class Parser {
       case '-':
         throw this.unexpected()
       default:
-        // no literal subjects!
+        // RDF doesn't allow literal subjects, no?
         if (isLiteral(this.token)) throw this.unexpected()
-        this.context.subject = this.makeSubject()
+        this.subject = this.makeSubject()
     }
   }
 
@@ -302,13 +234,13 @@ export class Parser {
     switch (this.token) {
       case '{':
         this.push()
-        this.context.graph = this.context.subject!
+        this.graph = this.subject!
         break
       case 'a':
-        this.context.predicate = rdf('type')
+        this.predicate = A
         break
       default:
-        this.context.predicate = this.namedNode()
+        this.predicate = this.namedNode()
     }
   }
 
@@ -316,60 +248,59 @@ export class Parser {
     switch (this.token) {
       case '[':
         this.push()
-        const bnode = this.blankNode()
+        const bnode = this.anonEntity()
         this.addResult({ object: bnode })
-        this.context.subject = bnode
+        this.subject = bnode
         break
       case '(':
-        this.push()
-        this.context.place = 'list'
+        this.push(List)
         break
       case '()':
-        this.context.object = rdf('nil')
+        this.object = NIL
         break
       case '<<':
         this.push()
-        this.context.place = 'subject'
+        this.place = 'subject'
         break
       case '{':
-        if (this.expressions.includes(this.context.predicate!)) {
+        if (this.expressions.includes(this.predicate!)) {
           this.push(Conjunction)
-          this.context.place = 'subject'
+          this.place = 'subject'
           break
         } else throw this.unexpected()
       default:
         this.addResult({ object: this.makeObject() })
-        this.context.place = 'done'
+        this.place = 'done'
     }
   }
 
-  // keep this here, even with ListContext?
   protected parseList(): void {
     switch (this.token) {
       case ')':
-        this.addResult({ object: rdf('nil') })
         this.pop()
         break
       case '[':
-        const first = this.blankNode()
-        this.addListNode(first)
+        const first = this.anonEntity()
+        this.addListItem(first)
         this.push()
-        this.context.subject = first
+        this.subject = first
         break
       case '(':
       case '{':
       case '}':
       case '<<':
+        // @todo: all of the above: lists, reifications, and graphs and
+        // expressions nested in lists
+      case '|': // @todo: cons destructuring
         throw this.unexpected()
       default:
-        this.addListNode(this.makeObject())
+        this.addListItem(this.makeObject())
     }
   }
 
   protected parseDone(): void {
     switch (this.token) {
       case ']':
-      case ')':
       case '}':
       case '>>':
         this.pop()
@@ -377,13 +308,13 @@ export class Parser {
       case '|':
         throw this.unexpected()
       case ',':
-        this.context.place = 'object'
+        this.place = 'object'
         break
       case ';':
-        this.context.place = 'predicate'
+        this.place = 'predicate'
         break
       case '.':
-        this.context.place = 'subject'
+        this.place = 'subject'
         break
       default:
         throw this.unexpected()
